@@ -272,7 +272,7 @@ class Darknet(nn.Module):
         self.seen = np.array([0], dtype=np.int64)  # (int64) number of images seen during training
         self.info(verbose) if not ONNX_EXPORT else None  # print model description
 
-    def forward(self, x, augment=False, verbose=True):
+    def forward(self, x, augment=False, verbose=False):
         if not augment:
             return self.forward_once(x, verbose=verbose)
         else:  # Augment images (inference and test only) https://github.com/ultralytics/yolov3/issues/931
