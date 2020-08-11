@@ -169,6 +169,14 @@ def create_modules(module_defs, img_size, cfg):
 
 class YOLOLayer(nn.Module):
     def __init__(self, anchors, nc, img_size, yolo_index, layers, stride):
+        """
+        :param anchors:
+        :param nc:
+        :param img_size:
+        :param yolo_index:
+        :param layers:
+        :param stride:
+        """
         super(YOLOLayer, self).__init__()
         self.anchors = torch.Tensor(anchors)
         self.index = yolo_index  # index of this layer in layers
@@ -326,7 +334,7 @@ class Darknet(nn.Module):
                     str = ' >> ' + ' + '.join(['layer %g %s' % x for x in zip(l, sh)])
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == 'YOLOLayer':
-                yolo_out.append(module(x, out))
+                yolo_out.append(module.forward(x, out))
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
 
