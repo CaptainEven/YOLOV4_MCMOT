@@ -19,7 +19,7 @@ def test(cfg,
          single_cls=False,
          augment=False,
          model=None,
-         dataloader=None):
+         data_loader=None):
     # Initialize/load model and set device
     if model is None:
         device = torch_utils.select_device(opt.device, batch_size=batch_size)
@@ -42,7 +42,7 @@ def test(cfg,
         # Fuse
         model.fuse()
         model.to(device)
-        model.half()
+        model.half()  # fp16?
 
         if device.type != 'cpu' and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
@@ -59,25 +59,26 @@ def test(cfg,
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
     niou = iouv.numel()
 
-    # Dataloader
-    if dataloader is None:
+    # Data loader
+    if data_loader is None:
         dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
         batch_size = min(batch_size, len(dataset))
-        dataloader = DataLoader(dataset,
-                                batch_size=batch_size,
-                                num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
-                                pin_memory=True,
-                                collate_fn=dataset.collate_fn)
+        data_loader = DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
+                                 pin_memory=True,
+                                 collate_fn=dataset.collate_fn)
 
     seen = 0
     model.eval()
-    _ = model(torch.zeros((1, 3, img_size, img_size), device=device).half()) if device.type != 'cpu' else None  # run once
+    _ = model(
+        torch.zeros((1, 3, img_size, img_size), device=device).half()) if device.type != 'cpu' else None  # run once
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+    for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(data_loader, desc=s)):
         imgs = imgs.to(device).half() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
         nb, _, height, width = imgs.shape  # batch size, channels, height, width
@@ -85,7 +86,7 @@ def test(cfg,
 
         # Plot images with bounding boxes
         f = 'test_batch%g.jpg' % batch_i  # filename
-        #if batch_i < 1 and not os.path.exists(f):
+        # if batch_i < 1 and not os.path.exists(f):
         #    plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
 
         # Disable gradients
@@ -197,7 +198,7 @@ def test(cfg,
     # Save JSON
     if save_json and map and len(jdict):
         print('\nCOCO mAP with pycocotools...')
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        imgIds = [int(Path(x).stem.split('_')[-1]) for x in data_loader.dataset.img_files]
         with open('results.json', 'w') as file:
             json.dump(jdict, file)
 
@@ -217,26 +218,26 @@ def test(cfg,
         cocoEval.accumulate()
         cocoEval.summarize()
         map, map50 = cocoEval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+        return (mp, mr, map50, map, *(loss.cpu() / len(data_loader)).tolist()), maps, t
 
     # Return results
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps
+    return (mp, mr, map, mf1, *(loss.cpu() / len(data_loader)).tolist()), maps
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-pacsp.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
-    parser.add_argument('--weights', type=str, default='weights/yolov4-pacsp.pt', help='weights path')
-    parser.add_argument('--batch-size', type=int, default=16, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
+    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
+    parser.add_argument('--weights', type=str, default='weights/best.pt', help='weights path')
+    parser.add_argument('--batch-size', type=int, default=4, help='size of each image batch')
+    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
     parser.add_argument('--task', default='test', help="'test', 'study', 'benchmark'")
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     opt = parser.parse_args()

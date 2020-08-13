@@ -328,10 +328,17 @@ def box_iou(box1, box2):
 
 
 def wh_iou(wh1, wh2):
+    """
+    Using tensor's broadcasting mechanism
+    :param wh1:
+    :param wh2:
+    :return: N×M matrix for each N×M's iou
+    """
     # Returns the nxm IoU matrix. wh1 is nx2, wh2 is mx2
-    wh1 = wh1[:, None]  # [N,1,2]
-    wh2 = wh2[None]  # [1,M,2]
-    inter = torch.min(wh1, wh2).prod(2)  # [N,M]
+    wh1 = wh1[:, None]  # [N, 1, 2]
+    wh2 = wh2[None]  # [1, M, 2]
+    min_wh = torch.min(wh1, wh2)  # min w and min h for N and M box: N×M×2
+    inter = min_wh.prod(dim=2)  # min_w × min_h for [N, M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
 
 
@@ -370,16 +377,28 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
-def compute_loss(p, targets, model):  # predictions, targets, model
-    ft = torch.cuda.FloatTensor if p[0].is_cuda else torch.Tensor
-    lcls, lbox, lobj = ft([0]), ft([0]), ft([0])
-    tcls, tbox, indices, anchor_vec = build_targets(p, targets, model)
-    h = model.hyp  # hyperparameters
+def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
+    """
+    :param preds:
+    :param targets:
+    :param reid_feat_map:
+    :param track_ids:
+    :param model:
+    :return:
+    """
+    ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
+    l_cls, l_box, l_obj, l_reid = ft([0]), ft([0]), ft([0]), ft([0])
+
+    # build targets for loss computation
+    t_cls, t_box, indices, anchor_vec, t_track_ids = build_targets_with_ids(preds, targets, track_ids, model)
+
+    h = model.hyp  # hyper parameters
     red = 'mean'  # Loss reduction (sum or mean)
 
     # Define criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+    BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
+    BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+    CE_reid = nn.CrossEntropyLoss()
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
@@ -387,114 +406,340 @@ def compute_loss(p, targets, model):  # predictions, targets, model
     # focal loss
     g = h['fl_gamma']  # focal loss gamma
     if g > 0:
-        BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
+        BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
 
-    # Compute losses
-    np, ng = 0, 0  # number grid points, targets
-    for i, pi in enumerate(p):  # layer index, layer predictions
-        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
-        tobj = torch.zeros_like(pi[..., 0])  # target obj
-        np += tobj.numel()
+
+    id_map_w, id_map_h = reid_feat_map.shape[3], reid_feat_map.shape[2]
+    np, ng = 0, 0  # number grid points, targets(GT)
+
+    # Compute losses for each YOLO layer
+    for i, pred_i in enumerate(preds):  # layer index, layer predictions
+        ny, nx = pred_i.shape[2], pred_i.shape[3]
+        b, a, gy, gx = indices[i]  # image, anchor, grid_y, grid_x
+        tr_ids = t_track_ids[i]  # track ids
+        cls_ids = t_cls[i]
+
+        t_obj = torch.zeros_like(pred_i[..., 0])  # target obj(confidence score), e.g. 5×3×96×96
+        np += t_obj.numel()  # total number of elements
 
         # Compute losses
-        nb = len(b)
-        if nb:  # number of targets
+        nb = len(b)  # number of targets(GT boxes)
+        if nb:  # if exist GT box
             ng += nb
-            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
-            # ps[:, 2:4] = torch.sigmoid(ps[:, 2:4])  # wh power loss (uncomment)
+
+            # prediction subset corresponding to targets
+            # specified item_i_in_batch, anchor_i, grid_y, grid_x
+            pred_s = pred_i[b, a, gy, gx]  # nb × 10
+            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss (uncomment)
 
             # GIoU
-            pxy = torch.sigmoid(ps[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
-            pwh = torch.exp(ps[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
-            pbox = torch.cat((pxy, pwh), 1)  # predicted box
-            giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)  # giou computation
-            lbox += (1.0 - giou).sum() if red == 'sum' else (1.0 - giou).mean()  # giou loss
-            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
+            pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
+            p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
+            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
+            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) \
+                                  + model.gr * g_iou.detach().clamp(0).type(
+                t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss (only if multiple classes)
-                t = torch.full_like(ps[:, 5:], cn)  # targets
-                t[range(nb), tcls[i]] = cp
-                lcls += BCEcls(ps[:, 5:], t)  # BCE
-                # lcls += CE(ps[:, 5:], tcls[i])  # CE
+                t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
+                t[range(nb), cls_ids] = cp
+                l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
+                # l_cls += CE(pred_s[:, 5:], cls_ids)  # CE
+
+
+            # ----- TODO: compute reid loss for each GT box
+            # get center point coordinates for all GT
+            center_x = gx + pred_s[:, 0]
+            center_y = gy + pred_s[:, 1]
+
+            # convert to reid_feature map's scale
+            center_x *= float(id_map_w) / float(nx)
+            center_y *= float(id_map_h) / float(ny)
+
+            # convert to int64 for indexing
+            center_x += 0.5
+            center_y += 0.5
+            center_x = center_x.long()
+            center_y = center_y.long()
+
+            # avoid exceed reid feature map's range
+            inds_x = torch.where(center_x >= float(id_map_w))
+            inds_y = torch.where(center_y >= float(id_map_h))
+            if inds_x[0].shape[0] > 0:
+                center_x[inds_x] = id_map_w - 1
+            if inds_y[0].shape[0] > 0:
+                center_y[inds_y] = id_map_h - 1
+
+            # get reid feature vector for GT boxes
+            t_reid_feat_vects = reid_feat_map[b, :, center_y, center_x]  # nb × 128
+
+            # ----- compute each GT box's reid loss
+            # for gt_i in range(nb):
+            #     # FC layer map feature to prob space
+            #     # try:
+            #     #     id_classifier = id_classifier_dict[str(int(cls_ids[gt_i]))]
+            #     # except Exception as e:
+            #     #     print(e)
+            #
+            #     id_feat_vect = t_reid_feat_vects[gt_i]
+            #     cls_id = cls_ids[gt_i]
+            #     pred_fc = model.id_classifiers[cls_id].forward(id_feat_vect).contiguous()
+            #
+            #     # reid loss
+            #     pred_fc = pred_fc.unsqueeze(0)
+            #     tr_id = tr_ids[gt_i].unsqueeze(0)
+            #     l_reid += CE_reid(pred_fc, tr_id)
+
+            for cls_id, id_num in model.max_id_dict.items():
+                inds = torch.where(cls_ids == cls_id)
+                if inds[0].shape[0] == 0:
+                    # print('skip class id', cls_id)
+                    continue
+
+                id_vects = t_reid_feat_vects[inds]
+                fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                l_reid += CE_reid(fc_preds, tr_ids[inds])
 
             # Append targets to text file
             # with open('targets.txt', 'a') as file:
             #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
-        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
+        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss(confidence score loss)
 
-    lbox *= h['giou']
-    lobj *= h['obj']
-    lcls *= h['cls']
+    l_box *= h['giou']
+    l_obj *= h['obj']
+    l_cls *= h['cls']
     if red == 'sum':
-        bs = tobj.shape[0]  # batch size
-        lobj *= 3 / (6300 * bs) * 2  # 3 / np * 2
+        bs = t_obj.shape[0]  # batch size
+        l_obj *= 3 / (6300 * bs) * 2  # 3 / np * 2
         if ng:
-            lcls *= 3 / ng / model.nc
-            lbox *= 3 / ng
+            l_cls *= 3 / ng / model.nc
+            l_box *= 3 / ng
 
-    loss = lbox + lobj + lcls
-    return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
+    loss = l_box + l_obj + l_cls + l_reid
+    return loss, torch.cat((l_box, l_obj, l_cls, l_reid, loss)).detach()
 
 
-def build_targets(p, targets, model):
+def compute_loss(preds, targets, model):  # predictions, targets, model
+    ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
+    l_cls, l_box, l_obj = ft([0]), ft([0]), ft([0])
+    t_cls, t_box, indices, anchor_vec = build_targets(preds, targets, model)
+    h = model.hyp  # hyper parameters
+    red = 'mean'  # Loss reduction (sum or mean)
+
+    # Define criteria
+    BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
+    BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+
+    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
+    cp, cn = smooth_BCE(eps=0.0)
+
+    # focal loss
+    g = h['fl_gamma']  # focal loss gamma
+    if g > 0:
+        BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
+
+    # Compute losses
+    np, ng = 0, 0  # number grid points, targets(GT)
+    for i, pred_i in enumerate(preds):  # layer index, layer predictions
+        b, a, gj, gi = indices[i]  # image, anchor, grid_y, grid_x
+        t_obj = torch.zeros_like(pred_i[..., 0])  # target obj(confidence score), e.g. 5×3×96×96
+        np += t_obj.numel()  # total number of elements
+
+        # Compute losses
+        nb = len(b)  # number of targets(GT boxes)
+        if nb:  # if exist GT box
+            ng += nb
+
+            # prediction subset corresponding to targets
+            # specified item_i_in_batch, anchor_i, grid_y, grid_x
+            pred_s = pred_i[b, a, gj, gi]  # nb × 10
+            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss (uncomment)
+
+            # GIoU
+            pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
+            p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
+            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
+            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss
+            t_obj[b, a, gj, gi] = (1.0 - model.gr) \
+                                  + model.gr * g_iou.detach().clamp(0).type(
+                t_obj.dtype)  # g_iou ratio taken into account
+
+            if model.nc > 1:  # cls loss (only if multiple classes)
+                t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
+                t[range(nb), t_cls[i]] = cp
+                l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
+                # l_cls += CE(pred_s[:, 5:], t_cls[i])  # CE
+
+            # Append targets to text file
+            # with open('targets.txt', 'a') as file:
+            #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+
+        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss(confidence score loss)
+
+    l_box *= h['giou']
+    l_obj *= h['obj']
+    l_cls *= h['cls']
+    if red == 'sum':
+        bs = t_obj.shape[0]  # batch size
+        l_obj *= 3 / (6300 * bs) * 2  # 3 / np * 2
+        if ng:
+            l_cls *= 3 / ng / model.nc
+            l_box *= 3 / ng
+
+    loss = l_box + l_obj + l_cls
+    return loss, torch.cat((l_box, l_obj, l_cls, loss)).detach()
+
+
+def build_targets_with_ids(preds, targets, track_ids, model):
+    """
+    :param preds:
+    :param targets:
+    :param track_ids:
+    :param model:
+    :return:
+    """
     # targets = [image, class, x, y, w, h]
 
     nt = targets.shape[0]
-    tcls, tbox, indices, av = [], [], [], []
+    t_cls, t_box, indices, av, t_track_ids = [], [], [], [], []
     reject, use_all_anchors = True, True
-    gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
+    gain = torch.ones(6, device=targets.device)  # normalized to grid space gain
 
     # m = list(model.modules())[-1]
     # for i in range(m.nl):
     #    anchors = m.anchors[i]
     multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
-    for i, j in enumerate(model.yolo_layers):
-        # get number of grid points and anchor vec for this yolo layer
-        anchors = model.module.module_list[j].anchor_vec if multi_gpu else model.module_list[j].anchor_vec
+
+    # build each YOLO layer of corresponding scale
+    for i, idx in enumerate(model.yolo_layer_inds):
+        # get number of grid points and anchor vec for this YOLO layer:
+        # anchors in YOLO layer(feature map)'s scale
+        anchors = model.module.module_list[idx].anchor_vec if multi_gpu else model.module_list[idx].anchor_vec
 
         # iou of targets-anchors
-        gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]  # xyxy gain
+        gain[2:] = torch.tensor(preds[i].shape)[[3, 2, 3, 2]]  # xyxy gain
         t, a = targets * gain, []
-        gwh = t[:, 4:6]
+        gwh = t[:, 4:6]  # targets(GT): bbox_w, bbox_h in yolo layer(feature map)'s scale
         if nt:
             iou = wh_iou(anchors, gwh)  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
 
             if use_all_anchors:
                 na = anchors.shape[0]  # number of anchors
-                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(-1)
-                t = t.repeat(na, 1)
+                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(-1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
+                t = t.repeat(na, 1)  # 56 × 6 -> (56×3) × 6
+                tr_ids = track_ids.repeat(na)  # 56 -> 56×3
             else:  # use best anchor only
                 iou, a = iou.max(0)  # best iou and anchor
 
             # reject anchors below iou_thres (OPTIONAL, increases P, lowers R)
             if reject:
-                j = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyperparameter
-                t, a = t[j], a[j]
+                # get index whose anchor and gt box's iou exceeds the iou threshold,
+                # defined as positive sample
+                idx = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyper parameter
+                t, a = t[idx], a[idx]
+
+                # GT track ids
+                tr_ids = tr_ids[idx]
 
         # Indices
-        b, c = t[:, :2].long().t()  # target image, class
-        gxy = t[:, 2:4]  # grid x, y
+        b, c = t[:, :2].long().t()  # target image index in the batch, class id
+        gxy = t[:, 2:4]  # grid x, y (GT center)
         gwh = t[:, 4:6]  # grid w, h
-        gi, gj = gxy.long().t()  # grid x, y indices
+        gi, gj = gxy.long().t()  # grid x, y indices(int64), .t(): transpose a matrix
         indices.append((b, a, gj, gi))
 
         # Box
-        gxy -= gxy.floor()  # xy
-        tbox.append(torch.cat((gxy, gwh), 1))  # xywh (grids)
-        av.append(anchors[a])  # anchor vec
+        gxy -= gxy.floor()  # GT box center xy 's fractional part
+        t_box.append(torch.cat((gxy, gwh), 1))  # xywh (grids)
+        av.append(anchors[a])  # anchor vectors of corresponding GT boxes
 
-        # Class
-        tcls.append(c)
+        # GT track ids
+        t_track_ids.append(tr_ids)
+
+        # GT Class ids
+        t_cls.append(c)
         if c.shape[0]:  # if any targets
-            assert c.max() < model.nc, 'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' \
-                                       'See https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data' % (
-                                           model.nc, model.nc - 1, c.max())
+            assert c.max() < model.nc, \
+                'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' \
+                'See https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data' % (
+                    model.nc, model.nc - 1, c.max())
 
-    return tcls, tbox, indices, av
+    return t_cls, t_box, indices, av, t_track_ids
 
 
-def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, classes=None, agnostic=False):
+
+def build_targets(preds, targets, model):
+    # targets = [image, class, x, y, w, h]
+
+    nt = targets.shape[0]
+    t_cls, t_box, indices, av = [], [], [], []
+    reject, use_all_anchors = True, True
+    gain = torch.ones(6, device=targets.device)  # normalized to grid space gain
+
+    # m = list(model.modules())[-1]
+    # for i in range(m.nl):
+    #    anchors = m.anchors[i]
+    multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+    for i, idx in enumerate(model.yolo_layer_inds):  # each YOLO layer of corresponding scale
+        # get number of grid points and anchor vec for this YOLO layer:
+        # anchors in YOLO layer(feature map)'s scale
+        anchors = model.module.module_list[idx].anchor_vec if multi_gpu else model.module_list[idx].anchor_vec
+
+        # iou of targets-anchors
+        gain[2:] = torch.tensor(preds[i].shape)[[3, 2, 3, 2]]  # xyxy gain
+        t, a = targets * gain, []
+        gwh = t[:, 4:6]  # targets(GT): bbox_w, bbox_h in yolo layer(feature map)'s scale
+        if nt:
+            iou = wh_iou(anchors, gwh)  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+
+            if use_all_anchors:
+                na = anchors.shape[0]  # number of anchors
+                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(
+                    -1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
+                t = t.repeat(na, 1)  # 56 × 6 -> (56×3) × 6
+            else:  # use best anchor only
+                iou, a = iou.max(0)  # best iou and anchor
+
+            # reject anchors below iou_thres (OPTIONAL, increases P, lowers R)
+            if reject:
+                # get index whose anchor and gt box's iou exceeds the iou threshold,
+                # defined as positive sample
+                idx = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyper parameter
+                t, a = t[idx], a[idx]
+
+        # Indices
+        b, c = t[:, :2].long().t()  # target image index in the batch, class id
+        gxy = t[:, 2:4]  # grid x, y (GT center)
+        gwh = t[:, 4:6]  # grid w, h
+        gi, gj = gxy.long().t()  # grid x, y indices(int64), .t(): transpose a matrix
+        indices.append((b, a, gj, gi))
+
+        # Box
+        gxy -= gxy.floor()  # GT box center xy 's fractional part
+        t_box.append(torch.cat((gxy, gwh), 1))  # xywh (grids)
+        av.append(anchors[a])  # anchor vectors of corresponding GT boxes
+
+        # GT Class ids
+        t_cls.append(c)
+        if c.shape[0]:  # if any targets
+            assert c.max() < model.nc, \
+                'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' \
+                'See https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data' % (
+                    model.nc, model.nc - 1, c.max())
+
+    return t_cls, t_box, indices, av
+
+
+def non_max_suppression(prediction,
+                        conf_thres=0.1,
+                        iou_thres=0.6,
+                        merge=False,
+                        classes=None,
+                        agnostic=False):
     """Performs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
@@ -513,7 +758,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     redundant = True  # require redundant detections
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
 
-    #t = time.time()
+    # t = time.time()
     output = [None] * prediction.shape[0]
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
@@ -572,7 +817,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
                 pass
 
         output[xi] = x[i]
-        #if (time.time() - t) > time_limit:
+        # if (time.time() - t) > time_limit:
         #    break  # time limit exceeded
 
     return output
@@ -588,7 +833,7 @@ def print_model_biases(model):
     print('\nModel Bias Summary: %8s%18s%18s%18s' % ('layer', 'regression', 'objectness', 'classification'))
     try:
         multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
-        for l in model.yolo_layers:  # print pretrained biases
+        for l in model.yolo_layer_inds:  # print pretrained biases
             if multi_gpu:
                 na = model.module.module_list[l].na  # number of anchors
                 b = model.module.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85

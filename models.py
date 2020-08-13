@@ -6,13 +6,16 @@ ONNX_EXPORT = False
 
 
 # 解析.cfg文件, 创建网络各层
-def create_modules(module_defs, img_size, cfg):
+def create_modules(module_defs, img_size, cfg, id_classifiers=None):
     # Constructs module list of layer blocks from module configuration in module_defs
 
     img_size = [img_size] * 2 if isinstance(img_size, int) else img_size  # expand if necessary
     _ = module_defs.pop(0)  # cfg training hyperparams (unused)
     output_filters = [3]  # input channels
+
+    # define modules to register
     module_list = nn.ModuleList()
+
     routs = []  # list of layers which rout to deeper layers
     yolo_index = -1
 
@@ -186,7 +189,7 @@ class YOLOLayer(nn.Module):
         self.na = len(anchors)  # number of anchors (3)
         self.nc = nc  # number of classes (80)
         self.no = nc + 5  # number of outputs (85)
-        self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y gridpoints
+        self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y grid points
         self.anchor_vec = self.anchors / self.stride
         self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
 
@@ -233,7 +236,7 @@ class YOLOLayer(nn.Module):
         else:
             bs, _, ny, nx = p.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
-                self.create_grids((nx, ny), p.device)
+                self.create_grids(ng=(nx, ny), device=p.device)
 
         # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
         p = p.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
@@ -266,13 +269,37 @@ class YOLOLayer(nn.Module):
 
 class Darknet(nn.Module):
     # YOLOv3 object detection model
-
-    def __init__(self, cfg, img_size=(416, 416), verbose=False):
+    def __init__(self,
+                 cfg,
+                 img_size=(416, 416),
+                 verbose=False,
+                 max_id_dict=None,
+                 emb_dim=128):
+        """
+        :param cfg:
+        :param img_size:
+        :param verbose:
+        :param max_id_dict: record max id numbers for each object class, used to do reid classification
+        """
         super(Darknet, self).__init__()
 
         self.module_defs = parse_model_cfg(cfg)
+
+        # ----- Define ReID classifiers
+        self.max_id_dict = max_id_dict
+        self.emb_dim = emb_dim
+        self.id_classifiers = nn.ModuleList()
+        for cls_id, nID in self.max_id_dict.items():
+            # choice 1: use normal FC layers as classifiers
+            self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
+
+        # create module list from cfg file
         self.module_list, self.routs = create_modules(self.module_defs, img_size, cfg)
-        self.yolo_layers = get_yolo_layers(self)
+
+        # add reid classifiers(nn.ModuleDict) to self.module_list to be registered
+        self.module_list.append(self.id_classifiers)
+
+        self.yolo_layer_inds = get_yolo_layers(self)
         # torch_utils.initialize_weights(self)
 
         # Darknet Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
@@ -326,6 +353,9 @@ class Darknet(nn.Module):
                            ), 0)
 
         for i, module in enumerate(self.module_list):
+            if i == 170:
+                continue
+
             name = module.__class__.__name__
             if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l']:  # sum, concat
                 if verbose:
@@ -333,7 +363,7 @@ class Darknet(nn.Module):
                     sh = [list(x.shape)] + [list(out[i].shape) for i in module.layers]  # shapes
                     str = ' >> ' + ' + '.join(['layer %g %s' % x for x in zip(l, sh)])
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
-            elif name == 'YOLOLayer':
+            elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
                 yolo_out.append(module.forward(x, out))
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
@@ -343,8 +373,11 @@ class Darknet(nn.Module):
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
 
+        # Get last feature map for reid feature vector extraction
+        reid_feat_map = out[169]  # 5×128×192×192
+
         if self.training:  # train
-            return yolo_out
+            return yolo_out, reid_feat_map
         elif ONNX_EXPORT:  # export
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
@@ -363,13 +396,17 @@ class Darknet(nn.Module):
         # Fuse Conv2d + BatchNorm2d layers throughout model
         print('Fusing layers...')
         fused_list = nn.ModuleList()
-        for a in list(self.children())[0]:
+        children = list(self.children())[0]
+        for ch_i, a in enumerate(children):
             if isinstance(a, nn.Sequential):
                 for i, b in enumerate(a):
                     if isinstance(b, nn.modules.batchnorm.BatchNorm2d):
                         # fuse this bn layer with the previous conv2d layer
                         conv = a[i - 1]
-                        fused = torch_utils.fuse_conv_and_bn(conv, b)
+                        try:
+                            fused = torch_utils.fuse_conv_and_bn(conv, b)
+                        except Exception as e:
+                            print(e)
                         a = nn.Sequential(fused, *list(a.children())[i + 1:])
                         break
             fused_list.append(a)

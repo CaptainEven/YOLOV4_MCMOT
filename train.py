@@ -87,11 +87,29 @@ def train():
     for f in glob.glob('*_batch*.jpg') + glob.glob(results_file):
         os.remove(f)
 
+    # Dataset
+    # dataset = LoadImagesAndLabels(train_path,
+    #                               img_size,
+    #                               batch_size,
+    #                               augment=True,
+    #                               hyp=hyp,  # augmentation hyper parameters
+    #                               rect=opt.rect,  # rectangular training
+    #                               cache_images=opt.cache_images,
+    #                               single_cls=opt.single_cls)
+    dataset = LoadImgsAndLbsWithID(train_path,
+                                   img_size,
+                                   batch_size,
+                                   augment=True,
+                                   hyp=hyp,  # augmentation hyper parameters
+                                   rect=opt.rect,  # rectangular training
+                                   cache_images=opt.cache_images,
+                                   single_cls=opt.single_cls)
+
     # Initialize model
-    model = Darknet(cfg).to(device)
+    model = Darknet(cfg, max_id_dict=dataset.max_ids_dict, emb_dim=128).to(device)
     # print(model)
 
-    # Optimizer
+    # Optimizer definition and model parameters registration
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
     for k, v in dict(model.named_parameters()).items():
         if '.bias' in k:
@@ -172,22 +190,12 @@ def train():
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
-    # Dataset
-    dataset = LoadImagesAndLabels(train_path,
-                                  img_size,
-                                  batch_size,
-                                  augment=True,
-                                  hyp=hyp,  # augmentation hyperparameters
-                                  rect=opt.rect,  # rectangular training
-                                  cache_images=opt.cache_images,
-                                  single_cls=opt.single_cls)
-
     # Dataloader
     batch_size = min(batch_size, len(dataset))
 
     nw = 0  # for debugging...
     if not opt.is_debug:
-        nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size,
@@ -207,10 +215,10 @@ def train():
                                              pin_memory=True,
                                              collate_fn=dataset.collate_fn)
 
-    # Model parameters
+    # Define model parameters
     model.nc = nc  # attach number of classes to model
-    model.hyp = hyp  # attach hyperparameters to model
-    model.gr = 1.0  # giou loss ratio (obj_loss = 1.0 or giou)
+    model.hyp = hyp  # attach hyper-parameters to model
+    model.gr = 1.0  # g_iou loss ratio (obj_loss = 1.0 or g_iou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
     # Model EMA
@@ -235,13 +243,15 @@ def train():
             image_weights = labels_to_image_weights(dataset.labels, nc=nc, class_weights=w)
             dataset.indices = random.choices(range(dataset.n), weights=image_weights, k=dataset.n)  # rand weighted idx
 
-        mloss = torch.zeros(4).to(device)  # mean losses
-        print(('\n' + '%10s' * 8) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'total', 'targets', 'img_size'))
+        m_loss = torch.zeros(5).to(device)  # mean losses
+        print(('\n' + '%10s' * 9) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
-        for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, paths, shape,
+                track_ids) in pbar:  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
+            track_ids = track_ids.to(device)
 
             # Burn-in
             if ni <= n_burn * 2:
@@ -265,16 +275,18 @@ def train():
                     imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
             # Forward
-            pred = model.forward(imgs)
+            pred, reid_feat_map = model.forward(imgs)
 
             # Loss
-            loss, loss_items = compute_loss(pred, targets, model)
+            # loss, loss_items = compute_loss(pred, targets, model)
+            loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+
             if not torch.isfinite(loss):
                 print('WARNING: non-finite loss, ending training ', loss_items)
                 return results
 
             # Backward
-            loss *= batch_size / 64  # scale loss
+            loss *= batch_size / 64.0  # scale loss
             if mixed_precision:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -288,9 +300,9 @@ def train():
                 ema.update(model)
 
             # Print
-            mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
+            m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
             mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-            s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *mloss, len(targets), img_size)
+            s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
             pbar.set_description(s)
 
             # Plot
@@ -328,10 +340,16 @@ def train():
 
         # Tensorboard
         if tb_writer:
-            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss',
-                    'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/F1',
+            tags = ['train/giou_loss',
+                    'train/obj_loss',
+                    'train/cls_loss',
+                    'train/reid_loss',
+                    'metrics/precision',
+                    'metrics/recall',
+                    'metrics/mAP_0.5',
+                    'metrics/F1',
                     'val/giou_loss', 'val/obj_loss', 'val/cls_loss']
-            for x, tag in zip(list(mloss[:-1]) + list(results), tags):
+            for x, tag in zip(list(m_loss[:-1]) + list(results), tags):
                 tb_writer.add_scalar(tag, x, epoch)
 
         # Update best mAP
@@ -379,12 +397,13 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=300)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=5)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--batch-size', type=int, default=4)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768], help='[min_train, max-train, test]')  # [320, 640]
+    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768],
+                        help='[min_train, max-train, test]')  # [320, 640]
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
@@ -393,15 +412,18 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights', type=str, default='./weights/yolov4-paspp.pt', help='initial weights path')
-    parser.add_argument('--name', default='yolov4-paspp-mcmot', help='renames results.txt to results_name.txt if supplied')
+    parser.add_argument('--name', default='yolov4-paspp-mcmot',
+                        help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
+
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
     check_git_status()
     print(opt)
+
     opt.img_size.extend([opt.img_size[-1]] * (3 - len(opt.img_size)))  # extend to 3 sizes (min, max, test)
     device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
     if device.type == 'cpu':
