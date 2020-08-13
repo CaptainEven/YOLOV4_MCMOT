@@ -436,7 +436,7 @@ if __name__ == '__main__':
         tb_writer = SummaryWriter(comment=opt.name)
         train()  # train normally
 
-    else:  # Evolve hyperparameters (optional)
+    else:  # Evolve hyper parameters (optional)
         opt.notest, opt.nosave = True, True  # only test/save final epoch
         if opt.bucket:
             os.system('gsutil cp gs://%s/evolve.txt .' % opt.bucket)  # download evolve.txt if exists
