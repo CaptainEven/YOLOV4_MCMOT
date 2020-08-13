@@ -58,9 +58,10 @@ def test(cfg,
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
     niou = iouv.numel()
 
-    # Dataloader
+    # Data loader
     if dataloader is None:
-        dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
+        # dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
+        dataset = LoadImgsAndLbsWithID(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
@@ -76,7 +77,7 @@ def test(cfg,
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+    for batch_i, (imgs, targets, paths, shapes, track_ids) in enumerate(tqdm(dataloader, desc=s)):
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
         nb, _, height, width = imgs.shape  # batch size, channels, height, width
@@ -95,7 +96,7 @@ def test(cfg,
             t0 += torch_utils.time_synchronized() - t
 
             # Compute loss
-            if hasattr(model, 'hyp'):  # if model has loss hyperparameters
+            if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
                 loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
 
             # Run NMS

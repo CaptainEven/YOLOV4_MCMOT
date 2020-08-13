@@ -205,11 +205,24 @@ def train():
                                              collate_fn=dataset.collate_fn)
 
     # Testloader
-    testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, imgsz_test, batch_size,
-                                                                 hyp=hyp,
-                                                                 rect=True,
-                                                                 cache_images=opt.cache_images,
-                                                                 single_cls=opt.single_cls),
+    # testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
+    #                                                              imgsz_test,
+    #                                                              batch_size,
+    #                                                              hyp=hyp,
+    #                                                              rect=True,
+    #                                                              cache_images=opt.cache_images,
+    #                                                              single_cls=opt.single_cls),
+    #                                          batch_size=batch_size,
+    #                                          num_workers=nw,
+    #                                          pin_memory=True,
+    #                                          collate_fn=dataset.collate_fn)
+    testloader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+                                                                  imgsz_test,
+                                                                  batch_size,
+                                                                  hyp=hyp,
+                                                                  rect=True,
+                                                                  cache_images=opt.cache_images,
+                                                                  single_cls=opt.single_cls),
                                              batch_size=batch_size,
                                              num_workers=nw,
                                              pin_memory=True,
@@ -246,8 +259,7 @@ def train():
         m_loss = torch.zeros(5).to(device)  # mean losses
         print(('\n' + '%10s' * 9) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
-        for i, (imgs, targets, paths, shape,
-                track_ids) in pbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, paths, shape, track_ids) in pbar:  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
@@ -320,7 +332,9 @@ def train():
 
         # Process epoch results
         ema.update_attr(model)
+
         final_epoch = epoch + 1 == epochs
+
         if not opt.notest or final_epoch:  # Calculate mAP
             is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
             results, maps = test.test(cfg,
@@ -402,7 +416,8 @@ if __name__ == '__main__':
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768], help='[min_train, max-train, test]')  # [320, 640]
+    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768],
+                        help='[min_train, max-train, test]')  # [320, 640]
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
@@ -411,11 +426,12 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights', type=str, default='./weights/yolov4-paspp.pt', help='initial weights path')
-    parser.add_argument('--name', default='yolov4-paspp-mcmot', help='renames results.txt to results_name.txt if supplied')
+    parser.add_argument('--name', default='yolov4-paspp-mcmot',
+                        help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
