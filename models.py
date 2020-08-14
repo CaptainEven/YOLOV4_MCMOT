@@ -285,19 +285,20 @@ class Darknet(nn.Module):
 
         self.module_defs = parse_model_cfg(cfg)
 
-        # ----- Define ReID classifiers
-        self.max_id_dict = max_id_dict
-        self.emb_dim = emb_dim
-        self.id_classifiers = nn.ModuleList()
-        for cls_id, nID in self.max_id_dict.items():
-            # choice 1: use normal FC layers as classifiers
-            self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
-
         # create module list from cfg file
         self.module_list, self.routs = create_modules(self.module_defs, img_size, cfg)
 
-        # add reid classifiers(nn.ModuleDict) to self.module_list to be registered
-        self.module_list.append(self.id_classifiers)
+        # ----- Define ReID classifiers
+        if max_id_dict is not None:
+            self.max_id_dict = max_id_dict
+            self.emb_dim = emb_dim
+            self.id_classifiers = nn.ModuleList()
+            for cls_id, nID in self.max_id_dict.items():
+                # choice 1: use normal FC layers as classifiers
+                self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
+
+            # add reid classifiers(nn.ModuleDict) to self.module_list to be registered
+            self.module_list.append(self.id_classifiers)
 
         self.yolo_layer_inds = get_yolo_layers(self)
         # torch_utils.initialize_weights(self)

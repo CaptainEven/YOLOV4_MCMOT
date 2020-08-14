@@ -9,7 +9,7 @@ from utils.utils import *
 def detect(save_img=False):
     img_size = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
-    webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
+    web_cam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
@@ -18,7 +18,15 @@ def detect(save_img=False):
     os.makedirs(out)  # make new output folder
 
     # Initialize model
-    model = Darknet(opt.cfg, img_size)
+    # model = Darknet(opt.cfg, img_size)
+    max_ids_dict = {
+        0: 330,
+        1: 102,
+        2: 104,
+        3: 312,
+        4: 53
+    }
+    model = Darknet(opt.cfg, max_id_dict=max_ids_dict, emb_dim=128).to(device)
 
     # Load weights
     attempt_download(weights)
@@ -30,9 +38,9 @@ def detect(save_img=False):
     # Second-stage classifier
     classify = False
     if classify:
-        modelc = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
-        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
-        modelc.to(device).eval()
+        model_c = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
+        model_c.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
+        model_c.to(device).eval()
 
     # Eval mode
     model.to(device).eval()
@@ -60,9 +68,9 @@ def detect(save_img=False):
     if half:
         model.half()
 
-    # Set Dataloader
+    # Set Data loader
     vid_path, vid_writer = None, None
-    if webcam:
+    if web_cam:
         view_img = True
         torch.backends.cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=img_size)
@@ -100,11 +108,11 @@ def detect(save_img=False):
 
         # Apply Classifier
         if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
+            pred = apply_classifier(pred, model_c, img, im0s)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
-            if webcam:  # batch_size >= 1
+            if web_cam:  # batch_size >= 1
                 p, s, im0 = path[i], '%g: ' % i, im0s[i]
             else:
                 p, s, im0 = path, '', im0s
@@ -165,17 +173,17 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-pacsp.cfg', help='*.cfg path')
-    parser.add_argument('--names', type=str, default='data/coco.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/yolov4-pacsp.pt', help='weights path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
+    parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
+    parser.add_argument('--weights', type=str, default='weights/best.pt', help='weights path')
     parser.add_argument('--source', type=str, default='data/samples', help='source')  # input file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
+    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')

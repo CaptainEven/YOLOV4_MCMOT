@@ -19,7 +19,7 @@ def test(cfg,
          single_cls=False,
          augment=False,
          model=None,
-         dataloader=None):
+         data_loader=None):
     # Initialize/load model and set device
     if model is None:
         device = torch_utils.select_device(opt.device, batch_size=batch_size)
@@ -59,15 +59,15 @@ def test(cfg,
     niou = iouv.numel()
 
     # Data loader
-    if dataloader is None:
+    if data_loader is None:
         # dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
         dataset = LoadImgsAndLbsWithID(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
         batch_size = min(batch_size, len(dataset))
-        dataloader = DataLoader(dataset,
-                                batch_size=batch_size,
-                                num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
-                                pin_memory=True,
-                                collate_fn=dataset.collate_fn)
+        data_loader = DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
+                                 pin_memory=True,
+                                 collate_fn=dataset.collate_fn)
 
     seen = 0
     model.eval()
@@ -77,7 +77,7 @@ def test(cfg,
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes, track_ids) in enumerate(tqdm(dataloader, desc=s)):
+    for batch_i, (imgs, targets, paths, shapes, track_ids) in enumerate(tqdm(data_loader, desc=s)):
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
         nb, _, height, width = imgs.shape  # batch size, channels, height, width
@@ -197,7 +197,7 @@ def test(cfg,
     # Save JSON
     if save_json and map and len(jdict):
         print('\nCOCO mAP with pycocotools...')
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        imgIds = [int(Path(x).stem.split('_')[-1]) for x in data_loader.dataset.img_files]
         with open('results.json', 'w') as file:
             json.dump(jdict, file)
 
@@ -217,12 +217,12 @@ def test(cfg,
         cocoEval.accumulate()
         cocoEval.summarize()
         map, map50 = cocoEval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+        return (mp, mr, map50, map, *(loss.cpu() / len(data_loader)).tolist()), maps, t
 
     # Return results
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps
+    return (mp, mr, map, mf1, *(loss.cpu() / len(data_loader)).tolist()), maps
 
 
 if __name__ == '__main__':
