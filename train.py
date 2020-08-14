@@ -22,11 +22,12 @@ last = wdir + 'last.pt'
 best = wdir + 'best.pt'
 results_file = 'results.txt'
 
-# Hyperparameters
-hyp = {'giou': 3.54,  # giou loss gain
+# Hyper-parameters
+hyp = {'giou': 3.54,  # g_iou loss gain
        'cls': 37.4,  # cls loss gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
        'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
+       'reid': 0.5,  # reid loss weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
        'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
@@ -259,7 +260,8 @@ def train():
         m_loss = torch.zeros(5).to(device)  # mean losses
         print(('\n' + '%10s' * 9) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
-        for i, (imgs, targets, paths, shape, track_ids) in pbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, paths, shape,
+                track_ids) in pbar:  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
@@ -425,7 +427,7 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='./weights/yolov4-paspp.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
