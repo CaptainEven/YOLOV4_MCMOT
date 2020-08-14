@@ -265,7 +265,7 @@ class YOLOLayer(nn.Module):
 
             # process pred to io
             io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
-            io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh  # wh yolo method
+            io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh  # wh YOLO method
             io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
             torch.sigmoid_(io[..., 4:])  # sigmoid for confidence score and cls pred
 
@@ -279,15 +279,19 @@ class Darknet(nn.Module):
                  img_size=(416, 416),
                  verbose=False,
                  max_id_dict=None,
-                 emb_dim=128):
+                 emb_dim=128,
+                 mode='detect'):
         """
         :param cfg:
         :param img_size:
         :param verbose:
-        :param max_id_dict: record max id numbers for each object class, used to do reid classification
+        :param max_id_dict:
+        :param emb_dim: record max id numbers for each object class, used to do reid classification
+        :param mode: output detection or tracking(detection + reid vector)
         """
         super(Darknet, self).__init__()
 
+        self.mode = mode
         self.module_defs = parse_model_cfg(cfg)
 
         # create module list from cfg file
@@ -382,8 +386,9 @@ class Darknet(nn.Module):
                 str = ''
 
         # Get last feature map for reid feature vector extraction
-        reid_feat_map = out[169]  # 5×128×192×192
+        reid_feat_map = out[169]  # e.g. 5×128×192×192
 
+        # ----- Output mode
         if self.training:  # train
             return yolo_out, reid_feat_map
         elif ONNX_EXPORT:  # export
@@ -398,7 +403,14 @@ class Darknet(nn.Module):
                 x[1][..., 0] = img_size[1] - x[1][..., 0]  # flip lr
                 x[2][..., :4] /= s[1]  # scale
                 x = torch.cat(x, 1)
-            return x, p
+
+            if self.mode == 'detect':
+                return x, p
+            elif self.mode == 'track':
+                return x, p, reid_feat_map
+            else:
+                print('[Err]: un-recognized mode, return None.')
+                return None
 
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout model

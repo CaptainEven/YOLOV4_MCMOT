@@ -27,7 +27,7 @@ hyp = {'giou': 3.54,  # g_iou loss gain
        'cls': 37.4,  # cls loss gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
        'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
-       'reid': 0.5,  # reid loss weight
+       'reid': 0.1,  # reid loss weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
        'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
@@ -430,10 +430,11 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='4', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

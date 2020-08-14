@@ -151,7 +151,7 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
 
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
-    coords[:, :4] /= gain
+    coords[:, :4] /= gain  # scale back to img0's scale
     clip_coords(coords, img0_shape)
     return coords
 
@@ -510,7 +510,8 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
 
     l_box *= h['giou']
     l_obj *= h['obj']
-    l_cls *= h['cls']
+    # l_cls *= h['cls']
+    l_cls /= float(nb)
     l_reid *= h['reid']
     if red == 'sum':
         bs = t_obj.shape[0]  # batch size

@@ -100,7 +100,7 @@ class LoadImages:  # for inference
             print('image %g/%g %s: ' % (self.count, self.nF, path), end='')
 
         # Padded resize
-        img = letterbox(img0, new_shape=self.img_size)[0]
+        img = letterbox(img0, new_shape=self.img_size)[0]  # to make sure mod by 64
 
         # Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
@@ -981,7 +981,21 @@ def load_mosaic(self, index):
     return img4, labels4
 
 
-def letterbox(img, new_shape=(416, 416), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
+def letterbox(img,
+              new_shape=(416, 416),
+              color=(114, 114, 114),
+              auto=True,
+              scaleFill=False,
+              scaleup=True):
+    """
+    :param img:
+    :param new_shape:
+    :param color:
+    :param auto:
+    :param scaleFill:
+    :param scaleup:
+    :return:
+    """
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):

@@ -26,12 +26,15 @@ def detect(save_img=False):
         3: 312,
         4: 53
     }
-    model = Darknet(opt.cfg, max_id_dict=max_ids_dict, emb_dim=128).to(device)
+    model = Darknet(opt.cfg, (img_size, img_size), False, max_ids_dict, 128, 'detect').to(device)
 
     # Load weights
     attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
-        model.load_state_dict(torch.load(weights, map_location=device)['model'])
+        ckpt = torch.load(weights, map_location=device)
+        model.load_state_dict(ckpt['model'])
+        if 'epoch' in ckpt.keys():
+            print('Checkpoint of epoch {} loaded.'.format(ckpt['epoch']))
     else:  # darknet format
         load_darknet_weights(model, weights)
 
@@ -93,14 +96,14 @@ def detect(save_img=False):
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
-        # Inference
+        # ----- Inference
         t1 = torch_utils.time_synchronized()
 
         # only get aggregated result, not original YOLO output
         pred = model.forward(img, augment=opt.augment)[0]
 
         t2 = torch_utils.time_synchronized()
-
+        # -----
 
         # to float
         if half:
@@ -124,7 +127,7 @@ def detect(save_img=False):
             save_path = str(Path(out) / Path(p).name)
             s += '%gx%g ' % img.shape[2:]  # print string
             if det is not None and len(det):
-                # Rescale boxes from img_size to im0 size
+                # Rescale boxes from img_size to im0 size(from net input size to original size)
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
                 # Print results
@@ -133,7 +136,7 @@ def detect(save_img=False):
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 # Write results
-                for *xyxy, conf, cls in det:
+                for *xyxy, conf, cls in det:  # x1, y1, x2, y2, confidence, cls_id
                     if save_txt:  # Write to file
                         with open(save_path + '.txt', 'a') as file:
                             file.write(('%g ' * 6 + '\n') % (*xyxy, cls, conf))
@@ -187,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='4', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')

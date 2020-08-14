@@ -191,7 +191,7 @@ class JDETracker(object):
             4: 53
         }
         device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
-        model = Darknet(opt.cfg, max_id_dict=max_ids_dict, emb_dim=128).to(device)
+        model = Darknet(opt.cfg, opt.img_size, False, max_ids_dict, 128, 'track').to(device)
 
         # Load weights
         attempt_download(opt.weights)
@@ -234,4 +234,4 @@ class JDETracker(object):
         removed_stracks_dict = defaultdict(list)
         output_stracks_dict = defaultdict(list)
 
-
+        # do detection and reid feature extraction
