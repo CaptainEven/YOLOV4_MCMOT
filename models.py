@@ -167,6 +167,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
     routs_binary = [False] * (i + 1)
     for i in routs:
         routs_binary[i] = True
+
     return module_list, routs_binary
 
 
@@ -181,6 +182,7 @@ class YOLOLayer(nn.Module):
         :param stride:
         """
         super(YOLOLayer, self).__init__()
+
         self.anchors = torch.Tensor(anchors)
         self.index = yolo_index  # index of this layer in layers
         self.layers = layers  # model output layer indices
@@ -210,39 +212,39 @@ class YOLOLayer(nn.Module):
             self.anchor_vec = self.anchor_vec.to(device)
             self.anchor_wh = self.anchor_wh.to(device)
 
-    def forward(self, p, out):
+    def forward(self, pred, out):
         ASFF = False  # https://arxiv.org/abs/1911.09516
         if ASFF:
             i, n = self.index, self.nl  # index in layers, number of layers
-            p = out[self.layers[i]]
-            bs, _, ny, nx = p.shape  # bs, 255, 13, 13
+            pred = out[self.layers[i]]
+            bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
-                self.create_grids((nx, ny), p.device)
+                self.create_grids((nx, ny), pred.device)
 
             # outputs and weights
             # w = F.softmax(p[:, -n:], 1)  # normalized weights
-            w = torch.sigmoid(p[:, -n:]) * (2 / n)  # sigmoid weights (faster)
+            w = torch.sigmoid(pred[:, -n:]) * (2 / n)  # sigmoid weights (faster)
             # w = w / w.sum(1).unsqueeze(1)  # normalize across layer dimension
 
             # weighted ASFF sum
-            p = out[self.layers[i]][:, :-n] * w[:, i:i + 1]
+            pred = out[self.layers[i]][:, :-n] * w[:, i:i + 1]
             for j in range(n):
                 if j != i:
-                    p += w[:, j:j + 1] * \
-                         F.interpolate(out[self.layers[j]][:, :-n], size=[ny, nx], mode='bilinear', align_corners=False)
+                    pred += w[:, j:j + 1] * \
+                            F.interpolate(out[self.layers[j]][:, :-n], size=[ny, nx], mode='bilinear', align_corners=False)
 
         elif ONNX_EXPORT:
             bs = 1  # batch size
         else:
-            bs, _, ny, nx = p.shape  # bs, 255, 13, 13
+            bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
-                self.create_grids(ng=(nx, ny), device=p.device)
+                self.create_grids(ng=(nx, ny), device=pred.device)
 
         # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
-        p = p.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
+        pred = pred.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
-            return p
+            return pred
 
         elif ONNX_EXPORT:
             # Avoid broadcasting for ANE operations
@@ -251,20 +253,23 @@ class YOLOLayer(nn.Module):
             grid = self.grid.repeat(1, self.na, 1, 1, 1).view(m, 2)
             anchor_wh = self.anchor_wh.repeat(1, 1, self.nx, self.ny, 1).view(m, 2) * ng
 
-            p = p.view(m, self.no)
-            xy = torch.sigmoid(p[:, 0:2]) + grid  # x, y
-            wh = torch.exp(p[:, 2:4]) * anchor_wh  # width, height
-            p_cls = torch.sigmoid(p[:, 4:5]) if self.nc == 1 else \
-                torch.sigmoid(p[:, 5:self.no]) * torch.sigmoid(p[:, 4:5])  # conf
+            pred = pred.view(m, self.no)
+            xy = torch.sigmoid(pred[:, 0:2]) + grid  # x, y
+            wh = torch.exp(pred[:, 2:4]) * anchor_wh  # width, height
+            p_cls = torch.sigmoid(pred[:, 4:5]) if self.nc == 1 else \
+                torch.sigmoid(pred[:, 5:self.no]) * torch.sigmoid(pred[:, 4:5])  # conf
             return p_cls, xy * ng, wh
 
         else:  # inference
-            io = p.clone()  # inference output
+            io = pred.clone()  # inference output
+
+            # process pred to io
             io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
             io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh  # wh yolo method
-            io[..., :4] *= self.stride
-            torch.sigmoid_(io[..., 4:])
-            return io.view(bs, -1, self.no), p  # view [1, 3, 13, 13, 85] as [1, 507, 85]
+            io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
+            torch.sigmoid_(io[..., 4:])  # sigmoid for confidence score and cls pred
+
+            return io.view(bs, -1, self.no), pred  # view [1, 3, 13, 13, 85] as [1, 507, 85]
 
 
 class Darknet(nn.Module):
@@ -354,6 +359,8 @@ class Darknet(nn.Module):
                            ), 0)
 
         for i, module in enumerate(self.module_list):
+            # reid classifiers: use id classifiers in train phase only,
+            # forward in loss computation, not here, so just skip this module
             if i == 170:
                 continue
 

@@ -85,7 +85,7 @@ def detect(save_img=False):
     # Run inference
     t0 = time.time()
     img = torch.zeros((1, 3, img_size, img_size), device=device)  # init img
-    _ = model(img.half() if half else img.float()) if device.type != 'cpu' else None  # run once
+    # _ = model.forward(img.half() if half else img.float()) if device.type != 'cpu' else None  # run once
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -95,8 +95,12 @@ def detect(save_img=False):
 
         # Inference
         t1 = torch_utils.time_synchronized()
-        pred = model(img, augment=opt.augment)[0]
+
+        # only get aggregated result, not original YOLO output
+        pred = model.forward(img, augment=opt.augment)[0]
+
         t2 = torch_utils.time_synchronized()
+
 
         # to float
         if half:

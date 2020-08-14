@@ -448,8 +448,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
                 l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
                 # l_cls += CE(pred_s[:, 5:], cls_ids)  # CE
 
-
-            # ----- TODO: compute reid loss for each GT box
+            # ----- compute reid loss for each GT box
             # get center point coordinates for all GT
             center_x = gx + pred_s[:, 0]
             center_y = gy + pred_s[:, 1]
@@ -492,6 +491,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             #     tr_id = tr_ids[gt_i].unsqueeze(0)
             #     l_reid += CE_reid(pred_fc, tr_id)
 
+            # ----- compute each object class's reid loss
             for cls_id, id_num in model.max_id_dict.items():
                 inds = torch.where(cls_ids == cls_id)
                 if inds[0].shape[0] == 0:
