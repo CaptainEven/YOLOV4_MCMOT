@@ -63,6 +63,7 @@ def test(cfg,
     else:  # called by train.py
         device = next(model.parameters()).device  # get model device
         verbose = False
+        model.mode = 'detect'  # set mode to be pure_detect or detect
 
     # Configure run
     data = parse_data_cfg(data)
@@ -107,7 +108,10 @@ def test(cfg,
         with torch.no_grad():
             # Run model
             t = torch_utils.time_synchronized()
-            inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+            try:
+                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+            except Exception as e:
+                print(e)
             t0 += torch_utils.time_synchronized() - t
 
             # Compute loss

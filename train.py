@@ -114,7 +114,7 @@ def train():
     model = Darknet(cfg,
                     img_size=img_size,
                     verbose=False,
-                    max_id_dict=dataset.max_ids_dict,  # after dataset's statitics
+                    max_id_dict=dataset.max_ids_dict,  # after dataset's statistics
                     emb_dim=128,
                     mode=opt.task).to(device)
     # print(model)
@@ -481,18 +481,18 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
     # Set task mode: pure_detect | detect | track
     # pure detect means the dataset do not contains ID info.
-    # detect means the dataset contains ID info, but do not load for traning. (i.e. do detection in tracking)
+    # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
     parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
