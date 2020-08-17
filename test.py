@@ -19,8 +19,7 @@ def test(cfg,
          single_cls=False,
          augment=False,
          model=None,
-         data_loader=None,
-         task_mode='pure_detect'):
+         data_loader=None):
     """
     :param cfg:
     :param data:
@@ -34,7 +33,6 @@ def test(cfg,
     :param augment:
     :param model:
     :param data_loader:
-    :param task_mode:
     :return:
     """
     # Initialize/load model and set device
@@ -109,8 +107,7 @@ def test(cfg,
         with torch.no_grad():
             # Run model
             t = torch_utils.time_synchronized()
-            if task_mode == 'pure_test' or task_mode == 'detect':
-                inf_out, train_out = model(imgs, augment=augment)  # inference and training outputs
+            inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
             t0 += torch_utils.time_synchronized() - t
 
             # Compute loss
