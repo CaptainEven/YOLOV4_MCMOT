@@ -111,12 +111,27 @@ def train():
                                        single_cls=opt.single_cls)
 
     # Initialize model
-    model = Darknet(cfg,
-                    img_size=img_size,
-                    verbose=False,
-                    max_id_dict=dataset.max_ids_dict,  # after dataset's statistics
-                    emb_dim=128,
-                    mode=opt.task).to(device)
+    max_ids_dict = {
+        0: 330,
+        1: 102,
+        2: 104,
+        3: 312,
+        4: 53
+    }
+    if opt.task == 'pure_detect':
+        model = Darknet(cfg,
+                        img_size=img_size,
+                        verbose=False,
+                        max_id_dict=max_ids_dict,  # after dataset's statistics
+                        emb_dim=128,
+                        mode=opt.task).to(device)
+    else:
+        model = Darknet(cfg,
+                        img_size=img_size,
+                        verbose=False,
+                        max_id_dict=dataset.max_ids_dict,  # using priori knowledge
+                        emb_dim=128,
+                        mode=opt.task).to(device)
     # print(model)
 
     # Optimizer definition and model parameters registration
@@ -222,7 +237,7 @@ def train():
                                                                      imgsz_test,
                                                                      batch_size,
                                                                      hyp=hyp,
-                                                                     rect=True,
+                                                                     rect=True,  # True
                                                                      cache_images=opt.cache_images,
                                                                      single_cls=opt.single_cls),
                                                  batch_size=batch_size,
@@ -289,91 +304,168 @@ def train():
             return
 
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
-        for i, (imgs, targets, paths, shape,
-                track_ids) in pbar:  # batch -------------------------------------------------------------
-            ni = i + nb * epoch  # number integrated batches (since train start)
-            imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
-            targets = targets.to(device)
-            track_ids = track_ids.to(device)
+        if opt.task == 'pure_detect':
+            for i, (imgs, targets, paths, shape) in pbar:  # batch -------------------------------------------------------------
+                ni = i + nb * epoch  # number integrated batches (since train start)
+                imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+                targets = targets.to(device)
 
-            # Burn-in
-            if ni <= n_burn * 2:
-                model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
-                if ni == n_burn:  # burnin complete
-                    print_model_biases(model)
+                # Burn-in
+                if ni <= n_burn * 2:
+                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    if ni == n_burn:  # burnin complete
+                        print_model_biases(model)
 
-                for j, x in enumerate(optimizer.param_groups):
-                    # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    x['lr'] = np.interp(ni, [0, n_burn], [0.1 if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
-                    if 'momentum' in x:
-                        x['momentum'] = np.interp(ni, [0, n_burn], [0.9, hyp['momentum']])
+                    for j, x in enumerate(optimizer.param_groups):
+                        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                        x['lr'] = np.interp(ni, [0, n_burn], [0.1 if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                        if 'momentum' in x:
+                            x['momentum'] = np.interp(ni, [0, n_burn], [0.9, hyp['momentum']])
 
-            # Multi-Scale
-            if opt.multi_scale:
-                if ni / accumulate % 1 == 0:  #  adjust img_size (67% - 150%) every 1 batch
-                    img_size = random.randrange(grid_min, grid_max + 1) * gs
-                sf = img_size / max(imgs.shape[2:])  # scale factor
-                if sf != 1:
-                    ns = [math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]]  # new shape (stretched to 32-multiple)
-                    imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
+                # Multi-Scale
+                if opt.multi_scale:
+                    if ni / accumulate % 1 == 0:  #  adjust img_size (67% - 150%) every 1 batch
+                        img_size = random.randrange(grid_min, grid_max + 1) * gs
+                    sf = img_size / max(imgs.shape[2:])  # scale factor
+                    if sf != 1:
+                        ns = [math.ceil(x * sf / gs) * gs for x in
+                              imgs.shape[2:]]  # new shape (stretched to 32-multiple)
+                        imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
-            # Forward
-            if opt.task == 'pure_detect' or opt.task == 'detect':
-                pred = model.forward(imgs)
-            elif opt.task == 'track':
-                pred, reid_feat_map = model.forward(imgs)
-            else:
-                print('[Err]: un-recognized task mode.')
-                return
+                # Forward
+                if opt.task == 'pure_detect' or opt.task == 'detect':
+                    pred = model.forward(imgs)
+                elif opt.task == 'track':
+                    pred, reid_feat_map = model.forward(imgs)
+                else:
+                    print('[Err]: un-recognized task mode.')
+                    return
 
-            # Loss
-            if opt.task == 'pure_detect' or opt.task == 'detect':
+                # Loss
                 loss, loss_items = compute_loss(pred, targets, model)
-            elif opt.task == 'track':
+
+                if not torch.isfinite(loss):
+                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    return results
+
+                # Backward
+                loss *= batch_size / 64.0  # scale loss
+                if mixed_precision:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
+
+                # Optimize
+                if ni % accumulate == 0:
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    ema.update(model)
+
+                # Print
+                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+                if opt.task == 'pure_detect' or opt.task == 'detect':
+                    s = ('%10s' * 2 + '%10.3g' * 6) % (
+                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                elif opt.task == 'track':
+                    s = ('%10s' * 2 + '%10.3g' * 7) % (
+                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                else:
+                    print('[Err]: unrecognized task mode.')
+                    return
+                pbar.set_description(s)
+
+                # Plot
+                if ni < 1:
+                    f = 'train_batch%g.jpg' % i  # filename
+                    plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
+                    if tb_writer:
+                        tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
+                        # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+        else:
+            for i, (imgs, targets, paths, shape, track_ids) in pbar:  # batch -------------------------------------------------------------
+                ni = i + nb * epoch  # number integrated batches (since train start)
+                imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+                targets = targets.to(device)
+                track_ids = track_ids.to(device)
+
+                # Burn-in
+                if ni <= n_burn * 2:
+                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    if ni == n_burn:  # burnin complete
+                        print_model_biases(model)
+
+                    for j, x in enumerate(optimizer.param_groups):
+                        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                        x['lr'] = np.interp(ni, [0, n_burn], [0.1 if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                        if 'momentum' in x:
+                            x['momentum'] = np.interp(ni, [0, n_burn], [0.9, hyp['momentum']])
+
+                # Multi-Scale
+                if opt.multi_scale:
+                    if ni / accumulate % 1 == 0:  #  adjust img_size (67% - 150%) every 1 batch
+                        img_size = random.randrange(grid_min, grid_max + 1) * gs
+                    sf = img_size / max(imgs.shape[2:])  # scale factor
+                    if sf != 1:
+                        ns = [math.ceil(x * sf / gs) * gs for x in
+                              imgs.shape[2:]]  # new shape (stretched to 32-multiple)
+                        imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
+
+                # Forward
+                if opt.task == 'pure_detect' or opt.task == 'detect':
+                    pred = model.forward(imgs)
+                elif opt.task == 'track':
+                    pred, reid_feat_map = model.forward(imgs)
+                else:
+                    print('[Err]: un-recognized task mode.')
+                    return
+
+                # Loss
                 loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
-            else:
-                print('[Err]: un-recognized task mode.')
-                return
 
-            if not torch.isfinite(loss):
-                print('WARNING: non-finite loss, ending training ', loss_items)
-                return results
 
-            # Backward
-            loss *= batch_size / 64.0  # scale loss
-            if mixed_precision:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
+                if not torch.isfinite(loss):
+                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    return results
 
-            # Optimize
-            if ni % accumulate == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                ema.update(model)
+                # Backward
+                loss *= batch_size / 64.0  # scale loss
+                if mixed_precision:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
 
-            # Print
-            m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
-            mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-            if opt.task == 'pure_detect' or opt.task == 'detect':
-                s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-            elif opt.task == 'track':
-                s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-            else:
-                print('[Err]: unrecognized task mode.')
-                return
-            pbar.set_description(s)
+                # Optimize
+                if ni % accumulate == 0:
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    ema.update(model)
 
-            # Plot
-            if ni < 1:
-                f = 'train_batch%g.jpg' % i  # filename
-                plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
-                if tb_writer:
-                    tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
-                    # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+                # Print
+                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+                if opt.task == 'pure_detect' or opt.task == 'detect':
+                    s = ('%10s' * 2 + '%10.3g' * 6) % (
+                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                elif opt.task == 'track':
+                    s = ('%10s' * 2 + '%10.3g' * 7) % (
+                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                else:
+                    print('[Err]: unrecognized task mode.')
+                    return
+                pbar.set_description(s)
 
-            # end batch ------------------------------------------------------------------------------------------------
+                # Plot
+                if ni < 1:
+                    f = 'train_batch%g.jpg' % i  # filename
+                    plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
+                    if tb_writer:
+                        tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
+                        # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+
+                # end batch ------------------------------------------------------------------------------------------------
 
         # Update scheduler
         scheduler.step()
@@ -485,7 +577,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
