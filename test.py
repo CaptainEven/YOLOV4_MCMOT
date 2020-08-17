@@ -63,7 +63,7 @@ def test(cfg,
     else:  # called by train.py
         device = next(model.parameters()).device  # get model device
         verbose = False
-        model.mode = 'detect'  # set mode to be pure_detect or detect
+        model.mode = 'detect'  # set mode to be pure_detect or detect, return 2 items not 3 items
 
     # Configure run
     data = parse_data_cfg(data)
