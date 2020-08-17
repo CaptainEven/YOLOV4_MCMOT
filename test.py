@@ -19,7 +19,24 @@ def test(cfg,
          single_cls=False,
          augment=False,
          model=None,
-         data_loader=None):
+         data_loader=None,
+         task_mode='pure_detect'):
+    """
+    :param cfg:
+    :param data:
+    :param weights:
+    :param batch_size:
+    :param img_size:
+    :param conf_thres:
+    :param iou_thres:
+    :param save_json:
+    :param single_cls:
+    :param augment:
+    :param model:
+    :param data_loader:
+    :param task_mode:
+    :return:
+    """
     # Initialize/load model and set device
     if model is None:
         device = torch_utils.select_device(opt.device, batch_size=batch_size)
@@ -92,7 +109,8 @@ def test(cfg,
         with torch.no_grad():
             # Run model
             t = torch_utils.time_synchronized()
-            inf_out, train_out = model(imgs, augment=augment)  # inference and training outputs
+            if task_mode == 'pure_test' or task_mode == 'detect':
+                inf_out, train_out = model(imgs, augment=augment)  # inference and training outputs
             t0 += torch_utils.time_synchronized() - t
 
             # Compute loss

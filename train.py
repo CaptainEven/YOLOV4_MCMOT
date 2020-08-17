@@ -392,11 +392,20 @@ def train():
                                       model=ema.ema,
                                       save_json=final_epoch and is_coco,
                                       single_cls=opt.single_cls,
-                                      data_loader=testloader)
+                                      data_loader=testloader,
+                                      task_mode=opt.task)
 
         # Write
-        with open(results_file, 'a') as f:
-            f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+        if opt.task == 'pure_Detect' or opt.task == 'detect':
+            with open(results_file, 'a') as f:
+                f.write(s + '%10.3g' * 6 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+        elif opt.task == 'track':
+            with open(results_file, 'a') as f:
+                f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+        else:
+            print('[Err]: unrecognized task mode.')
+            return
+
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
 
@@ -484,10 +493,10 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for traning. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='detect', help='Do detect or track training')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
