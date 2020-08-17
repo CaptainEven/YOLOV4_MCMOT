@@ -108,10 +108,7 @@ def test(cfg,
         with torch.no_grad():
             # Run model
             t = torch_utils.time_synchronized()
-            try:
-                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
-            except Exception as e:
-                print(e)
+            inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
             t0 += torch_utils.time_synchronized() - t
 
             # Compute loss

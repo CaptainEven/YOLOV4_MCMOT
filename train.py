@@ -463,7 +463,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=5)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
