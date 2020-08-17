@@ -211,18 +211,18 @@ def train():
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9999',  # distributed training init method
+                                init_method='tcp://127.0.0.1:9995',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
-        model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
+        model.yolo_layer_inds = model.module.yolo_layer_inds  # move yolo layer indices to top level
 
     # Dataloader
     batch_size = min(batch_size, len(dataset))
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = 6  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size,
@@ -553,7 +553,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=5)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=15)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
@@ -569,7 +569,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='6,7', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -580,7 +580,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
