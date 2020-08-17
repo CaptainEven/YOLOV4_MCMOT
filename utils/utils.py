@@ -408,7 +408,6 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
     if g > 0:
         BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
 
-
     id_map_w, id_map_h = reid_feat_map.shape[3], reid_feat_map.shape[2]
     np, ng = 0, 0  # number grid points, targets(GT)
 
@@ -510,9 +509,10 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
 
     l_box *= h['giou']
     l_obj *= h['obj']
-    # l_cls *= h['cls']
-    l_cls /= float(nb)
-    l_reid *= h['reid']
+    l_cls *= h['cls']
+    # l_reid *= h['reid']
+    l_reid /= float(nb)
+
     if red == 'sum':
         bs = t_obj.shape[0]  # batch size
         l_obj *= 3 / (6300 * bs) * 2  # 3 / np * 2
@@ -631,7 +631,8 @@ def build_targets_with_ids(preds, targets, track_ids, model):
 
             if use_all_anchors:
                 na = anchors.shape[0]  # number of anchors
-                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(-1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
+                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(
+                    -1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
                 t = t.repeat(na, 1)  # 56 × 6 -> (56×3) × 6
                 tr_ids = track_ids.repeat(na)  # 56 -> 56×3
             else:  # use best anchor only
@@ -671,7 +672,6 @@ def build_targets_with_ids(preds, targets, track_ids, model):
                     model.nc, model.nc - 1, c.max())
 
     return t_cls, t_box, indices, av, t_track_ids
-
 
 
 def build_targets(preds, targets, model):

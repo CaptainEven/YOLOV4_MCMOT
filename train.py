@@ -56,6 +56,8 @@ if hyp['fl_gamma']:
 
 
 def train():
+    print('Task mode: {}'.format(opt.task))
+
     cfg = opt.cfg
     data = opt.data
     epochs = opt.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
@@ -89,25 +91,32 @@ def train():
         os.remove(f)
 
     # Dataset
-    # dataset = LoadImagesAndLabels(train_path,
-    #                               img_size,
-    #                               batch_size,
-    #                               augment=True,
-    #                               hyp=hyp,  # augmentation hyper parameters
-    #                               rect=opt.rect,  # rectangular training
-    #                               cache_images=opt.cache_images,
-    #                               single_cls=opt.single_cls)
-    dataset = LoadImgsAndLbsWithID(train_path,
-                                   img_size,
-                                   batch_size,
-                                   augment=True,
-                                   hyp=hyp,  # augmentation hyper parameters
-                                   rect=opt.rect,  # rectangular training
-                                   cache_images=opt.cache_images,
-                                   single_cls=opt.single_cls)
+    if opt.task == 'pure_detect':
+        dataset = LoadImagesAndLabels(train_path,
+                                      img_size,
+                                      batch_size,
+                                      augment=True,
+                                      hyp=hyp,  # augmentation hyper parameters
+                                      rect=opt.rect,  # rectangular training
+                                      cache_images=opt.cache_images,
+                                      single_cls=opt.single_cls)
+    else:
+        dataset = LoadImgsAndLbsWithID(train_path,
+                                       img_size,
+                                       batch_size,
+                                       augment=True,
+                                       hyp=hyp,  # augmentation hyper parameters
+                                       rect=opt.rect,  # rectangular training
+                                       cache_images=opt.cache_images,
+                                       single_cls=opt.single_cls)
 
     # Initialize model
-    model = Darknet(cfg, max_id_dict=dataset.max_ids_dict, emb_dim=128).to(device)
+    model = Darknet(cfg,
+                    img_size=img_size,
+                    verbose=False,
+                    max_id_dict=dataset.max_ids_dict,  # after dataset's statitics
+                    emb_dim=128,
+                    mode=opt.task).to(device)
     # print(model)
 
     # Optimizer definition and model parameters registration
@@ -144,6 +153,8 @@ def train():
             s = "%s is not compatible with %s. Specify --weights '' or specify a --cfg compatible with %s. " \
                 "See https://github.com/ultralytics/yolov3/issues/657" % (opt.weights, opt.cfg, opt.weights)
             raise KeyError(s) from e
+        if 'epoch' in chkpt.keys():
+            print('Checkpoint of epoch {} loaded.'.format(chkpt['epoch']))
 
         # load optimizer
         if chkpt['optimizer'] is not None:
@@ -194,9 +205,9 @@ def train():
     # Dataloader
     batch_size = min(batch_size, len(dataset))
 
-    nw = 0  # for debugging...
+    nw = 0  # for debugging
     if not opt.is_debug:
-        nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 6  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size,
@@ -206,28 +217,30 @@ def train():
                                              collate_fn=dataset.collate_fn)
 
     # Testloader
-    # testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
-    #                                                              imgsz_test,
-    #                                                              batch_size,
-    #                                                              hyp=hyp,
-    #                                                              rect=True,
-    #                                                              cache_images=opt.cache_images,
-    #                                                              single_cls=opt.single_cls),
-    #                                          batch_size=batch_size,
-    #                                          num_workers=nw,
-    #                                          pin_memory=True,
-    #                                          collate_fn=dataset.collate_fn)
-    testloader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
-                                                                  imgsz_test,
-                                                                  batch_size,
-                                                                  hyp=hyp,
-                                                                  rect=True,
-                                                                  cache_images=opt.cache_images,
-                                                                  single_cls=opt.single_cls),
-                                             batch_size=batch_size,
-                                             num_workers=nw,
-                                             pin_memory=True,
-                                             collate_fn=dataset.collate_fn)
+    if opt.task == 'pure_detect':
+        testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
+                                                                     imgsz_test,
+                                                                     batch_size,
+                                                                     hyp=hyp,
+                                                                     rect=True,
+                                                                     cache_images=opt.cache_images,
+                                                                     single_cls=opt.single_cls),
+                                                 batch_size=batch_size,
+                                                 num_workers=nw,
+                                                 pin_memory=True,
+                                                 collate_fn=dataset.collate_fn)
+    else:
+        testloader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+                                                                      imgsz_test,
+                                                                      batch_size,
+                                                                      hyp=hyp,
+                                                                      rect=True,
+                                                                      cache_images=opt.cache_images,
+                                                                      single_cls=opt.single_cls),
+                                                 batch_size=batch_size,
+                                                 num_workers=nw,
+                                                 pin_memory=True,
+                                                 collate_fn=dataset.collate_fn)
 
     # Define model parameters
     model.nc = nc  # attach number of classes to model
@@ -257,8 +270,24 @@ def train():
             image_weights = labels_to_image_weights(dataset.labels, nc=nc, class_weights=w)
             dataset.indices = random.choices(range(dataset.n), weights=image_weights, k=dataset.n)  # rand weighted idx
 
-        m_loss = torch.zeros(5).to(device)  # mean losses
-        print(('\n' + '%10s' * 9) % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
+        if opt.task == 'pure_detect' or opt.task == 'detect':
+            m_loss = torch.zeros(4).to(device)  # mean losses
+        elif opt.task == 'track':
+            m_loss = torch.zeros(5).to(device)  # mean losses
+        else:
+            print('[Err]: unrecognized task mode.')
+            return
+
+        if opt.task == 'track':
+            print(('\n' + '%10s' * 9) % (
+                'Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
+        elif opt.task == 'detect' or opt.task == 'pure_detect':
+            print(('\n' + '%10s' * 8) % (
+                'Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'total', 'targets', 'img_size'))
+        else:
+            print('[Err]: unrecognized task mode.')
+            return
+
         pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
         for i, (imgs, targets, paths, shape,
                 track_ids) in pbar:  # batch -------------------------------------------------------------
@@ -289,11 +318,22 @@ def train():
                     imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
             # Forward
-            pred, reid_feat_map = model.forward(imgs)
+            if opt.task == 'pure_detect' or opt.task == 'detect':
+                pred = model.forward(imgs)
+            elif opt.task == 'track':
+                pred, reid_feat_map = model.forward(imgs)
+            else:
+                print('[Err]: un-recognized task mode.')
+                return
 
             # Loss
-            # loss, loss_items = compute_loss(pred, targets, model)
-            loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+            if opt.task == 'pure_detect' or opt.task == 'detect':
+                loss, loss_items = compute_loss(pred, targets, model)
+            elif opt.task == 'track':
+                loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+            else:
+                print('[Err]: un-recognized task mode.')
+                return
 
             if not torch.isfinite(loss):
                 print('WARNING: non-finite loss, ending training ', loss_items)
@@ -316,7 +356,13 @@ def train():
             # Print
             m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
             mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-            s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+            if opt.task == 'pure_detect' or opt.task == 'detect':
+                s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+            elif opt.task == 'track':
+                s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+            else:
+                print('[Err]: unrecognized task mode.')
+                return
             pbar.set_description(s)
 
             # Plot
@@ -430,11 +476,18 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='4', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
-    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
+
+    # Set task mode: pure_detect | detect | track
+    # pure detect means the dataset do not contains ID info.
+    # detect means the dataset contains ID info, but do not load for traning. (i.e. do detection in tracking)
+    # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
+    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+
+    # use debug mode to enforce the parameter of worker number to be 0
+    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

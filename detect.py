@@ -31,10 +31,10 @@ def detect(save_img=False):
     # Load weights
     attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
-        ckpt = torch.load(weights, map_location=device)
-        model.load_state_dict(ckpt['model'])
-        if 'epoch' in ckpt.keys():
-            print('Checkpoint of epoch {} loaded.'.format(ckpt['epoch']))
+        chkpt = torch.load(weights, map_location=device)
+        model.load_state_dict(chkpt['model'])
+        if 'epoch' in chkpt.keys():
+            print('Checkpoint of epoch {} loaded.'.format(chkpt['epoch']))
     else:  # darknet format
         load_darknet_weights(model, weights)
 

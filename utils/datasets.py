@@ -90,7 +90,7 @@ class LoadImages:  # for inference
                     ret_val, img0 = self.cap.read()
 
             self.frame += 1
-            print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path), end='')
+            print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path))
 
         else:
             # Read image
@@ -367,7 +367,8 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                     lb[:, 0] = 0  # force dataset into single-class mode: turn mc to sc
                 self.labels[i] = lb
 
-                for item in lb:  # label中每一个item(检测目标)
+                # count independant id number for each object class
+                for item in lb:  # each GT object in the label
                     if item[1] > self.max_ids_dict[int(item[0])]:  # item[0]: cls_id, item[1]: track id
                         self.max_ids_dict[int(item[0])] = int(item[1])
 
@@ -477,7 +478,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
         if self.augment:
             # Augment image space
-            if not self.mosaic:  # 变换后, 可能会排除一些超出图片范围之内的label
+            if not self.mosaic:  # after random affine, some GT objects may be out of iamge range
                 # img, labels = random_affine(img,
                 #                             labels,
                 #                             degrees=hyp['degrees'],

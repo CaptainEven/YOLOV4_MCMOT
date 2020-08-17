@@ -231,7 +231,8 @@ class YOLOLayer(nn.Module):
             for j in range(n):
                 if j != i:
                     pred += w[:, j:j + 1] * \
-                            F.interpolate(out[self.layers[j]][:, :-n], size=[ny, nx], mode='bilinear', align_corners=False)
+                            F.interpolate(out[self.layers[j]][:, :-n], size=[ny, nx], mode='bilinear',
+                                          align_corners=False)
 
         elif ONNX_EXPORT:
             bs = 1  # batch size
@@ -390,7 +391,13 @@ class Darknet(nn.Module):
 
         # ----- Output mode
         if self.training:  # train
-            return yolo_out, reid_feat_map
+            if self.mode == 'pure_detect' or self.mode == 'detect':
+                return yolo_out
+            elif self.mode == 'track':
+                return yolo_out, reid_feat_map
+            else:
+                print('[Err]: unrecognized task mode.')
+                return None
         elif ONNX_EXPORT:  # export
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
@@ -404,7 +411,7 @@ class Darknet(nn.Module):
                 x[2][..., :4] /= s[1]  # scale
                 x = torch.cat(x, 1)
 
-            if self.mode == 'detect':
+            if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
                 return x, p, reid_feat_map
