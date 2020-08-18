@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/best.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test2.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test3.mp4', help='source')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')

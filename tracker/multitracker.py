@@ -274,9 +274,6 @@ class JDETracker(object):
             for det in dets:
                 x1, y1, x2, y2, conf, cls_id = det
 
-                assert x1 < w and y1 < h \
-                       and x2 < w and y2 < h
-
                 # map center point from net scale to feature map scale(1/4 of net input size)
                 center_x = (x1 + x2) * 0.5
                 center_y = (y1 + y2) * 0.5
@@ -288,6 +285,8 @@ class JDETracker(object):
                 center_y += 0.5
                 center_x = center_x.long()
                 center_y = center_y.long()
+                center_x.clamp_(0, w_id_map - 1)  # avoid out of reid feature map's range
+                center_y.clamp_(0, h_id_map - 1)
 
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()

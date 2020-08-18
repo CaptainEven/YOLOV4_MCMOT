@@ -463,12 +463,14 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             center_y = center_y.long()
 
             # avoid exceed reid feature map's range
-            inds_x = torch.where(center_x >= float(id_map_w))
-            inds_y = torch.where(center_y >= float(id_map_h))
-            if inds_x[0].shape[0] > 0:
-                center_x[inds_x] = id_map_w - 1
-            if inds_y[0].shape[0] > 0:
-                center_y[inds_y] = id_map_h - 1
+            # inds_x = torch.where(center_x >= float(id_map_w))
+            # inds_y = torch.where(center_y >= float(id_map_h))
+            # if inds_x[0].shape[0] > 0:
+            #     center_x[inds_x] = id_map_w - 1
+            # if inds_y[0].shape[0] > 0:
+            #     center_y[inds_y] = id_map_h - 1
+            center_x.clamp_(0, id_map_w - 1)
+            center_y.clamp_(0, id_map_h - 1)
 
             # get reid feature vector for GT boxes
             t_reid_feat_vects = reid_feat_map[b, :, center_y, center_x]  # nb × 128
