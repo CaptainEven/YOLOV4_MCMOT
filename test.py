@@ -49,7 +49,7 @@ def test(cfg,
         model = Darknet(cfg, img_size)
 
         # Load weights
-        attempt_download(weights)
+        # attempt_download(weights)
         if weights.endswith('.pt'):  # pytorch format
             model.load_state_dict(torch.load(weights, map_location=device)['model'])
         else:  # darknet format
@@ -193,6 +193,7 @@ def test(cfg,
                 stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
     elif task == 'pure_detect':
+        print('pure_detect task mode.')
         for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(data_loader, desc=s)):
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
@@ -208,7 +209,10 @@ def test(cfg,
             with torch.no_grad():
                 # Run model
                 t = torch_utils.time_synchronized()
-                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+                try:
+                    inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+                except Exception as e:
+                    print(e)
                 t0 += torch_utils.time_synchronized() - t
 
                 # Compute loss
@@ -344,17 +348,24 @@ def test(cfg,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-pacsp.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
-    parser.add_argument('--weights', type=str, default='weights/yolov4-pacsp.pt', help='weights path')
+    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
+    parser.add_argument('--weights', type=str, default='weights/best.pt', help='weights path')
     parser.add_argument('--batch-size', type=int, default=16, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
+    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
     parser.add_argument('--task', default='test', help="'test', 'study', 'benchmark'")
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
+
+    # Set task mode: pure_detect | detect | track
+    # pure detect means the dataset do not contains ID info.
+    # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
+    # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
+    parser.add_argument('--task-mode', type=str, default='pure_detect', help='Do detect or track training')
+
     opt = parser.parse_args()
     opt.save_json = opt.save_json or any([x in opt.data for x in ['coco.data', 'coco2014.data', 'coco2017.data']])
     print(opt)
@@ -370,7 +381,8 @@ if __name__ == '__main__':
              opt.iou_thres,
              opt.save_json,
              opt.single_cls,
-             opt.augment)
+             opt.augment,
+             task=opt.task_mode)
 
     elif opt.task == 'benchmark':  # mAPs at 320-608 at conf 0.5 and 0.7
         y = []
