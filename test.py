@@ -19,7 +19,8 @@ def test(cfg,
          single_cls=False,
          augment=False,
          model=None,
-         data_loader=None):
+         data_loader=None,
+         task='detect'):
     """
     :param cfg:
     :param data:
@@ -63,7 +64,7 @@ def test(cfg,
     else:  # called by train.py
         device = next(model.parameters()).device  # get model device
         verbose = False
-        model.mode = 'detect'  # set mode to be pure_detect or detect, return 2 items not 3 items
+        model.mode = task
 
     # Configure run
     data = parse_data_cfg(data)
@@ -76,8 +77,14 @@ def test(cfg,
 
     # Data loader
     if data_loader is None:
-        # dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
-        dataset = LoadImgsAndLbsWithID(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
+        if task == 'pure_detect':
+            dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
+        elif task == 'tack' or task == 'detect':
+            dataset = LoadImgsAndLbsWithID(path, img_size, batch_size, rect=True, single_cls=opt.single_cls)
+        else:
+            print('[Err]: unrecognized task mode.')
+            return
+
         batch_size = min(batch_size, len(dataset))
         data_loader = DataLoader(dataset,
                                  batch_size=batch_size,
@@ -93,96 +100,189 @@ def test(cfg,
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes, track_ids) in enumerate(tqdm(data_loader, desc=s)):
-        imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
-        targets = targets.to(device)
-        nb, _, height, width = imgs.shape  # batch size, channels, height, width
-        whwh = torch.Tensor([width, height, width, height]).to(device)
+    if task == 'detect' or task == 'track':
+        for batch_i, (imgs, targets, paths, shapes, track_ids) in enumerate(tqdm(data_loader, desc=s)):
+            imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+            targets = targets.to(device)
+            nb, _, height, width = imgs.shape  # batch size, channels, height, width
+            whwh = torch.Tensor([width, height, width, height]).to(device)
 
-        # Plot images with bounding boxes
-        f = 'test_batch%g.jpg' % batch_i  # filename
-        if batch_i < 1 and not os.path.exists(f):
-            plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
+            # Plot images with bounding boxes
+            f = 'test_batch%g.jpg' % batch_i  # filename
+            if batch_i < 1 and not os.path.exists(f):
+                plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
 
-        # Disable gradients
-        with torch.no_grad():
-            # Run model
-            t = torch_utils.time_synchronized()
-            inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
-            t0 += torch_utils.time_synchronized() - t
+            # Disable gradients
+            with torch.no_grad():
+                # Run model
+                t = torch_utils.time_synchronized()
+                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+                t0 += torch_utils.time_synchronized() - t
 
-            # Compute loss
-            if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
-                loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
+                # Compute loss
+                if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
+                    loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
 
-            # Run NMS
-            t = torch_utils.time_synchronized()
-            output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)  # nms
-            t1 += torch_utils.time_synchronized() - t
+                # Run NMS
+                t = torch_utils.time_synchronized()
+                output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)  # nms
+                t1 += torch_utils.time_synchronized() - t
 
-        # Statistics per image
-        for si, pred in enumerate(output):
-            labels = targets[targets[:, 0] == si, 1:]
-            nl = len(labels)
-            tcls = labels[:, 0].tolist() if nl else []  # target class
-            seen += 1
+            # Statistics per image
+            for si, pred in enumerate(output):
+                labels = targets[targets[:, 0] == si, 1:]
+                nl = len(labels)
+                tcls = labels[:, 0].tolist() if nl else []  # target class
+                seen += 1
 
-            if pred is None:
+                if pred is None:
+                    if nl:
+                        stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
+                    continue
+
+                # Append to text file
+                # with open('test.txt', 'a') as file:
+                #    [file.write('%11.5g' * 7 % tuple(x) + '\n') for x in pred]
+
+                # Clip boxes to image bounds
+                clip_coords(pred, (height, width))
+
+                # Append to pycocotools JSON dictionary
+                if save_json:
+                    # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
+                    image_id = int(Path(paths[si]).stem.split('_')[-1])
+                    box = pred[:, :4].clone()  # xyxy
+                    scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                    box = xyxy2xywh(box)  # xywh
+                    box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
+                    for p, b in zip(pred.tolist(), box.tolist()):
+                        jdict.append({'image_id': image_id,
+                                      'category_id': coco91class[int(p[5])],
+                                      'bbox': [round(x, 3) for x in b],
+                                      'score': round(p[4], 5)})
+
+                # Assign all predictions as incorrect
+                correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
                 if nl:
-                    stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
-                continue
+                    detected = []  # target indices
+                    tcls_tensor = labels[:, 0]
 
-            # Append to text file
-            # with open('test.txt', 'a') as file:
-            #    [file.write('%11.5g' * 7 % tuple(x) + '\n') for x in pred]
+                    # target boxes
+                    tbox = xywh2xyxy(labels[:, 1:5]) * whwh
 
-            # Clip boxes to image bounds
-            clip_coords(pred, (height, width))
+                    # Per target class
+                    for cls in torch.unique(tcls_tensor):
+                        ti = (cls == tcls_tensor).nonzero().view(-1)  # prediction indices
+                        pi = (cls == pred[:, 5]).nonzero().view(-1)  # target indices
 
-            # Append to pycocotools JSON dictionary
-            if save_json:
-                # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
-                image_id = int(Path(paths[si]).stem.split('_')[-1])
-                box = pred[:, :4].clone()  # xyxy
-                scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
-                box = xyxy2xywh(box)  # xywh
-                box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
-                for p, b in zip(pred.tolist(), box.tolist()):
-                    jdict.append({'image_id': image_id,
-                                  'category_id': coco91class[int(p[5])],
-                                  'bbox': [round(x, 3) for x in b],
-                                  'score': round(p[4], 5)})
+                        # Search for detections
+                        if pi.shape[0]:
+                            # Prediction to target ious
+                            ious, i = box_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
 
-            # Assign all predictions as incorrect
-            correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
-            if nl:
-                detected = []  # target indices
-                tcls_tensor = labels[:, 0]
+                            # Append detections
+                            for j in (ious > iouv[0]).nonzero():
+                                d = ti[i[j]]  # detected target
+                                if d not in detected:
+                                    detected.append(d)
+                                    correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
+                                    if len(detected) == nl:  # all targets already located in image
+                                        break
 
-                # target boxes
-                tbox = xywh2xyxy(labels[:, 1:5]) * whwh
+                # Append statistics (correct, conf, pcls, tcls)
+                stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
-                # Per target class
-                for cls in torch.unique(tcls_tensor):
-                    ti = (cls == tcls_tensor).nonzero().view(-1)  # prediction indices
-                    pi = (cls == pred[:, 5]).nonzero().view(-1)  # target indices
+    elif task == 'pure_detect':
+        for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(data_loader, desc=s)):
+            imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+            targets = targets.to(device)
+            nb, _, height, width = imgs.shape  # batch size, channels, height, width
+            whwh = torch.Tensor([width, height, width, height]).to(device)
 
-                    # Search for detections
-                    if pi.shape[0]:
-                        # Prediction to target ious
-                        ious, i = box_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
+            # Plot images with bounding boxes
+            f = 'test_batch%g.jpg' % batch_i  # filename
+            if batch_i < 1 and not os.path.exists(f):
+                plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
 
-                        # Append detections
-                        for j in (ious > iouv[0]).nonzero():
-                            d = ti[i[j]]  # detected target
-                            if d not in detected:
-                                detected.append(d)
-                                correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
-                                if len(detected) == nl:  # all targets already located in image
-                                    break
+            # Disable gradients
+            with torch.no_grad():
+                # Run model
+                t = torch_utils.time_synchronized()
+                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+                t0 += torch_utils.time_synchronized() - t
 
-            # Append statistics (correct, conf, pcls, tcls)
-            stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
+                # Compute loss
+                if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
+                    loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
+
+                # Run NMS
+                t = torch_utils.time_synchronized()
+                output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)  # nms
+                t1 += torch_utils.time_synchronized() - t
+
+            # Statistics per image
+            for si, pred in enumerate(output):
+                labels = targets[targets[:, 0] == si, 1:]
+                nl = len(labels)
+                tcls = labels[:, 0].tolist() if nl else []  # target class
+                seen += 1
+
+                if pred is None:
+                    if nl:
+                        stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
+                    continue
+
+                # Append to text file
+                # with open('test.txt', 'a') as file:
+                #    [file.write('%11.5g' * 7 % tuple(x) + '\n') for x in pred]
+
+                # Clip boxes to image bounds
+                clip_coords(pred, (height, width))
+
+                # Append to pycocotools JSON dictionary
+                if save_json:
+                    # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
+                    image_id = int(Path(paths[si]).stem.split('_')[-1])
+                    box = pred[:, :4].clone()  # xyxy
+                    scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                    box = xyxy2xywh(box)  # xywh
+                    box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
+                    for p, b in zip(pred.tolist(), box.tolist()):
+                        jdict.append({'image_id': image_id,
+                                      'category_id': coco91class[int(p[5])],
+                                      'bbox': [round(x, 3) for x in b],
+                                      'score': round(p[4], 5)})
+
+                # Assign all predictions as incorrect
+                correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
+                if nl:
+                    detected = []  # target indices
+                    tcls_tensor = labels[:, 0]
+
+                    # target boxes
+                    tbox = xywh2xyxy(labels[:, 1:5]) * whwh
+
+                    # Per target class
+                    for cls in torch.unique(tcls_tensor):
+                        ti = (cls == tcls_tensor).nonzero().view(-1)  # prediction indices
+                        pi = (cls == pred[:, 5]).nonzero().view(-1)  # target indices
+
+                        # Search for detections
+                        if pi.shape[0]:
+                            # Prediction to target ious
+                            ious, i = box_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
+
+                            # Append detections
+                            for j in (ious > iouv[0]).nonzero():
+                                d = ti[i[j]]  # detected target
+                                if d not in detected:
+                                    detected.append(d)
+                                    correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
+                                    if len(detected) == nl:  # all targets already located in image
+                                        break
+
+                # Append statistics (correct, conf, pcls, tcls)
+                stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
