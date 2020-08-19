@@ -435,11 +435,9 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
-            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
+            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss
-            t_obj[b, a, gy, gx] = (1.0 - model.gr) \
-                                  + model.gr * g_iou.detach().clamp(0).type(
-                t_obj.dtype)  # g_iou ratio taken into account
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
@@ -627,8 +625,7 @@ def build_targets_with_ids(preds, targets, track_ids, model):
 
             if use_all_anchors:
                 na = anchors.shape[0]  # number of anchors
-                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(
-                    -1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
+                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(-1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
                 t = t.repeat(na, 1)  # 56 × 6 -> (56×3) × 6
                 tr_ids = track_ids.repeat(na)  # 56 -> 56×3
             else:  # use best anchor only
