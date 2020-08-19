@@ -508,7 +508,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
     l_obj *= h['obj']
     l_cls *= h['cls']
     # l_reid *= h['reid']
-    l_reid /= float(nb)
+    l_reid /= float(nb)  # reid loss normalize by number of GT objects
 
     if red == 'sum':
         bs = t_obj.shape[0]  # batch size
