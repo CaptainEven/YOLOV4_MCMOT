@@ -493,9 +493,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
                     continue
 
                 id_vects = t_reid_feat_vects[inds]
-
-                # L2 normalize the feature vector
-                id_vects = F.normalize(id_vects, dim=1)
+                id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
 
                 fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                 l_reid += CE_reid(fc_preds, tr_ids[inds])
