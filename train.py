@@ -222,7 +222,7 @@ def train():
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size,
@@ -303,9 +303,9 @@ def train():
             print('[Err]: unrecognized task mode.')
             return
 
-        pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
+        p_bar = tqdm(enumerate(dataloader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for i, (imgs, targets, paths, shape) in pbar:  # batch -------------------------------------------------------------
+            for i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
                 ni = i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -374,7 +374,7 @@ def train():
                 else:
                     print('[Err]: unrecognized task mode.')
                     return
-                pbar.set_description(s)
+                p_bar.set_description(s)
 
                 # Plot
                 if ni < 1:
@@ -384,7 +384,7 @@ def train():
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
         elif opt.task == 'track':
-            for i, (imgs, targets, paths, shape, track_ids) in pbar:  # batch -------------------------------------------------------------
+            for i, (imgs, targets, paths, shape, track_ids) in p_bar:  # batch -------------------------------------------------------------
                 ni = i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -454,7 +454,7 @@ def train():
                 else:
                     print('[Err]: unrecognized task mode.')
                     return
-                pbar.set_description(s)
+                p_bar.set_description(s)
 
                 # Plot
                 if ni < 1:
@@ -569,14 +569,14 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='4,5,6', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
-    # Set task mode: pure_detect | detect | track
+    # Set 3 task mode: pure_detect | detect | track
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
