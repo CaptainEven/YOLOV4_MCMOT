@@ -38,7 +38,7 @@ def run(opt):
         cls2id[cls_name] = cls_id
 
     # Set tracker
-    tracker = JDETracker(opt)  # Joint detectionand embedding
+    tracker = JDETracker(opt)  # Joint detection and embedding
 
     for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(opt.device)
@@ -100,12 +100,12 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
-    parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
+    parser.add_argument('--track-buffer', type=int, default=90, help='tracking buffer frames')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='4', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='2', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
