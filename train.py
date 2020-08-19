@@ -224,38 +224,38 @@ def train():
     if not opt.is_debug:
         nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=batch_size,
-                                             num_workers=nw,
-                                             shuffle=not opt.rect,  # Shuffle=True unless rectangular training is used
-                                             pin_memory=True,
-                                             collate_fn=dataset.collate_fn)
+    data_loader = torch.utils.data.DataLoader(dataset,
+                                              batch_size=batch_size,
+                                              num_workers=nw,
+                                              shuffle=not opt.rect,  # Shuffle=True unless rectangular training is used
+                                              pin_memory=True,
+                                              collate_fn=dataset.collate_fn)
 
     # Testloader
     if opt.task == 'pure_detect':
-        testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
-                                                                     imgsz_test,
-                                                                     batch_size,
-                                                                     hyp=hyp,
-                                                                     rect=True,  # True
-                                                                     cache_images=opt.cache_images,
-                                                                     single_cls=opt.single_cls),
-                                                 batch_size=batch_size,
-                                                 num_workers=nw,
-                                                 pin_memory=True,
-                                                 collate_fn=dataset.collate_fn)
-    else:
-        testloader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+        test_loader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
                                                                       imgsz_test,
                                                                       batch_size,
                                                                       hyp=hyp,
-                                                                      rect=True,
+                                                                      rect=True,  # True
                                                                       cache_images=opt.cache_images,
                                                                       single_cls=opt.single_cls),
-                                                 batch_size=batch_size,
-                                                 num_workers=nw,
-                                                 pin_memory=True,
-                                                 collate_fn=dataset.collate_fn)
+                                                  batch_size=batch_size,
+                                                  num_workers=nw,
+                                                  pin_memory=True,
+                                                  collate_fn=dataset.collate_fn)
+    else:
+        test_loader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+                                                                       imgsz_test,
+                                                                       batch_size,
+                                                                       hyp=hyp,
+                                                                       rect=True,
+                                                                       cache_images=opt.cache_images,
+                                                                       single_cls=opt.single_cls),
+                                                  batch_size=batch_size,
+                                                  num_workers=nw,
+                                                  pin_memory=True,
+                                                  collate_fn=dataset.collate_fn)
 
     # Define model parameters
     model.nc = nc  # attach number of classes to model
@@ -267,7 +267,7 @@ def train():
     ema = torch_utils.ModelEMA(model)
 
     # Start training
-    nb = len(dataloader)  # number of batches
+    nb = len(data_loader)  # number of batches
     n_burn = max(3 * nb, 500)  # burn-in iterations, max(3 epochs, 500 iterations)
     maps = np.zeros(nc)  # mAP per class
     # torch.autograd.set_detect_anomaly(True)
@@ -303,9 +303,10 @@ def train():
             print('[Err]: unrecognized task mode.')
             return
 
-        p_bar = tqdm(enumerate(dataloader), total=nb)  # progress bar
+        p_bar = tqdm(enumerate(data_loader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
+            for i, (imgs, targets, paths,
+                    shape) in p_bar:  # batch -------------------------------------------------------------
                 ni = i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -384,7 +385,8 @@ def train():
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
         elif opt.task == 'track':
-            for i, (imgs, targets, paths, shape, track_ids) in p_bar:  # batch -------------------------------------------------------------
+            for i, (imgs, targets, paths, shape,
+                    track_ids) in p_bar:  # batch -------------------------------------------------------------
                 ni = i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -447,10 +449,10 @@ def train():
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 if opt.task == 'pure_detect' or opt.task == 'detect':
                     s = ('%10s' * 2 + '%10.3g' * 6) % (
-                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 elif opt.task == 'track':
                     s = ('%10s' * 2 + '%10.3g' * 7) % (
-                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 else:
                     print('[Err]: unrecognized task mode.')
                     return
@@ -486,7 +488,7 @@ def train():
                                       model=ema.ema,
                                       save_json=final_epoch and is_coco,
                                       single_cls=opt.single_cls,
-                                      data_loader=testloader,
+                                      data_loader=test_loader,
                                       task=opt.task)
 
         # Write
