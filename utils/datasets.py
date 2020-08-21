@@ -882,8 +882,8 @@ def load_mosaic_with_ids(self, index):
             x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
 
         img4[y1a:y2a, x1a:x2a] = img[y1b:y2b, x1b:x2b]  # img4[ymin:ymax, xmin:xmax]
-        padw = x1a - x1b
-        padh = y1a - y1b
+        pad_w = x1a - x1b
+        pad_h = y1a - y1b
 
         # Labels
         x = self.labels[index][:, [0, 2, 3, 4, 5]]  # do not load track id here.
@@ -892,10 +892,10 @@ def load_mosaic_with_ids(self, index):
         labels_orig = y.copy()  # labels with ids
 
         if x.size > 0:  # Normalized xywh to pixel xyxy format
-            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
-            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
-            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
-            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
+            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + pad_w
+            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + pad_h
+            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + pad_w
+            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + pad_h
         labels4.append(labels)
         label4_orig.append(labels_orig)
 

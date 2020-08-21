@@ -34,7 +34,7 @@ hyp = {'giou': 3.54,  # g_iou loss gain
        'lrf': 0.0005,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.000484,  # optimizer weight decay
-       'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
+       'fl_gamma': 2.0,  # focal loss gamma (efficientDet default is gamma=1.5)
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
        'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
        'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
@@ -305,8 +305,8 @@ def train():
 
         p_bar = tqdm(enumerate(data_loader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
-                ni = i + nb * epoch  # number integrated batches (since train start)
+            for batch_i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
+                ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
 
@@ -363,7 +363,7 @@ def train():
                     ema.update(model)
 
                 # Print
-                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 if opt.task == 'pure_detect' or opt.task == 'detect':
                     s = ('%10s' * 2 + '%10.3g' * 6) % (
@@ -378,15 +378,15 @@ def train():
 
                 # Plot
                 if ni < 1:
-                    f = 'train_batch%g.jpg' % i  # filename
+                    f = 'train_batch%g.jpg' % batch_i  # filename
                     plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
                     if tb_writer:
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
         elif opt.task == 'track':
-            for i, (imgs, targets, paths, shape,
+            for batch_i, (imgs, targets, paths, shape,
                     track_ids) in p_bar:  # batch -------------------------------------------------------------
-                ni = i + nb * epoch  # number integrated batches (since train start)
+                ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
                 track_ids = track_ids.to(device)
@@ -444,7 +444,7 @@ def train():
                     ema.update(model)
 
                 # Print
-                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 if opt.task == 'pure_detect' or opt.task == 'detect':
                     s = ('%10s' * 2 + '%10.3g' * 6) % (
@@ -459,11 +459,30 @@ def train():
 
                 # Plot
                 if ni < 1:
-                    f = 'train_batch%g.jpg' % i  # filename
+                    f = 'train_batch%g.jpg' % batch_i  # filename
                     plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
                     if tb_writer:
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+
+                # Save model
+                if ni % 100 == 0:  # save checkpoint every 100 batches
+                    save = (not opt.nosave) or (final_epoch and not opt.evolve)
+                    if save:
+                        with open(results_file, 'r') as f:  # create checkpoint
+                            chkpt = {'epoch': epoch,
+                                     'batch': ni,
+                                     'best_fitness': best_fitness,
+                                     'training_results': f.read(),
+                                     'model': ema.ema.module.state_dict() if hasattr(model,
+                                                                                     'module') else ema.ema.state_dict(),
+                                     'optimizer': None if final_epoch else optimizer.state_dict()}
+
+                        # Save last, best and delete
+                        torch.save(chkpt, last)
+                        if (best_fitness == fi) and not final_epoch:
+                            torch.save(chkpt, best)
+                        del chkpt
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:
@@ -557,11 +576,11 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=5)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768],
+    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
@@ -573,7 +592,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='4', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='6,7', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -581,7 +600,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
