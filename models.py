@@ -365,7 +365,7 @@ class Darknet(nn.Module):
 
         for i, module in enumerate(self.module_list):
             # reid classifiers: use id classifiers in train phase only,
-            # forward in loss computation, not here, so just skip this module
+            # forward in loss_funcs computation, not here, so just skip this module
             if i == 170:
                 continue
 

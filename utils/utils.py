@@ -344,7 +344,7 @@ def wh_iou(wh1, wh2):
 
 
 class FocalLoss(nn.Module):
-    # Wraps focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
+    # Wraps focal loss_funcs around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
     def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
         super(FocalLoss, self).__init__()
         self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
@@ -355,8 +355,8 @@ class FocalLoss(nn.Module):
 
     def forward(self, pred, true):
         loss = self.loss_fcn(pred, true)
-        # p_t = torch.exp(-loss)
-        # loss *= self.alpha * (1.000001 - p_t) ** self.gamma  # non-zero power for gradient stability
+        # p_t = torch.exp(-loss_funcs)
+        # loss_funcs *= self.alpha * (1.000001 - p_t) ** self.gamma  # non-zero power for gradient stability
 
         # TF implementation https://github.com/tensorflow/addons/blob/v0.7.1/tensorflow_addons/losses/focal_loss.py
         pred_prob = torch.sigmoid(pred)  # prob from logits
@@ -390,7 +390,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
     ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
     l_cls, l_box, l_obj, l_reid = ft([0]), ft([0]), ft([0]), ft([0])
 
-    # build targets for loss computation
+    # build targets for loss_funcs computation
     t_cls, t_box, indices, anchor_vec, t_track_ids = build_targets_with_ids(preds, targets, track_ids, model)
 
     h = model.hyp  # hyper parameters
@@ -404,8 +404,8 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
 
-    # focal loss
-    g = h['fl_gamma']  # focal loss gamma
+    # focal loss_funcs
+    g = h['fl_gamma']  # focal loss_funcs gamma
     if g > 0:
         BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
 
@@ -430,23 +430,23 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             # prediction subset corresponding to targets
             # specified item_i_in_batch, anchor_i, grid_y, grid_x
             pred_s = pred_i[b, a, gy, gx]  # nb × 10
-            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss (uncomment)
+            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss_funcs (uncomment)
 
             # GIoU
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
-            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss
+            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
 
-            if model.nc > 1:  # cls loss (only if multiple classes)
+            if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
                 t[range(nb), cls_ids] = cp
                 l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
                 # l_cls += CE(pred_s[:, 5:], cls_ids)  # CE
 
-            # ----- compute reid loss for each GT box
+            # ----- compute reid loss_funcs for each GT box
             # get center point coordinates for all GT
             center_x = gx + pred_s[:, 0]
             center_y = gy + pred_s[:, 1]
@@ -468,7 +468,7 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             # get reid feature vector for GT boxes
             t_reid_feat_vects = reid_feat_map[b, :, center_y, center_x]  # nb × 128
 
-            # ----- compute each GT box's reid loss
+            # ----- compute each GT box's reid loss_funcs
             # for gt_i in range(nb):
             #     # FC layer map feature to prob space
             #     # try:
@@ -480,12 +480,12 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             #     cls_id = cls_ids[gt_i]
             #     pred_fc = model.id_classifiers[cls_id].forward(id_feat_vect).contiguous()
             #
-            #     # reid loss
+            #     # reid loss_funcs
             #     pred_fc = pred_fc.unsqueeze(0)
             #     tr_id = tr_ids[gt_i].unsqueeze(0)
             #     l_reid += CE_reid(pred_fc, tr_id)
 
-            # ----- compute each object class's reid loss
+            # ----- compute each object class's reid loss_funcs
             for cls_id, id_num in model.max_id_dict.items():
                 inds = torch.where(cls_ids == cls_id)
                 if inds[0].shape[0] == 0:
@@ -502,13 +502,13 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             # with open('targets.txt', 'a') as file:
             #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
-        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss(confidence score loss)
+        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss_funcs(confidence score loss_funcs)
 
     l_box *= h['giou']
     l_obj *= h['obj']
     l_cls *= h['cls']
     # l_reid *= h['reid']
-    l_reid /= float(nb)  # reid loss normalize by number of GT objects
+    l_reid /= float(nb)  # reid loss_funcs normalize by number of GT objects
 
     if red == 'sum':
         bs = t_obj.shape[0]  # batch size
@@ -535,8 +535,8 @@ def compute_loss(preds, targets, model):  # predictions, targets, model
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
 
-    # focal loss
-    g = h['fl_gamma']  # focal loss gamma
+    # focal loss_funcs
+    g = h['fl_gamma']  # focal loss_funcs gamma
     if g > 0:
         BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
 
@@ -555,19 +555,19 @@ def compute_loss(preds, targets, model):  # predictions, targets, model
             # prediction subset corresponding to targets
             # specified item_i_in_batch, anchor_i, grid_y, grid_x
             pred_s = pred_i[b, a, gj, gi]  # nb × 10
-            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss (uncomment)
+            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss_funcs (uncomment)
 
             # GIoU
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
-            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss
+            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gj, gi] = (1.0 - model.gr) \
                                   + model.gr * g_iou.detach().clamp(0).type(
                 t_obj.dtype)  # g_iou ratio taken into account
 
-            if model.nc > 1:  # cls loss (only if multiple classes)
+            if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
                 t[range(nb), t_cls[i]] = cp
                 l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
@@ -577,7 +577,7 @@ def compute_loss(preds, targets, model):  # predictions, targets, model
             # with open('targets.txt', 'a') as file:
             #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
 
-        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss(confidence score loss)
+        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss_funcs(confidence score loss_funcs)
 
     l_box *= h['giou']
     l_obj *= h['obj']
@@ -1205,7 +1205,7 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
             for j in [i, i + 5]:
                 y = results[j, x]
                 if i in [0, 1, 2]:
-                    y[y == 0] = np.nan  # dont show zero loss values
+                    y[y == 0] = np.nan  # dont show zero loss_funcs values
                 ax[i].plot(x, y, marker='.', label=s[j])
             ax[i].set_title(t[i])
             ax[i].legend()
@@ -1233,11 +1233,11 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import 
             for i in range(10):
                 y = results[i, x]
                 if i in [0, 1, 2, 5, 6, 7]:
-                    y[y == 0] = np.nan  # dont show zero loss values
+                    y[y == 0] = np.nan  # dont show zero loss_funcs values
                     # y /= y[0]  # normalize
                 ax[i].plot(x, y, marker='.', label=Path(f).stem, linewidth=2, markersize=8)
                 ax[i].set_title(s[i])
-                if i in [5, 6, 7]:  # share train and val loss y axes
+                if i in [5, 6, 7]:  # share train and val loss_funcs y axes
                     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
         except:
             print('Warning: Plotting error for %s, skipping file' % f)

@@ -9,6 +9,7 @@ import test  # import test.py to get mAP after each epoch
 from models import *
 from utils.datasets import *
 from utils.utils import *
+from auto_weighted_loss import AutomaticWeightedLoss
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
@@ -23,18 +24,18 @@ best = wdir + 'best.pt'
 results_file = 'results.txt'
 
 # Hyper-parameters
-hyp = {'giou': 3.54,  # g_iou loss gain
-       'cls': 37.4,  # cls loss gain
+hyp = {'giou': 3.54,  # g_iou loss_funcs gain
+       'cls': 37.4,  # cls loss_funcs gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
-       'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
-       'reid': 0.1,  # reid loss weight
+       'obj': 64.3,  # obj loss_funcs gain (*=img_size/320 if img_size != 320)
+       'reid': 0.1,  # reid loss_funcs weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
        'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
        'lrf': 0.0005,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.000484,  # optimizer weight decay
-       'fl_gamma': 2.0,  # focal loss gamma (efficientDet default is gamma=1.5)
+       'fl_gamma': 2.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
        'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
        'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
@@ -50,7 +51,7 @@ if f:
     for k, v in zip(hyp.keys(), np.loadtxt(f[0])):
         hyp[k] = v
 
-# Print focal loss if gamma > 0
+# Print focal loss_funcs if gamma > 0
 if hyp['fl_gamma']:
     print('Using FocalLoss(gamma=%g)' % hyp['fl_gamma'])
 
@@ -144,6 +145,12 @@ def train():
         else:
             pg0 += [v]  # all else
 
+    if opt.auto_weight:
+        if opt.task == 'pure_detect' or opt.task == 'detect':
+            awl = AutomaticWeightedLoss(3)
+        elif opt.task == 'track':
+            awl = AutomaticWeightedLoss(4)
+
     if opt.adam:
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
         optimizer = optim.Adam(pg0, lr=hyp['lr0'])
@@ -152,6 +159,8 @@ def train():
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+    if opt.auto_weight:
+        optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
     del pg0, pg1, pg2
 
     start_epoch = 0
@@ -260,7 +269,7 @@ def train():
     # Define model parameters
     model.nc = nc  # attach number of classes to model
     model.hyp = hyp  # attach hyper-parameters to model
-    model.gr = 1.0  # g_iou loss ratio (obj_loss = 1.0 or g_iou)
+    model.gr = 1.0  # g_iou loss_funcs ratio (obj_loss = 1.0 or g_iou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
     # Model EMA
@@ -305,14 +314,16 @@ def train():
 
         p_bar = tqdm(enumerate(data_loader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for batch_i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
+            for batch_i, (imgs, targets, paths,
+                          shape) in p_bar:  # batch -------------------------------------------------------------
                 ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
 
                 # Burn-in
                 if ni <= n_burn * 2:
-                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    model.gr = np.interp(ni, [0, n_burn * 2],
+                                         [0.0, 1.0])  # giou loss_funcs ratio (obj_loss = 1.0 or giou)
                     if ni == n_burn:  # burnin complete
                         print_model_biases(model)
 
@@ -345,11 +356,11 @@ def train():
                 loss, loss_items = compute_loss(pred, targets, model)
 
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
-                loss *= batch_size / 64.0  # scale loss
+                loss *= batch_size / 64.0  # scale loss_funcs
                 if mixed_precision:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -385,7 +396,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
         elif opt.task == 'track':
             for batch_i, (imgs, targets, paths, shape,
-                    track_ids) in p_bar:  # batch -------------------------------------------------------------
+                          track_ids) in p_bar:  # batch -------------------------------------------------------------
                 ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -393,7 +404,8 @@ def train():
 
                 # Burn-in
                 if ni <= n_burn * 2:
-                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    model.gr = np.interp(ni, [0, n_burn * 2],
+                                         [0.0, 1.0])  # giou loss_funcs ratio (obj_loss = 1.0 or giou)
                     if ni == n_burn:  # burnin complete
                         print_model_biases(model)
 
@@ -424,13 +436,15 @@ def train():
 
                 # Loss
                 loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+                if opt.auto_weight:
+                    loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
-                loss *= batch_size / 64.0  # scale loss
+                loss *= batch_size / 64.0  # scale loss_funcs
                 if mixed_precision:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -482,6 +496,7 @@ def train():
                         torch.save(chkpt, last)
                         if (best_fitness == fi) and not final_epoch:
                             torch.save(chkpt, best)
+                            print('{} saved.'.format(last))
                         del chkpt
 
                 # end batch ------------------------------------------------------------------------------------------------
@@ -538,12 +553,11 @@ def train():
         # Save model
         save = (not opt.nosave) or (final_epoch and not opt.evolve)
         if save:
-            with open(results_file, 'r') as f:  # create checkpoint
-                chkpt = {'epoch': epoch,
-                         'best_fitness': best_fitness,
-                         'training_results': f.read(),
-                         'model': ema.ema.module.state_dict() if hasattr(model, 'module') else ema.ema.state_dict(),
-                         'optimizer': None if final_epoch else optimizer.state_dict()}
+            # create checkpoint: whithin an epoch, no results yet, donot save results.txt
+            chkpt = {'epoch': epoch,
+                     'best_fitness': best_fitness,
+                     'model': ema.ema.module.state_dict() if hasattr(model, 'module') else ema.ema.state_dict(),
+                     'optimizer': None if final_epoch else optimizer.state_dict()}
 
             # Save last, best and delete
             torch.save(chkpt, last)
@@ -576,9 +590,9 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=4)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
@@ -589,10 +603,10 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='./weights/yolov4-paspp.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='6,7', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -600,10 +614,12 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+
+    parser.add_argument('--auto-weight', type=bool, default=True, help='Whether use auto weight tuning')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--is_debug', type=bool, default=True, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
