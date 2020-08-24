@@ -486,17 +486,31 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             #     l_reid += CE_reid(pred_fc, tr_id)
 
             # ----- compute each object class's reid loss_funcs
-            for cls_id, id_num in model.max_id_dict.items():
-                inds = torch.where(cls_ids == cls_id)
-                if inds[0].shape[0] == 0:
-                    # print('skip class id', cls_id)
-                    continue
+            multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+            if multi_gpu:
+                for cls_id, id_num in model.module.max_id_dict.items():
+                    inds = torch.where(cls_ids == cls_id)
+                    if inds[0].shape[0] == 0:
+                        # print('skip class id', cls_id)
+                        continue
 
-                id_vects = t_reid_feat_vects[inds]
-                id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
+                    id_vects = t_reid_feat_vects[inds]
+                    id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
 
-                fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
-                l_reid += CE_reid(fc_preds, tr_ids[inds])
+                    fc_preds = model.module.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    l_reid += CE_reid(fc_preds, tr_ids[inds])
+            else:
+                for cls_id, id_num in model.max_id_dict.items():
+                    inds = torch.where(cls_ids == cls_id)
+                    if inds[0].shape[0] == 0:
+                        # print('skip class id', cls_id)
+                        continue
+
+                    id_vects = t_reid_feat_vects[inds]
+                    id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
+
+                    fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    l_reid += CE_reid(fc_preds, tr_ids[inds])
 
             # Append targets to text file
             # with open('targets.txt', 'a') as file:
