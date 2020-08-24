@@ -59,7 +59,7 @@ if hyp['fl_gamma']:
 def train():
     print('Task mode: {}'.format(opt.task))
 
-    last = wdir + opt.task + '_last.pth'
+    last = wdir + opt.task + '_last.pt'
 
     cfg = opt.cfg
     data = opt.data
@@ -233,7 +233,7 @@ def train():
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     data_loader = torch.utils.data.DataLoader(dataset,
                                               batch_size=batch_size,
@@ -587,9 +587,9 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=4)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=12)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
@@ -603,7 +603,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='5', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='4,6,7', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -611,7 +611,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
