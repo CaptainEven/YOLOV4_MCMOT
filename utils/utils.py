@@ -468,23 +468,6 @@ def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
             # get reid feature vector for GT boxes
             t_reid_feat_vects = reid_feat_map[b, :, center_y, center_x]  # nb × 128
 
-            # ----- compute each GT box's reid loss_funcs
-            # for gt_i in range(nb):
-            #     # FC layer map feature to prob space
-            #     # try:
-            #     #     id_classifier = id_classifier_dict[str(int(cls_ids[gt_i]))]
-            #     # except Exception as e:
-            #     #     print(e)
-            #
-            #     id_feat_vect = t_reid_feat_vects[gt_i]
-            #     cls_id = cls_ids[gt_i]
-            #     pred_fc = model.id_classifiers[cls_id].forward(id_feat_vect).contiguous()
-            #
-            #     # reid loss_funcs
-            #     pred_fc = pred_fc.unsqueeze(0)
-            #     tr_id = tr_ids[gt_i].unsqueeze(0)
-            #     l_reid += CE_reid(pred_fc, tr_id)
-
             # ----- compute each object class's reid loss_funcs
             multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
             if multi_gpu:

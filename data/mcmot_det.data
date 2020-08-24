@@ -1,4 +1,4 @@
 classes=5
 train=./data/mcmot_det_train.txt
-valid=./data/mcmot_det_val.txt
+valid=./data/mcmot_det_test.txt
 names=data/mcmot.names
