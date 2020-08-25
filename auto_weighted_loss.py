@@ -22,7 +22,7 @@ class AutomaticWeightedLoss(nn.Module):
         self.params = torch.nn.Parameter(params)
 
     def forward(self, *x):
-        loss_sum = 0
+        loss_sum = 0.0
         for i, loss in enumerate(x):
             loss_sum += 0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2)
         return loss_sum

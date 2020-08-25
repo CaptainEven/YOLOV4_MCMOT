@@ -222,7 +222,7 @@ def train():
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9999',  # distributed training init method
+                                init_method='tcp://127.0.0.1:9998',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
@@ -233,7 +233,7 @@ def train():
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     data_loader = torch.utils.data.DataLoader(dataset,
                                               batch_size=batch_size,
@@ -346,13 +346,7 @@ def train():
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    pred = model.forward(imgs)
-                elif opt.task == 'track':
-                    pred, reid_feat_map = model.forward(imgs)
-                else:
-                    print('[Err]: un-recognized task mode.')
-                    return
+                pred = model.forward(imgs)
 
                 # Loss
                 loss, loss_items = compute_loss(pred, targets, model)
@@ -428,19 +422,17 @@ def train():
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    pred = model.forward(imgs)
-                elif opt.task == 'track':
-                    pred, reid_feat_map = model.forward(imgs)
-                else:
-                    print('[Err]: un-recognized task mode.')
-                    return
+                pred, reid_feat_map = model.forward(imgs)
 
                 # Loss
-                loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+                loss, loss_items = compute_loss_with_ids(pred, reid_feat_map, targets, track_ids, model)
+
                 if opt.auto_weight:
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
+                if not torch.isfinite(loss_items[3]):
+                    print('[Warning]: non-infinite reid loss.')
+                    loss_items[3:] = 0.0
                 if not torch.isfinite(loss):
                     print('WARNING: non-finite loss_funcs, ending training ', loss_items)
                     return results
@@ -587,7 +579,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=12)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
@@ -603,7 +595,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='4,6,7', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='1,2', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -611,7 +603,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 

@@ -92,7 +92,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/last.pt', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')

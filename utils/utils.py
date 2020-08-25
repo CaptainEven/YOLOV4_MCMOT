@@ -378,11 +378,11 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
-def compute_loss_with_ids(preds, targets, reid_feat_map, track_ids, model):
+def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
     """
     :param preds:
-    :param targets:
     :param reid_feat_map:
+    :param targets:
     :param track_ids:
     :param model:
     :return:
