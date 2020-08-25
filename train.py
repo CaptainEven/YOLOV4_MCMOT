@@ -372,15 +372,7 @@ def train():
                 # Print
                 m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    s = ('%10s' * 2 + '%10.3g' * 6) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                elif opt.task == 'track':
-                    s = ('%10s' * 2 + '%10.3g' * 7) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                else:
-                    print('[Err]: unrecognized task mode.')
-                    return
+                s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 p_bar.set_description(s)
 
                 # Plot
@@ -454,15 +446,7 @@ def train():
                 # Print
                 m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    s = ('%10s' * 2 + '%10.3g' * 6) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                elif opt.task == 'track':
-                    s = ('%10s' * 2 + '%10.3g' * 7) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                else:
-                    print('[Err]: unrecognized task mode.')
-                    return
+                s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 p_bar.set_description(s)
 
                 # Plot
