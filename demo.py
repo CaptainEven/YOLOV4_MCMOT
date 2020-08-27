@@ -100,7 +100,7 @@ def run_detection(opt):
         out_f_name = out_img_name.replace('.jpg', '.txt')
         out_f_path = opt.out_txt_dir + '/' + out_f_name
         with open(out_f_path, 'w', encoding='utf-8') as w_h:
-            w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')
+            w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')  # write the first row
             for det in dets_list:
                 w_h.write('%d %f %f %f %f %f\n' % (det[0], det[1], det[2], det[3], det[4], det[5]))
         print('{} written'.format(out_f_path))
