@@ -17,29 +17,18 @@ def format_output(dets, w, h):
     :param h: image's original height
     :return: list of items: cls_id, conf_score, center_x, center_y,  bbox_w, bbox_h, [0, 1]
     """
+    if dets is None:
+        return None
+
     out_list = []
-    if isinstance(dets, list):
-        for det in dets:
-            x1, y1, x2, y2, score, cls_id = det
-            center_x = (x1 + x2) * 0.5 / float(w)
-            center_y = (y1 + y2) * 0.5 / float(h)
-            bbox_w = (x2 - x1) / float(w)
-            bbox_h = (y2 - y1) / float(h)
-
-            out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
-    elif isinstance(dets, dict):
-        for k, v in dets.items():
-            for det in v:
-                x1, y1, x2, y2, score, cls_id = det
-                center_x = (x1 + x2) * 0.5 / float(w)
-                center_y = (y1 + y2) * 0.5 / float(h)
-                bbox_w = (x2 - x1) / float(w)
-                bbox_h = (y2 - y1) / float(h)
-
-                out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
-    else:
-        print('[Err]: Input neither list or dict, unable to process.')
-        return
+    for det in dets:
+        x1, y1, x2, y2, score, cls_id = det
+        center_x = (x1 + x2) * 0.5 / float(w)
+        center_y = (y1 + y2) * 0.5 / float(h)
+        bbox_w = (x2 - x1) / float(w)
+        bbox_h = (y2 - y1) / float(h)
+        out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
+    return out_list
 
 
 def run_detection(opt):
@@ -47,8 +36,17 @@ def run_detection(opt):
     :param opt:
     :return:
     """
+    print('Start detection...')
+
     # Set dataset and device
-    dataset = LoadImages(opt.source, img_size=opt.img_size)
+    if os.path.isfile(opt.source):
+        with open(opt.source, 'r', encoding='utf-8') as r_h:
+            paths = [x.strip() for x in r_h.readlines()]
+            print('Total {:d} image files.'.format(len(paths)))
+            dataset = LoadImages(path=paths, img_size=opt.img_size)
+    else:
+        dataset = LoadImages(opt.source, img_size=opt.img_size)
+
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -80,25 +78,26 @@ def run_detection(opt):
 
         # update detection result of this frame
         dets = tracker.update_detection(img, img0)
+        if dets is None:
+            continue
 
         if opt.show_image:
-            if tracker.frame_id > 0:
-                online_im = vis.plot_detects(image=img0,
-                                             dets=dets,
-                                             num_classes=opt.num_classes,
-                                             frame_id=fr_id)
+            online_im = vis.plot_detects(image=img0,
+                                         dets=dets,
+                                         num_classes=opt.num_classes,
+                                         frame_id=fr_id)
 
         if opt.save_img_dir is not None:
             save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
             cv2.imwrite(save_path, online_im)
 
         # output results as .txt file
-        dets_list = format_output(dets, w=img_0.shape[1], h=img_0.shape[0])
+        dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
 
         # output label(txt) to
         out_img_name = os.path.split(path)[-1]
         out_f_name = out_img_name.replace('.jpg', '.txt')
-        out_f_path = opt.out_txt_dir + '/' + out_f_name
+        out_f_path = opt.output_txt_dir + '/' + out_f_name
         with open(out_f_path, 'w', encoding='utf-8') as w_h:
             w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')  # write the first row
             for det in dets_list:
@@ -191,7 +190,8 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
+    # parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
+    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
