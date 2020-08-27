@@ -79,7 +79,7 @@ def run_detection(opt):
             img = img.unsqueeze(0)
 
         # update detection result of this frame
-        online_targets_dict = tracker.update_detection(img, img0)
+        dets = tracker.update_detection(img, img0)
 
         if opt.show_image:
             if tracker.frame_id > 0:
