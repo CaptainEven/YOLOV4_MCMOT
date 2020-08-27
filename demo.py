@@ -78,8 +78,6 @@ def run_detection(opt):
 
         # update detection result of this frame
         dets = tracker.update_detection(img, img0)
-        if dets is None:
-            continue
 
         if opt.show_image:
             online_im = vis.plot_detects(image=img0,
@@ -92,7 +90,10 @@ def run_detection(opt):
             cv2.imwrite(save_path, online_im)
 
         # output results as .txt file
-        dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
+        if dets is None:
+            dets_list = []
+        else:
+            dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
 
         # output label(txt) to
         out_img_name = os.path.split(path)[-1]
