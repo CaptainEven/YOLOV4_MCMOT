@@ -224,7 +224,7 @@ class JDETracker(object):
         # ----- using kalman filter to stabilize tracking
         self.kalman_filter = KalmanFilter()
 
-    def update_detection(selfself, img, img0):
+    def update_detection(self, img, img0):
         """
         :param img:
         :param img0:
