@@ -341,8 +341,7 @@ def train():
                         img_size = random.randrange(grid_min, grid_max + 1) * gs
                     sf = img_size / max(imgs.shape[2:])  # scale factor
                     if sf != 1:
-                        ns = [math.ceil(x * sf / gs) * gs for x in
-                              imgs.shape[2:]]  # new shape (stretched to 32-multiple)
+                        ns = [math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]]  # new shape (stretched to 32-multiple)
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
@@ -579,7 +578,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./weights/last.pt', help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='1,2', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='6,7,8', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -587,7 +586,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='track', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 

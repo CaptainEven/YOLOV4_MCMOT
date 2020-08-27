@@ -10,7 +10,103 @@ from tracker.multitracker import JDETracker
 from tracking_utils import visualization as vis
 
 
-def run(opt):
+def format_output(dets, w, h):
+    """
+    :param dets: detection result input: x1, y1, x2, y2, score, cls_id
+    :param w: image's original width
+    :param h: image's original height
+    :return: list of items: cls_id, conf_score, center_x, center_y,  bbox_w, bbox_h, [0, 1]
+    """
+    out_list = []
+    if isinstance(dets, list):
+        for det in dets:
+            x1, y1, x2, y2, score, cls_id = det
+            center_x = (x1 + x2) * 0.5 / float(w)
+            center_y = (y1 + y2) * 0.5 / float(h)
+            bbox_w = (x2 - x1) / float(w)
+            bbox_h = (y2 - y1) / float(h)
+
+            out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
+    elif isinstance(dets, dict):
+        for k, v in dets.items():
+            for det in v:
+                x1, y1, x2, y2, score, cls_id = det
+                center_x = (x1 + x2) * 0.5 / float(w)
+                center_y = (y1 + y2) * 0.5 / float(h)
+                bbox_w = (x2 - x1) / float(w)
+                bbox_h = (y2 - y1) / float(h)
+
+                out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
+    else:
+        print('[Err]: Input neither list or dict, unable to process.')
+        return
+
+
+def run_detection(opt):
+    """
+    :param opt:
+    :return:
+    """
+    # Set dataset and device
+    dataset = LoadImages(opt.source, img_size=opt.img_size)
+    device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
+    opt.device = device
+
+    # Set result output
+    frame_dir = opt.save_img_dir + '/frame'
+    if not os.path.isdir(frame_dir):
+        os.makedirs(frame_dir)
+    else:
+        shutil.rmtree(frame_dir)
+        os.makedirs(frame_dir)
+
+    # class name to class id and class id to class name
+    names = load_classes(opt.names)
+    id2cls = defaultdict(str)
+    cls2id = defaultdict(int)
+    for cls_id, cls_name in enumerate(names):
+        id2cls[cls_id] = cls_name
+        cls2id[cls_name] = cls_id
+
+    # Set tracker
+    tracker = JDETracker(opt)  # Joint detection and embedding
+
+    for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
+        img = torch.from_numpy(img).to(opt.device)
+        img = img.float()  # uint8 to fp32
+        img /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if img.ndimension() == 3:
+            img = img.unsqueeze(0)
+
+        # update detection result of this frame
+        online_targets_dict = tracker.update_detection(img, img0)
+
+        if opt.show_image:
+            if tracker.frame_id > 0:
+                online_im = vis.plot_detects(image=img0,
+                                             dets=dets,
+                                             num_classes=opt.num_classes,
+                                             frame_id=fr_id)
+
+        if opt.save_img_dir is not None:
+            save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+            cv2.imwrite(save_path, online_im)
+
+        # output results as .txt file
+        dets_list = format_output(dets, w=img_0.shape[1], h=img_0.shape[0])
+
+        # output label(txt) to
+        out_img_name = os.path.split(path)[-1]
+        out_f_name = out_img_name.replace('.jpg', '.txt')
+        out_f_path = opt.out_txt_dir + '/' + out_f_name
+        with open(out_f_path, 'w', encoding='utf-8') as w_h:
+            w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')
+            for det in dets_list:
+                w_h.write('%d %f %f %f %f %f\n' % (det[0], det[1], det[2], det[3], det[4], det[5]))
+        print('{} written'.format(out_f_path))
+
+
+def run_tracking(opt):
     """
     :param opt:
     :return:
@@ -22,7 +118,7 @@ def run(opt):
     opt.device = device
 
     # Set result output
-    frame_dir = opt.save_dir + '/frame'
+    frame_dir = opt.save_img_dir + '/frame'
     if not os.path.isdir(frame_dir):
         os.makedirs(frame_dir)
     else:
@@ -74,14 +170,14 @@ def run(opt):
                                             frame_id=fr_id,
                                             id2cls=id2cls)
 
-        if opt.save_dir is not None:
+        if opt.save_img_dir is not None:
             save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
             cv2.imwrite(save_path, online_im)
 
     # output tracking result as video
     src_name = os.path.split(opt.source)[-1]
     name, suffix = src_name.split('.')
-    result_video_path = opt.save_dir + '/' + name + '_track' + '.' + suffix
+    result_video_path = opt.save_img_dir + '/' + name + '_track' + '.' + suffix
 
     cmd_str = 'ffmpeg -f image2 -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
         .format(frame_dir, result_video_path)
@@ -97,6 +193,13 @@ if __name__ == '__main__':
     # input file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
 
+    # output detection results as txt file for mMAP computation
+    parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
+
+    parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
+
+    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
+
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
@@ -105,15 +208,19 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='5', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--save-dir', type=str, default='./results', help='dir to save results(imgs).')
     parser.add_argument('--show-image', type=bool, default=True, help='whether to show results.')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     opt = parser.parse_args()
     print(opt)
 
-    run(opt)
+    if opt.task == 'track':
+        run_tracking(opt)
+    elif opt.task == 'detect':
+        run_detection(opt)
+    else:
+        print("[Err]: un-recognized task mode, neither 'track' or 'detect'")

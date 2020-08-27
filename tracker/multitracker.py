@@ -224,6 +224,39 @@ class JDETracker(object):
         # ----- using kalman filter to stabilize tracking
         self.kalman_filter = KalmanFilter()
 
+    def update_detection(selfself, img, img0):
+        """
+        :param img:
+        :param img0:
+        :return:
+        """
+        # ----- do detection only(reid feature vector will not be extracted)
+        # only get aggregated result, not original YOLO output
+        with torch.no_grad():
+            pred, pred_orig, _ = self.model.forward(img, augment=self.opt.augment)
+            pred = pred.float()
+
+            # apply NMS
+            pred = non_max_suppression(pred,
+                                       self.opt.conf_thres,
+                                       self.opt.iou_thres,
+                                       merge=False,
+                                       classes=self.opt.classes,
+                                       agnostic=self.opt.agnostic_nms)
+
+            dets = pred[0]  # assume batch_size == 1 here
+
+            # get reid feature for each object class
+            if dets is None:
+                print('[Warning]: no objects detected.')
+                return None
+
+            # Rescale boxes from img_size to img0 size(from net input size to original size)
+            dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
+
+        return dets
+
+
     def update_tracking(self, img, img0):
         """
         Update tracking result of the frame
