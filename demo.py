@@ -80,10 +80,11 @@ def run_detection(opt):
         dets = tracker.update_detection(img, img0)
 
         if opt.show_image:
-            online_im = vis.plot_detects(image=img0,
+            online_im = vis.plot_detects(img=img0,
                                          dets=dets,
                                          num_classes=opt.num_classes,
-                                         frame_id=fr_id)
+                                         frame_id=fr_id,
+                                         id2cls=id2cls)
 
         if opt.save_img_dir is not None:
             save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
@@ -91,6 +92,8 @@ def run_detection(opt):
 
         # output results as .txt file
         if dets is None:
+            print('[Warning]: non objects detected in {}, frame id {:d}'\
+                  .format(os.path.split(path), fr_id))
             dets_list = []
         else:
             dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
@@ -188,7 +191,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/pure_detect_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
     # parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
@@ -209,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='5', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
