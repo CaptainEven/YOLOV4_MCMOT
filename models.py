@@ -487,15 +487,19 @@ def load_darknet_weights(self, weights, cutoff=-1):
                 # Load BN bias, weights, running mean and running variance
                 bn = module[1]
                 nb = bn.bias.numel()  # number of biases
+
                 # Bias
                 bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
                 ptr += nb
+
                 # Weight
                 bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
                 ptr += nb
+
                 # Running Mean
                 bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
                 ptr += nb
+
                 # Running Var
                 bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
                 ptr += nb
@@ -505,6 +509,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
                 conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
+
             # Load conv. weights
             nw = conv.weight.numel()  # number of weights
             conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
