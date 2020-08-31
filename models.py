@@ -113,10 +113,21 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                 modules = nn.Upsample(scale_factor=mdef['stride'])
 
         elif mdef['type'] == 'route':  # nn.Sequential() placeholder for 'route' layer
+            # layers = mdef['layers']
+            # filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
+            # routs.extend([i + l if l < 0 else l for l in layers])
+            # modules = FeatureConcat(layers=layers)
+
             layers = mdef['layers']
             filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = FeatureConcat(layers=layers)
+            if 'groups' in mdef:
+                groups = mdef['groups']
+                group_id = mdef['group_id']
+                modules = RouteGroup(layers, groups, group_id)
+                filters //= groups
+            else:
+                modules = FeatureConcat(layers=layers)
 
         elif mdef['type'] == 'route_lhalf':  # nn.Sequential() placeholder for 'route' layer
             layers = mdef['layers']
@@ -302,12 +313,12 @@ class Darknet(nn.Module):
         if max_id_dict is not None:
             self.max_id_dict = max_id_dict
             self.emb_dim = emb_dim
-            self.id_classifiers = nn.ModuleList()
+            self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
                 self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
 
-            # add reid classifiers(nn.ModuleDict) to self.module_list to be registered
+            # add reid classifiers(nn.ModuleList) to self.module_list to be registered
             self.module_list.append(self.id_classifiers)
 
         self.yolo_layer_inds = get_yolo_layers(self)
@@ -364,13 +375,13 @@ class Darknet(nn.Module):
                            ), 0)
 
         for i, module in enumerate(self.module_list):
-            # reid classifiers: use id classifiers in train phase only,
-            # forward in loss_funcs computation, not here, so just skip this module
-            if i == 170:
-                continue
+            # # reid classifiers: use id classifiers in train phase only,
+            # # forward in loss_funcs computation, not here, so just skip this module
+            # if i == 170:
+            #     continue
 
             name = module.__class__.__name__
-            if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l']:  # sum, concat
+            if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l', 'RouteGroup']:  # sum, concat
                 if verbose:
                     l = [i - 1] + module.layers  # layers
                     sh = [list(x.shape)] + [list(out[i].shape) for i in module.layers]  # shapes
@@ -378,6 +389,8 @@ class Darknet(nn.Module):
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
                 yolo_out.append(module.forward(x, out))
+            elif name == 'ModuleList':  # laset 5 layers of FC: reid classifiers
+                continue
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
 
@@ -387,7 +400,7 @@ class Darknet(nn.Module):
                 str = ''
 
         # Get last feature map for reid feature vector extraction
-        reid_feat_map = out[169]  # e.g. 5×128×192×192
+        reid_feat_map = out[-1]  # e.g. 5×128×192×192
 
         # ----- Output mode
         if self.training:  # train

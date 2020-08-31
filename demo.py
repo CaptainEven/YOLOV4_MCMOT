@@ -92,7 +92,7 @@ def run_detection(opt):
 
         # output results as .txt file
         if dets is None:
-            print('[Warning]: non objects detected in {}, frame id {:d}'\
+            print('\n[Warning]: non objects detected in {}, frame id {:d}\n' \
                   .format(os.path.split(path), fr_id))
             dets_list = []
         else:
@@ -108,6 +108,7 @@ def run_detection(opt):
                 w_h.write('%d %f %f %f %f %f\n' % (det[0], det[1], det[2], det[3], det[4], det[5]))
         print('{} written'.format(out_f_path))
 
+    print('Total {:d} images tested.'.format(fr_id + 1))
 
 def run_tracking(opt):
     """
@@ -194,15 +195,15 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/pure_detect_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    # parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
-    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
+    # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
 
     parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
 
-    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
+    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
