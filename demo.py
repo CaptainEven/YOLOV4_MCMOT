@@ -190,9 +190,9 @@ def run_tracking(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/pure_detect_last.pt', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/yolov4-tiny-3l_last.weights', help='weights path')
 
     # input file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
@@ -203,7 +203,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
 
-    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
+    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')

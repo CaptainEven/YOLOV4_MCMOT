@@ -476,7 +476,6 @@ def load_darknet_weights(self, weights, cutoff=-1):
         # Read Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
         self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
         self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
-
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
     ptr = 0
