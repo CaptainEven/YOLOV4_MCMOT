@@ -443,7 +443,7 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
             if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
                 t[range(nb), cls_ids] = cp
-                l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE
+                l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE loss for each object class
                 # l_cls += CE(pred_s[:, 5:], cls_ids)  # CE
 
             # ----- compute reid loss_funcs for each GT box
@@ -638,7 +638,7 @@ def build_targets_with_ids(preds, targets, track_ids, model):
                 idx = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyper parameter
                 t, a = t[idx], a[idx]
 
-                # GT track ids
+                # GT track ids: for reid classification training
                 tr_ids = tr_ids[idx]
 
         # Indices

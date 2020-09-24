@@ -115,7 +115,6 @@ def run_tracking(opt):
     :param opt:
     :return:
     """
-
     # Set dataset and device
     dataset = LoadImages(opt.source, img_size=opt.img_size)
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
@@ -192,7 +191,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/yolov4-tiny-3l_last.weights', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_track_last.weights', help='weights path')
 
     # input file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
@@ -203,7 +202,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
 
-    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
+    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
@@ -213,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='0', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')

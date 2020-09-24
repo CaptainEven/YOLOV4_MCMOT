@@ -5,7 +5,7 @@ from utils.parse_config import *
 ONNX_EXPORT = False
 
 
-# 解析.cfg文件, 创建网络各层
+# Parse cfg file, create every layer
 def create_modules(module_defs, img_size, cfg, id_classifiers=None):
     # Constructs module list of layer blocks from module configuration in module_defs
 
@@ -49,6 +49,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
             if mdef['activation'] == 'leaky':  # activation study https://github.com/ultralytics/yolov3/issues/441
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
+            elif mdef['activation'] == 'relu':
+                modules.add_module('activation', nn.ReLU(inplace=True))
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -82,6 +84,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
             if mdef['activation'] == 'leaky':  # activation study https://github.com/ultralytics/yolov3/issues/441
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
+            elif mdef['activation'] == 'relu':
+                modules.add_module('activation', nn.ReLU(inplace=True))
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -112,6 +116,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             else:
                 modules = nn.Upsample(scale_factor=mdef['stride'])
 
+        # Add GroupRoute support
         elif mdef['type'] == 'route':  # nn.Sequential() placeholder for 'route' layer
             # layers = mdef['layers']
             # filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
@@ -332,6 +337,7 @@ class Darknet(nn.Module):
     def forward(self, x, augment=False, verbose=False):
         if not augment:
             return self.forward_once(x, verbose=verbose)
+
         else:  # Augment images (inference and test only) https://github.com/ultralytics/yolov3/issues/931
             img_size = x.shape[-2:]  # height, width
             s = [0.83, 0.67]  # scales
@@ -375,11 +381,6 @@ class Darknet(nn.Module):
                            ), 0)
 
         for i, module in enumerate(self.module_list):
-            # # reid classifiers: use id classifiers in train phase only,
-            # # forward in loss_funcs computation, not here, so just skip this module
-            # if i == 170:
-            #     continue
-
             name = module.__class__.__name__
             if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l', 'RouteGroup']:  # sum, concat
                 if verbose:
@@ -401,6 +402,8 @@ class Darknet(nn.Module):
 
         # Get last feature map for reid feature vector extraction
         reid_feat_map = out[-1]  # e.g. 5×128×192×192
+        # return out[138], out[149], out[160], out[-1]  # for half
+        # return out[163], out[165], out[167]  # for half
 
         # ----- Output mode
         if self.training:  # train

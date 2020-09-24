@@ -222,7 +222,7 @@ def train():
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9998',  # distributed training init method
+                                init_method='tcp://127.0.0.1:9997',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
@@ -233,7 +233,7 @@ def train():
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = 4  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     data_loader = torch.utils.data.DataLoader(dataset,
                                               batch_size=batch_size,
@@ -274,7 +274,7 @@ def train():
     model.gr = 1.0  # g_iou loss_funcs ratio (obj_loss = 1.0 or g_iou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
-    # Model EMA
+    # Model EMA: expotional moving average
     ema = torch_utils.ModelEMA(model)
 
     # Start training
@@ -472,6 +472,10 @@ def train():
                         torch.save(chkpt, last)
                         del chkpt
 
+                        # Save .weights file
+                        wei_f_path = wdir + opt.task + '_last.weights'
+                        save_weights(model, wei_f_path)
+
                 # end batch ------------------------------------------------------------------------------------------------
         else:
             print('[Err]: unrecognized task mode.')
@@ -538,6 +542,10 @@ def train():
                 torch.save(chkpt, best)
             del chkpt
 
+            # Save .weights file
+            wei_f_path = wdir + opt.task + '_last.weights'
+            save_weights(model, wei_f_path)
+
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
 
@@ -563,8 +571,8 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=24)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l-mcmot.cfg', help='*.cfg path')
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4_half-mcmot.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
@@ -578,11 +586,11 @@ if __name__ == '__main__':
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_last.weights',
+                        default='./weights/yolov4_half_last.weights',
                         help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='2,3', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='3,4', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
