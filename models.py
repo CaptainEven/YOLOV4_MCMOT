@@ -523,25 +523,49 @@ def save_weights(self, path='model.weights', cutoff=-1):
     # Note: Does not work if model.fuse() is applied
     with open(path, 'wb') as f:
         # Write Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
-        self.version.tofile(f)  # (int32) version info: major, minor, revision
-        self.seen.tofile(f)  # (int64) number of images seen during training
+        multi_gpu = type(self) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+        if multi_gpu:
+            self.module.version.tofile(f)  # (int32) version info: major, minor, revision
+            self.module.seen.tofile(f)  # (int64) number of images seen during training
 
-        # Iterate through layers
-        for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-            if mdef['type'] == 'convolutional':
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if mdef['batch_normalize']:
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(f)
-                    bn_layer.weight.data.cpu().numpy().tofile(f)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
-                    bn_layer.running_var.data.cpu().numpy().tofile(f)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(f)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(f)
+            # Iterate through layers
+            for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
+                if mdef['type'] == 'convolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if mdef['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
+        else:
+            self.version.tofile(f)  # (int32) version info: major, minor, revision
+            self.seen.tofile(f)  # (int64) number of images seen during training
+
+            # Iterate through layers
+            for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+                if mdef['type'] == 'convolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if mdef['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
+
+
 
 
 def convert(cfg='cfg/yolov4-pacsp.cfg', weights='weights/yolov4-pacsp.weights'):

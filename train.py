@@ -458,7 +458,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni % 100 == 0:  # save checkpoint every 100 batches
+                if ni % 5 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -586,7 +586,7 @@ if __name__ == '__main__':
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4_half_last.weights',
+                        default='./weights/pure_detect_last.pt',
                         help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
