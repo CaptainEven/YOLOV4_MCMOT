@@ -43,7 +43,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                                                           bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
@@ -78,7 +78,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                                                               bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
@@ -402,8 +402,12 @@ class Darknet(nn.Module):
 
         # Get last feature map for reid feature vector extraction
         reid_feat_map = out[-1]  # e.g. 5×128×192×192
-        # return out[138], out[149], out[160], out[-1]  # for half
-        # return out[163], out[165], out[167]  # for half
+        # return reid_feat_map
+        # return out[138], out[149], out[160], out[169]  # for half: yolo_1, yolo_2, yolo_3, reid_feat_map
+        # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
+        # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
+        # return out[163], out[165], out[167]  # for half: return deconv_1, deconv_2, deconv_3
+        # return out[137], out[148], out[159]
 
         # ----- Output mode
         if self.training:  # train
@@ -564,8 +568,6 @@ def save_weights(self, path='model.weights', cutoff=-1):
                         conv_layer.bias.data.cpu().numpy().tofile(f)
                     # Load conv weights
                     conv_layer.weight.data.cpu().numpy().tofile(f)
-
-
 
 
 def convert(cfg='cfg/yolov4-pacsp.cfg', weights='weights/yolov4-pacsp.weights'):
