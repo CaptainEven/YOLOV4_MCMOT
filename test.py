@@ -116,7 +116,7 @@ def test(cfg,
             with torch.no_grad():
                 # Run model
                 t = torch_utils.time_synchronized()
-                inf_out, train_out, reid_feat_map = model.forward(imgs, augment=augment)  # inference and training outputs
+                inf_out, train_out, reid_feat_map, anchor_inds = model.forward(imgs, augment=augment)  # inference and training outputs
                 t0 += torch_utils.time_synchronized() - t
 
                 # Compute loss_funcs
