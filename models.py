@@ -257,7 +257,7 @@ class YOLOLayer(nn.Module):
             if (self.nx, self.ny) != (nx, ny):
                 self.create_grids(ng=(nx, ny), device=pred.device)
 
-        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, na, ny, nx, no(classes + xywh))
         pred = pred.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
@@ -286,7 +286,8 @@ class YOLOLayer(nn.Module):
             io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
             torch.sigmoid_(io[..., 4:])  # sigmoid for confidence score and cls pred
 
-            return io.view(bs, -1, self.no), pred  # view [1, 3, 13, 13, 85] as [1, 507, 85]
+            # io: view [1, 3, 13, 13, 85] as [1, 507, 85]
+            return io.view(bs, -1, self.no), pred
 
 
 class Darknet(nn.Module):
@@ -419,6 +420,14 @@ class Darknet(nn.Module):
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
+
+            # record anchor inds
+            anchor0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
+            anchor1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
+            anchor2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
+
+            anchor_inds = torch.cat((anchor0_inds, anchor1_inds, anchor2_inds), 1)
+
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
                 x = torch.split(x, nb, dim=0)
@@ -430,7 +439,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_out
+                return x, p, reid_feat_out, anchor_inds
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None

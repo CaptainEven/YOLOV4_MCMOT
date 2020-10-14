@@ -256,7 +256,6 @@ class JDETracker(object):
 
         return dets
 
-
     def update_tracking(self, img, img0):
         """
         Update tracking result of the frame
@@ -279,24 +278,30 @@ class JDETracker(object):
         with torch.no_grad():
             t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_map = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out, anchor_inds = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # L2 normalize feature map
-            reid_feat_map = F.normalize(reid_feat_map, dim=1)
-
-            b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
-            assert b == 1  # make sure batch size is 1
+            reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
             # apply NMS
-            pred = non_max_suppression(pred,
-                                       self.opt.conf_thres,
-                                       self.opt.iou_thres,
-                                       merge=False,
-                                       classes=self.opt.classes,
-                                       agnostic=self.opt.agnostic_nms)
+            # pred = non_max_suppression(pred,
+            #                            self.opt.conf_thres,
+            #                            self.opt.iou_thres,
+            #                            merge=False,
+            #                            classes=self.opt.classes,
+            #                            agnostic=self.opt.agnostic_nms)
+            pred, pred_anchor_inds = non_max_suppression_with_anchor_inds(pred,
+                                                                          anchor_inds,
+                                                                          self.opt.conf_thres,
+                                                                          self.opt.iou_thres,
+                                                                          merge=False,
+                                                                          classes=self.opt.classes,
+                                                                          agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
+            dets_anchor_ids = pred_anchor_inds[0].squeeze()
+
             t2 = torch_utils.time_synchronized()
             print('run time (%.3fs)' % (t2 - t1))
 
@@ -308,8 +313,11 @@ class JDETracker(object):
             # Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
-            for det in dets:
+            for det, anchor_id in zip(dets, dets_anchor_ids):
                 x1, y1, x2, y2, conf, cls_id = det
+
+                b, reid_dim, h_id_map, w_id_map = reid_feat_out[anchor_id].shape
+                assert b == 1  # make sure batch size is 1
 
                 # map center point from net scale to feature map scale(1/4 of net input size)
                 center_x = (x1 + x2) * 0.5
@@ -325,7 +333,7 @@ class JDETracker(object):
                 center_x.clamp_(0, w_id_map - 1)  # avoid out of reid feature map's range
                 center_y.clamp_(0, h_id_map - 1)
 
-                id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+                id_feat_vect = reid_feat_out[anchor_id][0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
                 id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
