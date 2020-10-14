@@ -316,7 +316,8 @@ class JDETracker(object):
             for det, anchor_id in zip(dets, dets_anchor_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
-                b, reid_dim, h_id_map, w_id_map = reid_feat_out[anchor_id].shape
+                reid_feat_map = reid_feat_out[anchor_id]
+                b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 assert b == 1  # make sure batch size is 1
 
                 # map center point from net scale to feature map scale(1/4 of net input size)
@@ -333,7 +334,7 @@ class JDETracker(object):
                 center_x.clamp_(0, w_id_map - 1)  # avoid out of reid feature map's range
                 center_y.clamp_(0, h_id_map - 1)
 
-                id_feat_vect = reid_feat_out[anchor_id][0, :, center_y, center_x]
+                id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
                 id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
