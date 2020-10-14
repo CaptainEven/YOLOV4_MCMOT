@@ -277,6 +277,8 @@ class JDETracker(object):
         # ----- do detection and reid feature extraction
         # only get aggregated result, not original YOLO output
         with torch.no_grad():
+            t1 = torch_utils.time_synchronized()
+
             pred, pred_orig, reid_feat_map = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
@@ -295,6 +297,8 @@ class JDETracker(object):
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
+            t2 = torch_utils.time_synchronized()
+            print('run time (%.3fs)' % (t2 - t1))
 
             # get reid feature for each object class
             if dets is None:

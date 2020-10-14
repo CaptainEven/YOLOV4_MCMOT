@@ -404,7 +404,7 @@ class Darknet(nn.Module):
         reid_feat_map = out[-1]  # e.g. 5×128×192×192
         # return reid_feat_map
         # return out[138], out[149], out[160], out[169]  # for half: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
+        # return out[36], out[43], out[50], out[62]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
         # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
         # return out[163], out[165], out[167]  # for half: return deconv_1, deconv_2, deconv_3
         # return out[137], out[148], out[159]
