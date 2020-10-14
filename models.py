@@ -317,7 +317,7 @@ class Darknet(nn.Module):
         # ----- Define ReID classifiers
         if max_id_dict is not None:
             self.max_id_dict = max_id_dict
-            self.emb_dim = emb_dim
+            self.emb_dim = emb_dim  # dimension of embedding feature vector
             self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
@@ -366,7 +366,7 @@ class Darknet(nn.Module):
 
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
-        yolo_out, out = [], []
+        yolo_out, out, reid_feat_out = [], [], []  # 3 yolo laers correspond to 3 reid feature map layers
         if verbose:
             print('0', x.shape)
             str = ''
@@ -390,7 +390,7 @@ class Darknet(nn.Module):
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
                 yolo_out.append(module.forward(x, out))
-            elif name == 'ModuleList':  # laset 5 layers of FC: reid classifiers
+            elif name == 'ModuleList':  # last 5 layers of FC: reid classifiers
                 continue
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
@@ -400,21 +400,17 @@ class Darknet(nn.Module):
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
 
-        # Get last feature map for reid feature vector extraction
-        reid_feat_map = out[-1]  # e.g. 5×128×192×192
-        # return reid_feat_map
-        # return out[138], out[149], out[160], out[169]  # for half: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[36], out[43], out[50], out[62]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[163], out[165], out[167]  # for half: return deconv_1, deconv_2, deconv_3
-        # return out[137], out[148], out[159]
+        # Get 3 feature map layers for reid feature vector extraction
+        reid_feat_out.append(out[-5])
+        reid_feat_out.append(out[-3])
+        reid_feat_out.append(out[-1])
 
         # ----- Output mode
         if self.training:  # train
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return yolo_out
             elif self.mode == 'track':
-                return yolo_out, reid_feat_map
+                return yolo_out, reid_feat_out
             else:
                 print('[Err]: unrecognized task mode.')
                 return None
@@ -434,7 +430,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_map
+                return x, p, reid_feat_out
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None
@@ -487,6 +483,8 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+        # if i > 51:
+        #     break
         if mdef['type'] == 'convolutional':
             conv = module[0]
             if mdef['batch_normalize']:
@@ -512,7 +510,11 @@ def load_darknet_weights(self, weights, cutoff=-1):
             else:
                 # Load conv. bias
                 nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+
+                try:
+                    conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+                except Exception as e:
+                    print(e)
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
 

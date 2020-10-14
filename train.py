@@ -199,13 +199,13 @@ def train():
     elif len(weights) > 0:  # darknet format
         load_darknet_weights(model, weights)
 
-    # freeze weights of some previous layers
-    for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-        if layer_i < 52:
-            for param in child.parameters():
-                param.requires_grad = False
-        else:
-            print('Layer ', name, ' requires grad.')
+    # # freeze weights of some previous layers
+    # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
+    #     if layer_i < 52:
+    #         for param in child.parameters():
+    #             param.requires_grad = False
+    #     else:
+    #         print('Layer ', name, ' requires grad.')
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -433,7 +433,7 @@ def train():
                         x['lr'] = np.interp(ni, [0, n_burn], [0.1 if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                         if 'momentum' in x:
                             x['momentum'] = np.interp(ni, [0, n_burn], [0.9, hyp['momentum']])
-                    print('Lr {:.3f}'.format(x['lr']))
+                    # print('Lr {:.3f}'.format(x['lr']))
 
                 # Multi-Scale
                 if opt.multi_scale:
@@ -446,10 +446,10 @@ def train():
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
-                pred, reid_feat_map = model.forward(imgs)
+                pred, reid_feat_out = model.forward(imgs)
 
                 # Loss
-                loss, loss_items = compute_loss_with_ids(pred, reid_feat_map, targets, track_ids, model)
+                loss, loss_items = compute_loss_no_upsample(pred, reid_feat_out, targets, track_ids, model)
 
                 if opt.auto_weight:
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
@@ -607,7 +607,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=35)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=10)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_us.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
@@ -625,7 +625,7 @@ if __name__ == '__main__':
                         help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='1', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='2', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
