@@ -406,6 +406,9 @@ class Darknet(nn.Module):
         reid_feat_out.append(out[-3])
         reid_feat_out.append(out[-1])
 
+        # 3 yolo output layers and 3 feature layers
+        # return out[36], out[43], out[50], out[-5], out[-3], out[-1]
+
         # ----- Output mode
         if self.training:  # train
             if self.mode == 'pure_detect' or self.mode == 'detect':

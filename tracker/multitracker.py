@@ -316,6 +316,8 @@ class JDETracker(object):
             for det, anchor_id in zip(dets, dets_anchor_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
+                # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(anchor_id)))
+
                 reid_feat_map = reid_feat_out[anchor_id]
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 assert b == 1  # make sure batch size is 1
