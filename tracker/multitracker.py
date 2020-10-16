@@ -233,7 +233,7 @@ class JDETracker(object):
         # ----- do detection only(reid feature vector will not be extracted)
         # only get aggregated result, not original YOLO output
         with torch.no_grad():
-            pred, pred_orig, _ = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, _, _ = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # apply NMS
@@ -358,9 +358,11 @@ class JDETracker(object):
                                   for (tlbrs, feat) in zip(cls_dets[:, :5], cls_id_feature)]
             else:
                 cls_detections = []
-            # reset the track ids for a different object class
-            for track in cls_detections:
-                track.reset_track_id()
+
+            # reset the track ids for a different object class in the first frame
+            if self.frame_id == 0:
+                for track in cls_detections:
+                    track.reset_track_id()
 
             ''' Add newly detected tracklets to tracked_stracks'''
             unconfirmed_dict = defaultdict(list)
@@ -374,6 +376,7 @@ class JDETracker(object):
             ''' Step 2: First association, with embedding'''
             strack_pool_dict = defaultdict(list)
             strack_pool_dict[cls_id] = joint_stracks(tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id])
+
             # Predict the current location with KF
             # for strack in strack_pool:
             STrack.multi_predict(strack_pool_dict[cls_id])
