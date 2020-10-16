@@ -204,14 +204,14 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test28.mp4', help='source')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
-
     parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
 
+    # task mode
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder

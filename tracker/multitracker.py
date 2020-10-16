@@ -78,7 +78,7 @@ class STrack(BaseTrack):
 
     def activate(self, kalman_filter, frame_id):
         """Start a new tracklet"""
-        self.kalman_filter = kalman_filter
+        self.kalman_filter = kalman_filter  # assign a filter to each tracklet?
         self.track_id = self.next_id()
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
 
@@ -285,12 +285,6 @@ class JDETracker(object):
             reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
             # apply NMS
-            # pred = non_max_suppression(pred,
-            #                            self.opt.conf_thres,
-            #                            self.opt.iou_thres,
-            #                            merge=False,
-            #                            classes=self.opt.classes,
-            #                            agnostic=self.opt.agnostic_nms)
             pred, pred_anchor_inds = non_max_suppression_with_anchor_inds(pred,
                                                                           anchor_inds,
                                                                           self.opt.conf_thres,
