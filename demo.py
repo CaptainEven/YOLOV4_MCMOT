@@ -153,12 +153,13 @@ def run_tracking(opt):
 
         # t1 = torch_utils.time_synchronized()
 
-        # update tracking result of this frame
-        online_targets_dict = tracker.update_tracking(img, img0)
-        # print(online_targets_dict)
+        if fr_id % opt.interval == 0:  # skip some frames
+            # update tracking result of this frame
+            online_targets_dict = tracker.update_tracking(img, img0)
+            # print(online_targets_dict)
 
-        # t2 = torch_utils.time_synchronized()
-        # print('%sdone, time (%.3fs)' % (path, t2 - t1))
+            # t2 = torch_utils.time_synchronized()
+            # print('%sdone, time (%.3fs)' % (path, t2 - t1))
 
         # aggregate frame's results
         online_tlwhs_dict = defaultdict(list)
@@ -190,10 +191,10 @@ def run_tracking(opt):
     # output tracking result as video
     src_name = os.path.split(opt.source)[-1]
     name, suffix = src_name.split('.')
-    result_video_path = opt.save_img_dir + '/' + name + '_track' + '.' + suffix
+    result_video_path = opt.save_img_dir + '/' + name + '_track' + '_interval' + str(opt.interval) + '.' + suffix
 
-    cmd_str = 'ffmpeg -f image2 -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
-        .format(frame_dir, result_video_path)
+    cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
+        .format(opt.outFPS, frame_dir, result_video_path)  # set output frame rate 12 FPS
     os.system(cmd_str)
 
 
@@ -213,6 +214,9 @@ if __name__ == '__main__':
 
     # task mode
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
+
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')

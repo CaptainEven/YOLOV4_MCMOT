@@ -360,9 +360,9 @@ class JDETracker(object):
                 for track in cls_detections:
                     track.reset_track_id()
 
-            ''' Add newly detected tracklets to tracked_stracks'''
-            unconfirmed_dict = defaultdict(list)
-            tracked_stracks_dict = defaultdict(list)
+            ''' Add newly detected tracklets(current frame) to tracked_stracks'''
+            unconfirmed_dict = defaultdict(list)  # record unconfirmed tracks of this frame
+            tracked_stracks_dict = defaultdict(list)  # record tracked tracks in this frame
             for track in self.tracked_stracks_dict[cls_id]:
                 if not track.is_activated:
                     unconfirmed_dict[cls_id].append(track)
@@ -370,8 +370,9 @@ class JDETracker(object):
                     tracked_stracks_dict[cls_id].append(track)
 
             ''' Step 2: First association, with embedding'''
+            # get track pool by joining tracked_tracks and lost tracks
             strack_pool_dict = defaultdict(list)
-            strack_pool_dict[cls_id] = joint_stracks(tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id])
+            strack_pool_dict[cls_id] = join_stracks(tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id])
 
             # Predict the current location with KF
             # for strack in strack_pool:
@@ -390,12 +391,12 @@ class JDETracker(object):
                     refind_stracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with IOU'''
-            cls_detections = [cls_detections[i] for i in u_detection]
+            cls_detections = [cls_detections[i] for i in u_detection]  # get un-matched detections for embedding matching
             r_tracked_stracks = [strack_pool_dict[cls_id][i]
                                  for i in u_track if strack_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_stracks, cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
-            for i_tracked, i_det in matches:
+            for i_tracked, i_det in matches:  # process matched tracks
                 track = r_tracked_stracks[i_tracked]
                 det = cls_detections[i_det]
                 if track.state == TrackState.Tracked:
@@ -404,10 +405,10 @@ class JDETracker(object):
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_stracks_dict[cls_id].append(track)
-            for it in u_track:
+            for it in u_track:  # process unmatched tracks
                 track = r_tracked_stracks[it]
                 if not track.state == TrackState.Lost:
-                    track.mark_lost()
+                    track.mark_lost()  # mark unmatched track as lost track
                     lost_stracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
@@ -439,10 +440,10 @@ class JDETracker(object):
 
             self.tracked_stracks_dict[cls_id] = [t for t in self.tracked_stracks_dict[cls_id] if
                                                  t.state == TrackState.Tracked]
-            self.tracked_stracks_dict[cls_id] = joint_stracks(self.tracked_stracks_dict[cls_id],
-                                                              activated_starcks_dict[cls_id])
-            self.tracked_stracks_dict[cls_id] = joint_stracks(self.tracked_stracks_dict[cls_id],
-                                                              refind_stracks_dict[cls_id])
+            self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
+                                                             activated_starcks_dict[cls_id])
+            self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
+                                                             refind_stracks_dict[cls_id])
             self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
                                                          self.tracked_stracks_dict[cls_id])
             self.lost_stracks_dict[cls_id].extend(lost_stracks_dict[cls_id])
@@ -470,7 +471,7 @@ class JDETracker(object):
         return output_stracks_dict
 
 
-def joint_stracks(t_list_a, t_list_b):
+def join_stracks(t_list_a, t_list_b):
     """
     join two track lists
     :param t_list_a:
@@ -487,6 +488,7 @@ def joint_stracks(t_list_a, t_list_b):
         if not exists.get(tid, 0):
             exists[tid] = 1
             res.append(t)
+
     return res
 
 
