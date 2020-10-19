@@ -215,6 +215,7 @@ if __name__ == '__main__':
     # task mode
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
+    # output FPS interval
     parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 

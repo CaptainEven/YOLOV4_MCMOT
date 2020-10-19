@@ -370,7 +370,7 @@ class JDETracker(object):
                     tracked_stracks_dict[cls_id].append(track)
 
             ''' Step 2: First association, with embedding'''
-            # get track pool by joining tracked_tracks and lost tracks
+            # build track pool by joining current frame tracked_tracks and lost tracks
             strack_pool_dict = defaultdict(list)
             strack_pool_dict[cls_id] = join_stracks(tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id])
 
@@ -380,7 +380,7 @@ class JDETracker(object):
             dists = matching.embedding_distance(strack_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool_dict[cls_id], cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
-            for i_tracked, i_det in matches:
+            for i_tracked, i_det in matches:  # process matched pairs between track pool and current frame detection
                 track = strack_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
                 if track.state == TrackState.Tracked:
@@ -391,6 +391,7 @@ class JDETracker(object):
                     refind_stracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with IOU'''
+            # match between track pool and unmatched detection in current frame
             cls_detections = [cls_detections[i] for i in u_detection]  # get un-matched detections for embedding matching
             r_tracked_stracks = [strack_pool_dict[cls_id][i]
                                  for i in u_track if strack_pool_dict[cls_id][i].state == TrackState.Tracked]
@@ -428,7 +429,7 @@ class JDETracker(object):
                 track = cls_detections[i_new]
                 if track.score < self.det_thresh:
                     continue
-                track.activate(self.kalman_filter, self.frame_id)
+                track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
                 activated_starcks_dict[cls_id].append(track)
 
             """ Step 5: Update state"""
@@ -445,7 +446,7 @@ class JDETracker(object):
             self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
                                                              refind_stracks_dict[cls_id])
             self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
-                                                         self.tracked_stracks_dict[cls_id])
+                                                         self.tracked_stracks_dict[cls_id])  # update lost tracks
             self.lost_stracks_dict[cls_id].extend(lost_stracks_dict[cls_id])
             self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
                                                          self.removed_stracks_dict[cls_id])
@@ -492,11 +493,11 @@ def join_stracks(t_list_a, t_list_b):
     return res
 
 
-def sub_stracks(tlista, tlistb):
+def sub_stracks(tlist_a, tlist_b):
     stracks = {}
-    for t in tlista:
+    for t in tlist_a:
         stracks[t.track_id] = t
-    for t in tlistb:
+    for t in tlist_b:
         tid = t.track_id
         if stracks.get(tid, 0):
             del stracks[tid]
