@@ -278,7 +278,7 @@ class JDETracker(object):
         with torch.no_grad():
             t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_out, anchor_inds = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # L2 normalize feature map
@@ -286,7 +286,7 @@ class JDETracker(object):
 
             # apply NMS
             pred, pred_anchor_inds = non_max_suppression_with_anchor_inds(pred,
-                                                                          anchor_inds,
+                                                                          yolo_inds,
                                                                           self.opt.conf_thres,
                                                                           self.opt.iou_thres,
                                                                           merge=False,
@@ -307,12 +307,14 @@ class JDETracker(object):
             # Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
-            for det, anchor_id in zip(dets, dets_anchor_ids):
+            for det, yolo_id in zip(dets, dets_anchor_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
-                # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(anchor_id)))
+                # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
-                reid_feat_map = reid_feat_out[anchor_id]
+                # get reid map for this bbox(using anchor/yolo idx)
+                reid_feat_map = reid_feat_out[yolo_id]
+
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 assert b == 1  # make sure batch size is 1
 
