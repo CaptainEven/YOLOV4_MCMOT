@@ -82,7 +82,7 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
 
         self.tracklet_len = 0
-        self.state = TrackState.Tracked
+        self.state = TrackState.Tracked  # set flag 'tracked'
         # self.is_activated = True
         self.frame_id = frame_id
         self.start_frame = frame_id
@@ -94,7 +94,7 @@ class STrack(BaseTrack):
 
         self.update_features(new_track.curr_feat)
         self.tracklet_len = 0
-        self.state = TrackState.Tracked
+        self.state = TrackState.Tracked  # set flag 'tracked'
         self.is_activated = True
         self.frame_id = frame_id
 
@@ -116,7 +116,7 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
                                                                self.tlwh_to_xyah(new_tlwh))
-        self.state = TrackState.Tracked
+        self.state = TrackState.Tracked  # set flag 'tracked'
         self.is_activated = True
 
         self.score = new_track.score
@@ -284,7 +284,7 @@ class JDETracker(object):
             reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
             # apply NMS
-            pred, pred_anchor_inds = non_max_suppression_with_anchor_inds(pred,
+            pred, pred_yolo_inds = non_max_suppression_with_anchor_inds(pred,
                                                                           yolo_inds,
                                                                           self.opt.conf_thres,
                                                                           self.opt.iou_thres,
@@ -293,7 +293,7 @@ class JDETracker(object):
                                                                           agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_anchor_ids = pred_anchor_inds[0].squeeze()
+            dets_yolo_ids = pred_yolo_inds[0].squeeze()
 
             t2 = torch_utils.time_synchronized()
             print('run time (%.3fs)' % (t2 - t1))
@@ -306,12 +306,12 @@ class JDETracker(object):
             # Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
-            for det, yolo_id in zip(dets, dets_anchor_ids):
+            for det, yolo_id in zip(dets, dets_yolo_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
                 # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
-                # get reid map for this bbox(using anchor/yolo idx)
+                # get reid map for this bbox(corresponding yolo idx)
                 reid_feat_map = reid_feat_out[yolo_id]
 
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
@@ -360,13 +360,13 @@ class JDETracker(object):
                     track.reset_track_id()
 
             ''' Add newly detected tracklets(current frame) to tracked_stracks'''
-            unconfirmed_dict = defaultdict(list)  # record unconfirmed tracks of this frame
-            tracked_stracks_dict = defaultdict(list)  # record tracked tracks in this frame
+            unconfirmed_dict = defaultdict(list)
+            tracked_stracks_dict = defaultdict(list)
             for track in self.tracked_stracks_dict[cls_id]:
                 if not track.is_activated:
-                    unconfirmed_dict[cls_id].append(track)
+                    unconfirmed_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
                 else:
-                    tracked_stracks_dict[cls_id].append(track)
+                    tracked_stracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
             ''' Step 2: First association, with embedding'''
             # build track pool by joining current frame tracked_tracks and lost tracks
@@ -385,7 +385,7 @@ class JDETracker(object):
                 if track.state == TrackState.Tracked:
                     track.update(cls_detections[i_det], self.frame_id)
                     activated_starcks_dict[cls_id].append(track)  # for multi-class
-                else:
+                else:  # re-activate the track
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_stracks_dict[cls_id].append(track)
 
@@ -443,7 +443,7 @@ class JDETracker(object):
             self.tracked_stracks_dict[cls_id] = [t for t in self.tracked_stracks_dict[cls_id] if
                                                  t.state == TrackState.Tracked]
             self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
-                                                             activated_starcks_dict[cls_id])
+                                                             activated_starcks_dict[cls_id])  # add activated track
             self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
                                                              refind_stracks_dict[cls_id])
             self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
