@@ -54,8 +54,7 @@ class STrack(BaseTrack):
         mean_state = self.mean.copy()
         if self.state != TrackState.Tracked:
             mean_state[7] = 0
-        self.mean, self.covariance = self.kalman_filter.predict(
-            mean_state, self.covariance)
+        self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
 
     @staticmethod
     def multi_predict(stracks):
@@ -206,12 +205,12 @@ class JDETracker(object):
         else:  # darknet format
             load_darknet_weights(self.model, opt.weights)
 
-        # Set model to eval mode
+        # Put model to device and set eval mode
         self.model.to(device).eval()
 
         # Define track_lets
         self.tracked_stracks_dict = defaultdict(list)  # value type: list[STrack]
-        self.lost_stracks_dict = defaultdict(list)  # value type: list[STrack]
+        self.lost_stracks_dict = defaultdict(list)     # value type: list[STrack]
         self.removed_stracks_dict = defaultdict(list)  # value type: list[STrack]
 
         self.frame_id = 0
@@ -376,7 +375,7 @@ class JDETracker(object):
 
             # Predict the current location with KF
             # for strack in strack_pool:
-            STrack.multi_predict(strack_pool_dict[cls_id])
+            STrack.multi_predict(strack_pool_dict[cls_id])  # kalman predict
             dists = matching.embedding_distance(strack_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool_dict[cls_id], cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
@@ -392,7 +391,8 @@ class JDETracker(object):
 
             ''' Step 3: Second association, with IOU'''
             # match between track pool and unmatched detection in current frame
-            cls_detections = [cls_detections[i] for i in u_detection]  # get un-matched detections for embedding matching
+            cls_detections = [cls_detections[i] for i in
+                              u_detection]  # get un-matched detections for embedding matching
             r_tracked_stracks = [strack_pool_dict[cls_id][i]
                                  for i in u_track if strack_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_stracks, cls_detections)
@@ -430,7 +430,8 @@ class JDETracker(object):
                 if track.score < self.det_thresh:
                     continue
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_starcks_dict[cls_id].append(track)
+                activated_starcks_dict[cls_id].append(
+                    track)  # activated_starcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
             for track in self.lost_stracks_dict[cls_id]:
