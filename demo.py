@@ -198,7 +198,7 @@ def run_tracking(opt):
     result_video_path = opt.save_img_dir + '/' + name + '_track' + '_interval' + str(opt.interval) + '.' + suffix
 
     cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
-        .format(opt.outFPS / opt.interval, frame_dir, result_video_path)  # set output frame rate 12 FPS
+        .format(int(opt.outFPS / opt.interval), frame_dir, result_video_path)  # set output frame rate 12 FPS
     os.system(cmd_str)
 
 
