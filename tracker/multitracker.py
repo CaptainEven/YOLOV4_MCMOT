@@ -14,7 +14,7 @@ from .basetrack import BaseTrack, TrackState
 from models import *
 
 
-class STrack(BaseTrack):
+class Track(BaseTrack):
     shared_kalman = KalmanFilter()
 
     def __init__(self, tlwh, score, temp_feat, buff_size=30):
@@ -57,20 +57,20 @@ class STrack(BaseTrack):
         self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
 
     @staticmethod
-    def multi_predict(stracks):
-        if len(stracks) > 0:
-            multi_mean = np.asarray([st.mean.copy() for st in stracks])
-            multi_covariance = np.asarray([st.covariance for st in stracks])
+    def multi_predict(tracks):
+        if len(tracks) > 0:
+            multi_mean = np.asarray([track.mean.copy() for track in tracks])
+            multi_covariance = np.asarray([track.covariance for track in tracks])
 
-            for i, st in enumerate(stracks):
+            for i, st in enumerate(tracks):
                 if st.state != TrackState.Tracked:
                     multi_mean[i][7] = 0
 
-            multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
+            multi_mean, multi_covariance = Track.shared_kalman.multi_predict(multi_mean, multi_covariance)
 
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
-                stracks[i].mean = mean
-                stracks[i].covariance = cov
+                tracks[i].mean = mean
+                tracks[i].covariance = cov
 
     def reset_track_id(self):
         self.reset_track_count()
@@ -104,7 +104,7 @@ class STrack(BaseTrack):
     def update(self, new_track, frame_id, update_feature=True):
         """
         Update a matched track
-        :type new_track: STrack
+        :type new_track: Track
         :type frame_id: int
         :type update_feature: bool
         :return:
@@ -209,9 +209,9 @@ class JDETracker(object):
         self.model.to(device).eval()
 
         # Define track_lets
-        self.tracked_stracks_dict = defaultdict(list)  # value type: list[STrack]
-        self.lost_stracks_dict = defaultdict(list)  # value type: list[STrack]
-        self.removed_stracks_dict = defaultdict(list)  # value type: list[STrack]
+        self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
 
         self.frame_id = 0
         self.det_thresh = opt.conf_thres
@@ -266,11 +266,11 @@ class JDETracker(object):
         self.frame_id += 1
 
         # record tracking states
-        activated_starcks_dict = defaultdict(list)
-        refind_stracks_dict = defaultdict(list)
-        lost_stracks_dict = defaultdict(list)
-        removed_stracks_dict = defaultdict(list)
-        output_stracks_dict = defaultdict(list)
+        activated_tracks_dict = defaultdict(list)
+        refined_tracks_dict = defaultdict(list)
+        lost_tracks_dict = defaultdict(list)
+        removed_tracks_dict = defaultdict(list)
+        output_tracks_dict = defaultdict(list)
 
         # ----- do detection and reid feature extraction
         # only get aggregated result, not original YOLO output
@@ -347,10 +347,12 @@ class JDETracker(object):
 
             cls_dets = cls_dets.detach().cpu().numpy()
             cls_id_feature = np.array(cls_id_feature)
+
             if len(cls_dets) > 0:
                 '''Detections, tlbrs: top left bottom right score'''
-                cls_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, buff_size=30)
-                                  for (tlbrs, feat) in zip(cls_dets[:, :5], cls_id_feature)]
+                cls_detections = [Track(Track.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, buff_size=30)
+                                  for (tlbrs, feat) in
+                                  zip(cls_dets[:, :5], cls_id_feature)]  # detection of current frame
             else:
                 cls_detections = []
 
@@ -359,58 +361,61 @@ class JDETracker(object):
                 for track in cls_detections:
                     track.reset_track_id()
 
-            ''' Add newly detected tracklets(current frame) to tracked_stracks'''
+            ''' Add newly detected tracks(current frame) to tracked_tracks'''
             unconfirmed_dict = defaultdict(list)
-            tracked_stracks_dict = defaultdict(list)
-            for track in self.tracked_stracks_dict[cls_id]:
+            tracked_tracks_dict = defaultdict(list)
+            for track in self.tracked_tracks_dict[cls_id]:
                 if not track.is_activated:
                     unconfirmed_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
                 else:
-                    tracked_stracks_dict[cls_id].append(track)  # record tracked tracks of this frame
+                    tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
             ''' Step 2: First association, with embedding'''
-            # build track pool by joining current frame tracked_tracks and lost tracks
-            strack_pool_dict = defaultdict(list)
-            strack_pool_dict[cls_id] = join_stracks(tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id])
+            # build track pool for the current frame by joining tracked_tracks and lost tracks
+            track_pool_dict = defaultdict(list)
+            track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
             # Predict the current location with KF
-            # for strack in strack_pool:
-            STrack.multi_predict(strack_pool_dict[cls_id])  # kalman predict
-            dists = matching.embedding_distance(strack_pool_dict[cls_id], cls_detections)
-            dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool_dict[cls_id], cls_detections)
+            # for track in track_pool:
+
+            # kalman predict for track_pool
+            Track.multi_predict(track_pool_dict[cls_id])
+
+            dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
+            dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
             for i_tracked, i_det in matches:  # process matched pairs between track pool and current frame detection
-                track = strack_pool_dict[cls_id][i_tracked]
+                track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
                 if track.state == TrackState.Tracked:
                     track.update(cls_detections[i_det], self.frame_id)
-                    activated_starcks_dict[cls_id].append(track)  # for multi-class
+                    activated_tracks_dict[cls_id].append(track)  # for multi-class
                 else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refind_stracks_dict[cls_id].append(track)
+                    refined_tracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with IOU'''
             # match between track pool and unmatched detection in current frame
             cls_detections = [cls_detections[i] for i in
                               u_detection]  # get un-matched detections for following iou matching
-            r_tracked_stracks = [strack_pool_dict[cls_id][i]
-                                 for i in u_track if strack_pool_dict[cls_id][i].state == TrackState.Tracked]
-            dists = matching.iou_distance(r_tracked_stracks, cls_detections)
+            r_tracked_tracks = [track_pool_dict[cls_id][i]
+                                for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+            dists = matching.iou_distance(r_tracked_tracks, cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
             for i_tracked, i_det in matches:  # process matched tracks
-                track = r_tracked_stracks[i_tracked]
+                track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
-                    activated_starcks_dict[cls_id].append(track)
+                    activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refind_stracks_dict[cls_id].append(track)
+                    refined_tracks_dict[cls_id].append(track)
             for it in u_track:  # process unmatched tracks for two rounds
-                track = r_tracked_stracks[it]
+                track = r_tracked_tracks[it]
                 if not track.state == TrackState.Lost:
                     track.mark_lost()  # mark unmatched track as lost track
-                    lost_stracks_dict[cls_id].append(track)
+                    lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
@@ -418,13 +423,13 @@ class JDETracker(object):
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
             for i_tracked, i_det in matches:
                 unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
-                activated_starcks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
+                activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
             for it in u_unconfirmed:
                 track = unconfirmed_dict[cls_id][it]
                 track.mark_removed()
-                removed_stracks_dict[cls_id].append(track)
+                removed_tracks_dict[cls_id].append(track)
 
-            """ Step 4: Init new stracks"""
+            """ Step 4: Init new tracks"""
             for i_new in u_detection:  # current frame's unmatched detection
                 track = cls_detections[i_new]
                 if track.score < self.det_thresh:
@@ -432,62 +437,62 @@ class JDETracker(object):
 
                 # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_starcks_dict[cls_id].append(
+                activated_tracks_dict[cls_id].append(
                     track)  # activated_starcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
-            for track in self.lost_stracks_dict[cls_id]:
+            for track in self.lost_tracks_dict[cls_id]:
                 if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
-                    removed_stracks_dict[cls_id].append(track)
+                    removed_tracks_dict[cls_id].append(track)
             # print('Ramained match {} s'.format(t4-t3))
 
-            self.tracked_stracks_dict[cls_id] = [t for t in self.tracked_stracks_dict[cls_id] if
-                                                 t.state == TrackState.Tracked]
-            self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
-                                                             activated_starcks_dict[cls_id])  # add activated track
-            self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
-                                                             refind_stracks_dict[cls_id])  # add refined track
-            self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
-                                                         self.tracked_stracks_dict[cls_id])  # update lost tracks
-            self.lost_stracks_dict[cls_id].extend(lost_stracks_dict[cls_id])
-            self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
-                                                         self.removed_stracks_dict[cls_id])
-            self.removed_stracks_dict[cls_id].extend(removed_stracks_dict[cls_id])
-            self.tracked_stracks_dict[cls_id], self.lost_stracks_dict[cls_id] = remove_duplicate_stracks(
-                self.tracked_stracks_dict[cls_id],
-                self.lost_stracks_dict[cls_id])
+            self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
+                                                t.state == TrackState.Tracked]
+            self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
+                                                           activated_tracks_dict[cls_id])  # add activated track
+            self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
+                                                           refined_tracks_dict[cls_id])  # add refined track
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
+                                                       self.tracked_tracks_dict[cls_id])  # update lost tracks
+            self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
+                                                       self.removed_tracks_dict[cls_id])
+            self.removed_tracks_dict[cls_id].extend(removed_tracks_dict[cls_id])
+            self.tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id] = remove_duplicate_tracks(
+                self.tracked_tracks_dict[cls_id],
+                self.lost_tracks_dict[cls_id])
 
             # get scores of lost tracks
-            output_stracks_dict[cls_id] = [track for track in self.tracked_stracks_dict[cls_id] if
-                                           track.is_activated]
+            output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if
+                                          track.is_activated]
 
             # logger.debug('===========Frame {}=========='.format(self.frame_id))
             # logger.debug('Activated: {}'.format(
-            #     [track.track_id for track in activated_starcks_dict[cls_id]]))
-            # logger.debug('Refind: {}'.format(
-            #     [track.track_id for track in refind_stracks_dict[cls_id]]))
+            #     [track.track_id for track in activated_tarcks_dict[cls_id]]))
+            # logger.debug('Refined: {}'.format(
+            #     [track.track_id for track in refined_tracks_dict[cls_id]]))
             # logger.debug('Lost: {}'.format(
-            #     [track.track_id for track in lost_stracks_dict[cls_id]]))
+            #     [track.track_id for track in lost_tracks_dict[cls_id]]))
             # logger.debug('Removed: {}'.format(
-            #     [track.track_id for track in removed_stracks_dict[cls_id]]))
+            #     [track.track_id for track in removed_tracks_dict[cls_id]]))
 
-        return output_stracks_dict
+        return output_tracks_dict
 
 
-def join_stracks(t_list_a, t_list_b):
+def join_tracks(tracks_a, tracks_b):
     """
     join two track lists
-    :param t_list_a:
-    :param t_list_b:
+    :param tracks_a:
+    :param tracks_b:
     :return:
     """
     exists = {}
     res = []
-    for t in t_list_a:
+    for t in tracks_a:
         exists[t.track_id] = 1
         res.append(t)
-    for t in t_list_b:
+    for t in tracks_b:
         tid = t.track_id
         if not exists.get(tid, 0):
             exists[tid] = 1
@@ -496,31 +501,31 @@ def join_stracks(t_list_a, t_list_b):
     return res
 
 
-def sub_stracks(tlist_a, tlist_b):
-    stracks = {}
-    for t in tlist_a:
-        stracks[t.track_id] = t
-    for t in tlist_b:
+def sub_tracks(tracks_a, tracks_b):
+    tracks = {}
+    for t in tracks_a:
+        tracks[t.track_id] = t
+    for t in tracks_b:
         tid = t.track_id
-        if stracks.get(tid, 0):
-            del stracks[tid]
-    return list(stracks.values())
+        if tracks.get(tid, 0):
+            del tracks[tid]
+    return list(tracks.values())
 
 
-def remove_duplicate_stracks(stracks_a, stracks_b):
-    p_dist = matching.iou_distance(stracks_a, stracks_b)
+def remove_duplicate_tracks(tracks_a, tracks_b):
+    p_dist = matching.iou_distance(tracks_a, tracks_b)
     pairs = np.where(p_dist < 0.15)
     dup_a, dup_b = list(), list()
 
     for a, b in zip(*pairs):
-        time_a = stracks_a[a].frame_id - stracks_a[a].start_frame
-        time_b = stracks_b[b].frame_id - stracks_b[b].start_frame
+        time_a = tracks_a[a].frame_id - tracks_a[a].start_frame
+        time_b = tracks_b[b].frame_id - tracks_b[b].start_frame
         if time_a > time_b:
             dup_b.append(b)  # choose short record time as duplicate
         else:
             dup_a.append(a)
 
-    res_a = [t for i, t in enumerate(stracks_a) if not i in dup_a]
-    res_b = [t for i, t in enumerate(stracks_b) if not i in dup_b]
+    res_a = [t for i, t in enumerate(tracks_a) if not i in dup_a]
+    res_b = [t for i, t in enumerate(tracks_b) if not i in dup_b]
 
     return res_a, res_b
