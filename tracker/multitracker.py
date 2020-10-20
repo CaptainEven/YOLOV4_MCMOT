@@ -406,7 +406,7 @@ class JDETracker(object):
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_stracks_dict[cls_id].append(track)
-            for it in u_track:  # process unmatched tracks
+            for it in u_track:  # process unmatched tracks for two rounds
                 track = r_tracked_stracks[it]
                 if not track.state == TrackState.Lost:
                     track.mark_lost()  # mark unmatched track as lost track
