@@ -211,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test28.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test27.mp4', help='source')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder

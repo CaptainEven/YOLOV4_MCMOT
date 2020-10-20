@@ -117,7 +117,7 @@ class STrack(BaseTrack):
                                                                self.covariance,
                                                                self.tlwh_to_xyah(new_tlwh))
         self.state = TrackState.Tracked  # set flag 'tracked'
-        self.is_activated = True
+        self.is_activated = True  # set flag 'activated'
 
         self.score = new_track.score
         if update_feature:
@@ -210,7 +210,7 @@ class JDETracker(object):
 
         # Define track_lets
         self.tracked_stracks_dict = defaultdict(list)  # value type: list[STrack]
-        self.lost_stracks_dict = defaultdict(list)     # value type: list[STrack]
+        self.lost_stracks_dict = defaultdict(list)  # value type: list[STrack]
         self.removed_stracks_dict = defaultdict(list)  # value type: list[STrack]
 
         self.frame_id = 0
@@ -285,12 +285,12 @@ class JDETracker(object):
 
             # apply NMS
             pred, pred_yolo_inds = non_max_suppression_with_anchor_inds(pred,
-                                                                          yolo_inds,
-                                                                          self.opt.conf_thres,
-                                                                          self.opt.iou_thres,
-                                                                          merge=False,
-                                                                          classes=self.opt.classes,
-                                                                          agnostic=self.opt.agnostic_nms)
+                                                                        yolo_inds,
+                                                                        self.opt.conf_thres,
+                                                                        self.opt.iou_thres,
+                                                                        merge=False,
+                                                                        classes=self.opt.classes,
+                                                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
             dets_yolo_ids = pred_yolo_inds[0].squeeze()
@@ -413,8 +413,8 @@ class JDETracker(object):
                     lost_stracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
-            cls_detections = [cls_detections[i] for i in u_detection]
-            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)
+            cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
+            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)  # iou matching
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
             for i_tracked, i_det in matches:
                 unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
@@ -425,10 +425,12 @@ class JDETracker(object):
                 removed_stracks_dict[cls_id].append(track)
 
             """ Step 4: Init new stracks"""
-            for i_new in u_detection:
+            for i_new in u_detection:  # current frame's unmatched detection
                 track = cls_detections[i_new]
                 if track.score < self.det_thresh:
                     continue
+
+                # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
                 activated_starcks_dict[cls_id].append(
                     track)  # activated_starcks_dict may contain track with 'is_activated' False
@@ -445,7 +447,7 @@ class JDETracker(object):
             self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
                                                              activated_starcks_dict[cls_id])  # add activated track
             self.tracked_stracks_dict[cls_id] = join_stracks(self.tracked_stracks_dict[cls_id],
-                                                             refind_stracks_dict[cls_id])
+                                                             refind_stracks_dict[cls_id])  # add refined track
             self.lost_stracks_dict[cls_id] = sub_stracks(self.lost_stracks_dict[cls_id],
                                                          self.tracked_stracks_dict[cls_id])  # update lost tracks
             self.lost_stracks_dict[cls_id].extend(lost_stracks_dict[cls_id])
@@ -505,20 +507,20 @@ def sub_stracks(tlist_a, tlist_b):
     return list(stracks.values())
 
 
-def remove_duplicate_stracks(stracksa, stracksb):
-    pdist = matching.iou_distance(stracksa, stracksb)
+def remove_duplicate_stracks(stracks_a, stracks_b):
+    pdist = matching.iou_distance(stracks_a, stracks_b)
     pairs = np.where(pdist < 0.15)
     dupa, dupb = list(), list()
 
     for p, q in zip(*pairs):
-        timep = stracksa[p].frame_id - stracksa[p].start_frame
-        timeq = stracksb[q].frame_id - stracksb[q].start_frame
-        if timep > timeq:
+        time_p = stracks_a[p].frame_id - stracks_a[p].start_frame
+        time_q = stracks_b[q].frame_id - stracks_b[q].start_frame
+        if time_p > time_q:
             dupb.append(q)
         else:
             dupa.append(p)
 
-    resa = [t for i, t in enumerate(stracksa) if not i in dupa]
-    resb = [t for i, t in enumerate(stracksb) if not i in dupb]
+    resa = [t for i, t in enumerate(stracks_a) if not i in dupa]
+    resb = [t for i, t in enumerate(stracks_b) if not i in dupb]
 
     return resa, resb
