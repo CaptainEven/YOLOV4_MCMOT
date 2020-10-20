@@ -385,14 +385,14 @@ class JDETracker(object):
                 if track.state == TrackState.Tracked:
                     track.update(cls_detections[i_det], self.frame_id)
                     activated_starcks_dict[cls_id].append(track)  # for multi-class
-                else:  # re-activate the track
+                else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
                     refind_stracks_dict[cls_id].append(track)
 
             ''' Step 3: Second association, with IOU'''
             # match between track pool and unmatched detection in current frame
             cls_detections = [cls_detections[i] for i in
-                              u_detection]  # get un-matched detections for embedding matching
+                              u_detection]  # get un-matched detections for following iou matching
             r_tracked_stracks = [strack_pool_dict[cls_id][i]
                                  for i in u_track if strack_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_stracks, cls_detections)
