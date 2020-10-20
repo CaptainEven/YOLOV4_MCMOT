@@ -508,19 +508,19 @@ def sub_stracks(tlist_a, tlist_b):
 
 
 def remove_duplicate_stracks(stracks_a, stracks_b):
-    pdist = matching.iou_distance(stracks_a, stracks_b)
-    pairs = np.where(pdist < 0.15)
-    dupa, dupb = list(), list()
+    p_dist = matching.iou_distance(stracks_a, stracks_b)
+    pairs = np.where(p_dist < 0.15)
+    dup_a, dup_b = list(), list()
 
-    for p, q in zip(*pairs):
-        time_p = stracks_a[p].frame_id - stracks_a[p].start_frame
-        time_q = stracks_b[q].frame_id - stracks_b[q].start_frame
-        if time_p > time_q:
-            dupb.append(q)
+    for a, b in zip(*pairs):
+        time_a = stracks_a[a].frame_id - stracks_a[a].start_frame
+        time_b = stracks_b[b].frame_id - stracks_b[b].start_frame
+        if time_a > time_b:
+            dup_b.append(b)  # choose short record time as duplicate
         else:
-            dupa.append(p)
+            dup_a.append(a)
 
-    resa = [t for i, t in enumerate(stracks_a) if not i in dupa]
-    resb = [t for i, t in enumerate(stracks_b) if not i in dupb]
+    res_a = [t for i, t in enumerate(stracks_a) if not i in dup_a]
+    res_b = [t for i, t in enumerate(stracks_b) if not i in dup_b]
 
-    return resa, resb
+    return res_a, res_b
