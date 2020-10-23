@@ -83,7 +83,11 @@ class Track(BaseTrack):
 
         self.tracklet_len = 0
         self.state = TrackState.Tracked  # set flag 'tracked'
+
         # self.is_activated = True
+        if frame_id == 1:  # to record the first frame's detection result
+            self.is_activated = True
+
         self.frame_id = frame_id
         self.start_frame = frame_id
 
@@ -277,15 +281,15 @@ class JDETracker(object):
         with torch.no_grad():
             t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # L2 normalize feature map
             reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
             # apply NMS
-            pred, pred_yolo_inds = non_max_suppression_with_anchor_inds(pred,
-                                                                        yolo_inds,
+            pred, pred_yolo_ids = non_max_suppression_with_anchor_inds(pred,
+                                                                        yolo_ids,
                                                                         self.opt.conf_thres,
                                                                         self.opt.iou_thres,
                                                                         merge=False,
@@ -293,7 +297,7 @@ class JDETracker(object):
                                                                         agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_inds[0].squeeze()
+            dets_yolo_ids = pred_yolo_ids[0].squeeze()
 
             t2 = torch_utils.time_synchronized()
             print('run time (%.3fs)' % (t2 - t1))
@@ -357,7 +361,7 @@ class JDETracker(object):
                 cls_detections = []
 
             # reset the track ids for a different object class in the first frame
-            if self.frame_id == 0:
+            if self.frame_id == 1:
                 for track in cls_detections:
                     track.reset_track_id()
 
@@ -445,7 +449,7 @@ class JDETracker(object):
                 if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
-            # print('Ramained match {} s'.format(t4-t3))
+            # print('Remained match {} s'.format(t4-t3))
 
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
                                                 t.state == TrackState.Tracked]
@@ -469,7 +473,7 @@ class JDETracker(object):
 
             # logger.debug('===========Frame {}=========='.format(self.frame_id))
             # logger.debug('Activated: {}'.format(
-            #     [track.track_id for track in activated_tarcks_dict[cls_id]]))
+            #     [track.track_id for track in activated_tracks_dict[cls_id]]))
             # logger.debug('Refined: {}'.format(
             #     [track.track_id for track in refined_tracks_dict[cls_id]]))
             # logger.debug('Lost: {}'.format(

@@ -874,7 +874,7 @@ def build_targets(preds, targets, model):
 
 
 def non_max_suppression_with_anchor_inds(predictions,
-                                         yolo_inds,
+                                         yolo_ins,
                                          conf_thres=0.1,
                                          iou_thres=0.6,
                                          merge=False,
@@ -905,7 +905,7 @@ def non_max_suppression_with_anchor_inds(predictions,
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
         x = x[xc[xi]]  # confidence
-        yolo_inds = yolo_inds[xi][xc[xi]]
+        yolo_ins = yolo_ins[xi][xc[xi]]
 
         # If none remain process next image
         if not x.shape[0]:
@@ -925,7 +925,7 @@ def non_max_suppression_with_anchor_inds(predictions,
             cls_scores = x[i, j + 5, None]
             cls_inds = j[:, None].float()
 
-            yolo_inds = yolo_inds[i]
+            yolo_ins = yolo_ins[i]
 
             # x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
             x = torch.cat((boxes, cls_scores, cls_inds), 1)  # box(4), cls_score(1), cls_id(1): n×6
@@ -971,7 +971,7 @@ def non_max_suppression_with_anchor_inds(predictions,
         # if (time.time() - t) > time_limit:
         #    break  # time limit exceeded
 
-        output_yolo_inds[xi] = yolo_inds[i]
+        output_yolo_inds[xi] = yolo_ins[i]
 
     return output, output_yolo_inds
 

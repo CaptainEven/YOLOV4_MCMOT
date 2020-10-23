@@ -211,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test20.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
@@ -223,19 +223,21 @@ if __name__ == '__main__':
 
     # output FPS interval
     parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
+
+    # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
-    parser.add_argument('--track-buffer', type=int, default=120, help='tracking buffer frames')
+    parser.add_argument('--track-buffer', type=int, default=60, help='tracking buffer frames')
 
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='2', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='5', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
