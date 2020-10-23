@@ -84,7 +84,11 @@ class STrack(BaseTrack):
 
         self.tracklet_len = 0
         self.state = TrackState.Tracked
+
         # self.is_activated = True
+        if frame_id == 1:
+            self.is_activated = True
+
         self.frame_id = frame_id
         self.start_frame = frame_id
 
@@ -349,7 +353,7 @@ class JDETracker(object):
                 cls_detections = []
 
             # reset the track ids for a different object class
-            if self.frame_id == 0:
+            if self.frame_id == 1:
                 for track in cls_detections:
                     track.reset_track_id()
 
