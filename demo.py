@@ -8,6 +8,7 @@ from utils.datasets import *
 from utils.utils import *
 from tracker.multitracker import JDETracker
 from tracking_utils import visualization as vis
+from tracking_utils.io import write_results_dict
 
 
 def format_output(dets, w, h):
@@ -142,9 +143,17 @@ def run_tracking(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # Set tracker
+    # Set MCMOT tracker
     tracker = JDETracker(opt)  # Joint detection and embedding
 
+    # Update tracking frames
+    out_fps = int(opt.outFPS / opt.interval)
+    data_type = 'mot'
+    src_name = os.path.split(opt.source)[-1]
+    name, suffix = src_name.split('.')
+    result_f_name = opt.save_img_dir + '/' + name + '_results_fps{:d}.txt'.format(out_fps)
+    results_dict = defaultdict(list)  # to store tracking results for txt output
+    fr_cnt = 0
     for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(opt.device)
         img = img.float()  # uint8 to fp32
@@ -157,48 +166,80 @@ def run_tracking(opt):
         # update tracking result of this frame
         if opt.interval == 1:
             online_targets_dict = tracker.update_tracking(img, img0)
+
+            # aggregate current frame's results for each object class
+            online_tlwhs_dict = defaultdict(list)
+            online_ids_dict = defaultdict(list)
+            for cls_id in range(opt.num_classes):  # process each object class
+                online_targets = online_targets_dict[cls_id]
+                for track in online_targets:
+                    tlwh = track.tlwh
+                    t_id = track.track_id
+                    online_tlwhs_dict[cls_id].append(tlwh)
+                    online_ids_dict[cls_id].append(t_id)
+
+            # collect result
+            for cls_id in range(opt.num_classes):
+                results_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
+
+            # to draw track/detection
+            if opt.show_image:
+                if tracker.frame_id > 0:
+                    online_im = vis.plot_tracks(image=img0,
+                                                tlwhs_dict=online_tlwhs_dict,
+                                                obj_ids_dict=online_ids_dict,
+                                                num_classes=opt.num_classes,
+                                                frame_id=fr_id,
+                                                id2cls=id2cls)
+
+            if opt.save_img_dir is not None:
+                save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                cv2.imwrite(save_path, online_im)
         else:
             if fr_id % opt.interval == 0:  # skip some frames
                 online_targets_dict = tracker.update_tracking(img, img0)
-                # print(online_targets_dict)
 
+                # print(online_targets_dict)
                 # t2 = torch_utils.time_synchronized()
                 # print('%s done, time (%.3fs)' % (path, t2 - t1))
 
-        # aggregate frame's results
-        online_tlwhs_dict = defaultdict(list)
-        online_ids_dict = defaultdict(list)
-        for cls_id in range(opt.num_classes):
-            # process each object class
-            online_targets = online_targets_dict[cls_id]
-            for track in online_targets:
-                tlwh = track.tlwh
-                t_id = track.track_id
-                # vertical = tlwh[2] / tlwh[3] > 1.6  # box宽高比判断:w/h不能超过1.6?
-                # if tlwh[2] * tlwh[3] > opt.min_box_area:  # and not vertical:
-                online_tlwhs_dict[cls_id].append(tlwh)
-                online_ids_dict[cls_id].append(t_id)
+                # aggregate current frame's results for each object class
+                online_tlwhs_dict = defaultdict(list)
+                online_ids_dict = defaultdict(list)
+                for cls_id in range(opt.num_classes):  # process each object class
+                    online_targets = online_targets_dict[cls_id]
+                    for track in online_targets:
+                        tlwh = track.tlwh
+                        t_id = track.track_id
+                        online_tlwhs_dict[cls_id].append(tlwh)
+                        online_ids_dict[cls_id].append(t_id)
 
-        if opt.show_image:
-            if tracker.frame_id > 0:
-                online_im = vis.plot_tracks(image=img0,
-                                            tlwhs_dict=online_tlwhs_dict,
-                                            obj_ids_dict=online_ids_dict,
-                                            num_classes=opt.num_classes,
-                                            frame_id=fr_id,
-                                            id2cls=id2cls)
+                # collect result
+                for cls_id in range(opt.num_classes):
+                    results_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
 
-        if opt.save_img_dir is not None:
-            save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
-            cv2.imwrite(save_path, online_im)
+                # to draw track/detection
+                if opt.show_image:
+                    if tracker.frame_id > 0:
+                        online_im = vis.plot_tracks(image=img0,
+                                                    tlwhs_dict=online_tlwhs_dict,
+                                                    obj_ids_dict=online_ids_dict,
+                                                    num_classes=opt.num_classes,
+                                                    frame_id=fr_id,
+                                                    id2cls=id2cls)
+
+                if opt.save_img_dir is not None:
+                    save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                    cv2.imwrite(save_path, online_im)
+
+                # update sampled frame count
+                fr_cnt += 1
+
+    # output track/detection results as txt(MOT16 format)
+    write_results_dict(result_f_name, results_dict, data_type)
 
     # output tracking result as video
-    src_name = os.path.split(opt.source)[-1]
-    name, suffix = src_name.split('.')
-
-    out_fps = int(opt.outFPS / opt.interval)
     result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
-
     cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
         .format(out_fps, frame_dir, result_video_path)  # set output frame rate 12 FPS
     os.system(cmd_str)
@@ -211,7 +252,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test2.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/mcmot_seq2.mp4', help='source')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
@@ -222,7 +263,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
@@ -237,7 +278,7 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='3', help='device id (i.e. 0 or 0,1) or cpu')
+    parser.add_argument('--device', default='6', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
