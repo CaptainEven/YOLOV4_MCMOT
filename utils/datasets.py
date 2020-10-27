@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import glob
 import math
 import os
@@ -103,7 +105,7 @@ class LoadImages:  # for inference
 
             if self.frame % 30 == 0:
                 # print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path))
-                print('video (%g/%g) %s: ' % (self.frame, self.nframes, path))
+                print('video %s (%g/%g) %s: ' % (path, self.frame, self.nframes, path))
             self.frame += 1
 
         else:

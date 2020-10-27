@@ -212,20 +212,37 @@ class JDETracker(object):
         # Put model to device and set eval mode
         self.model.to(device).eval()
 
-        # Define track_lets
+        # Define tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
         self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
         self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
 
         self.frame_id = 0
+
         self.det_thresh = opt.conf_thres
         self.buffer_size = int(opt.track_buffer)
         self.max_time_lost = self.buffer_size
-        self.mean = np.array([0.408, 0.447, 0.470]).reshape(1, 1, 3)
-        self.std = np.array([0.289, 0.274, 0.278]).reshape(1, 1, 3)
+        # self.mean = np.array([0.408, 0.447, 0.470]).reshape(1, 1, 3)
+        # self.std = np.array([0.289, 0.274, 0.278]).reshape(1, 1, 3)
 
         # ----- using kalman filter to stabilize tracking
         self.kalman_filter = KalmanFilter()
+
+    def reset(self):
+        """
+        :return:
+        """
+        # REset tracks dict
+        self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
+
+        # Reset frame id
+        self.frame_id = 0
+
+        # Reset kalman filter to stabilize tracking
+        self.kalman_filter = KalmanFilter()
+
 
     def update_detection(self, img, img0):
         """

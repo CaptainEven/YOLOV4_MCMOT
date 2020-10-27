@@ -153,7 +153,11 @@ def run_tracking_of_videos_txt(opt):
     video_path_list.sort()
 
     # tracking each input video
-    for video_path in video_path_list:
+    for video_i, video_path in enumerate(video_path_list):
+        # set MCMOT tracker
+        if video_i > 0:
+            tracker.reset()
+
         # set dataset
         dataset = LoadImages(video_path, img_size=opt.img_size)
 
@@ -183,6 +187,8 @@ def run_tracking_of_videos_txt(opt):
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
+
+                # iterate each object class
                 for cls_id in range(opt.num_classes):  # process each object class
                     online_targets = online_targets_dict[cls_id]
                     for track in online_targets:
@@ -201,6 +207,8 @@ def run_tracking_of_videos_txt(opt):
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
                     online_ids_dict = defaultdict(list)
+
+                    # iterate each object class
                     for cls_id in range(opt.num_classes):  # process each object class
                         online_targets = online_targets_dict[cls_id]
                         for track in online_targets:
@@ -219,7 +227,7 @@ def run_tracking_of_videos_txt(opt):
         if opt.interval == 1:
             print('Total {:d} frames.'.format(fr_id + 1))
         else:
-            print('Total {:d} frames.'.format(fr_cnt + 1))
+            print('Total {:d} frames.'.format(fr_cnt))
 
         # output track/detection results as txt(MOT16 format)
         write_results_dict(result_f_name, results_dict, data_type)  # write txt to opt.save_img_dir
@@ -259,7 +267,10 @@ def run_tracking_of_videos_img(opt):
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
 
     # tracking each input video
-    for video_path in video_path_list:
+    for video_i, video_path in enumerate(video_path_list):
+        if video_i > 0:
+            tracker.reset()
+
         # set dataset
         dataset = LoadImages(video_path, img_size=opt.img_size)
 
@@ -286,8 +297,6 @@ def run_tracking_of_videos_img(opt):
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
-            # t1 = torch_utils.time_synchronized()
-
             # update tracking result of this frame
             if opt.interval == 1:
                 online_targets_dict = tracker.update_tracking(img, img0)
@@ -303,34 +312,26 @@ def run_tracking_of_videos_img(opt):
                         online_tlwhs_dict[cls_id].append(tlwh)
                         online_ids_dict[cls_id].append(t_id)
 
-                # # collect result
-                # for cls_id in range(opt.num_classes):
-                #     results_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
-
                 # to draw track/detection
-                if opt.show_image:
-                    if tracker.frame_id > 0:
-                        online_im = vis.plot_tracks(image=img0,
-                                                    tlwhs_dict=online_tlwhs_dict,
-                                                    obj_ids_dict=online_ids_dict,
-                                                    num_classes=opt.num_classes,
-                                                    frame_id=fr_id,
-                                                    id2cls=id2cls)
+                online_im = vis.plot_tracks(image=img0,
+                                            tlwhs_dict=online_tlwhs_dict,
+                                            obj_ids_dict=online_ids_dict,
+                                            num_classes=opt.num_classes,
+                                            frame_id=fr_id,
+                                            id2cls=id2cls)
 
                 if opt.save_img_dir is not None:
                     save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
                     cv2.imwrite(save_path, online_im)
-            else:
+            else:  # interval > 1
                 if fr_id % opt.interval == 0:  # skip some frames
                     online_targets_dict = tracker.update_tracking(img, img0)
-
-                    # print(online_targets_dict)
-                    # t2 = torch_utils.time_synchronized()
-                    # print('%s done, time (%.3fs)' % (path, t2 - t1))
 
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
                     online_ids_dict = defaultdict(list)
+
+                    # iterate each object class
                     for cls_id in range(opt.num_classes):  # process each object class
                         online_targets = online_targets_dict[cls_id]
                         for track in online_targets:
@@ -339,29 +340,20 @@ def run_tracking_of_videos_img(opt):
                             online_tlwhs_dict[cls_id].append(tlwh)
                             online_ids_dict[cls_id].append(t_id)
 
-                    # # collect result
-                    # for cls_id in range(opt.num_classes):
-                    #     results_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
-
                     # to draw track/detection
-                    if opt.show_image:
-                        if tracker.frame_id > 0:
-                            online_im = vis.plot_tracks(image=img0,
-                                                        tlwhs_dict=online_tlwhs_dict,
-                                                        obj_ids_dict=online_ids_dict,
-                                                        num_classes=opt.num_classes,
-                                                        frame_id=fr_id,
-                                                        id2cls=id2cls)
+                    online_im = vis.plot_tracks(image=img0,
+                                                tlwhs_dict=online_tlwhs_dict,
+                                                obj_ids_dict=online_ids_dict,
+                                                num_classes=opt.num_classes,
+                                                frame_id=fr_cnt,
+                                                id2cls=id2cls)
 
                     if opt.save_img_dir is not None:
-                        save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                        save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
                         cv2.imwrite(save_path, online_im)  # write img to opt.save_img_dir
 
                     # update sampled frame count
                     fr_cnt += 1
-
-        # # output track/detection results as txt(MOT16 format)
-        # write_results_dict(result_f_name, results_dict, data_type)  # write txt to opt.save_img_dir
 
         # output tracking result as video: read and write opt.save_img_dir
         result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
@@ -505,7 +497,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test0.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test11.mp4', help='source')
     parser.add_argument('--videos', type=str, default='data/samples/', help='')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
@@ -517,7 +509,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
