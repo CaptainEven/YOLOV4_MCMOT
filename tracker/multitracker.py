@@ -279,7 +279,7 @@ class JDETracker(object):
         # ----- do detection and reid feature extraction
         # only get aggregated result, not original YOLO output
         with torch.no_grad():
-            t1 = torch_utils.time_synchronized()
+            # t1 = torch_utils.time_synchronized()
 
             pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
@@ -299,8 +299,8 @@ class JDETracker(object):
             dets = pred[0]  # assume batch_size == 1 here
             dets_yolo_ids = pred_yolo_ids[0].squeeze()
 
-            t2 = torch_utils.time_synchronized()
-            print('run time (%.3fs)' % (t2 - t1))
+            # t2 = torch_utils.time_synchronized()
+            # print('run time (%.3fs)' % (t2 - t1))
 
             # get reid feature for each object class
             if dets is None:
@@ -441,8 +441,7 @@ class JDETracker(object):
 
                 # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_tracks_dict[cls_id].append(
-                    track)  # activated_starcks_dict may contain track with 'is_activated' False
+                activated_tracks_dict[cls_id].append(track)  # activated_starcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
             for track in self.lost_tracks_dict[cls_id]:
