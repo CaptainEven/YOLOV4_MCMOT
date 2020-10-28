@@ -378,6 +378,150 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
+def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
+    """
+    :param preds:
+    :param reid_feat_out:
+    :param targets:
+    :param track_ids:
+    :param model:
+    :return:
+    """
+    ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
+    l_cls, l_box, l_obj, l_reid = ft([0]), ft([0]), ft([0]), ft([0])
+
+    # build targets for loss_funcs computation
+    t_cls, t_box, indices, anchor_vec, t_track_ids = build_targets_with_ids(preds, targets, track_ids, model)
+
+    h = model.hyp  # hyper parameters
+    red = 'mean'  # Loss reduction (sum or mean)
+
+    # Define criteria
+    BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
+    BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+    CE_reid = nn.CrossEntropyLoss()
+
+    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
+    cp, cn = smooth_BCE(eps=0.0)
+
+    # focal loss_funcs
+    g = h['fl_gamma']  # focal loss_funcs gamma
+    if g > 0:
+        BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
+
+    np, ng = 0, 0  # number grid points, targets(GT)
+
+    # Compute losses for each YOLO layer
+    for i, pred_i in enumerate(preds):  # layer index, layer predictions
+        id_map_w, id_map_h = reid_feat_out[i].shape[3], reid_feat_out[i].shape[2]  # 3 feature map layers
+
+        ny, nx = pred_i.shape[2], pred_i.shape[3]
+        b, a, gy, gx = indices[i]  # image, anchor, grid_y, grid_x
+        tr_ids = t_track_ids[i]  # track ids
+        cls_ids = t_cls[i]
+
+        t_obj = torch.zeros_like(pred_i[..., 0])  # target obj(confidence score), e.g. 5×3×96×96
+        np += t_obj.numel()  # total number of elements
+
+        # Compute losses
+        nb = len(b)  # number of targets(GT boxes)
+        if nb:  # if exist GT box
+            ng += nb
+
+            # prediction subset corresponding to targets
+            # specified item_i_in_batch, anchor_i, grid_y, grid_x
+            pred_s = pred_i[b, a, gy, gx]  # nb × 10
+            # pred_s[:, 2:4] = torch.sigmoid(pred_s[:, 2:4])  # wh power loss_funcs (uncomment)
+
+            # GIoU
+            pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
+            pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
+            p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
+            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
+            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
+                t_obj.dtype)  # g_iou ratio taken into account
+
+            if model.nc > 1:  # cls loss_funcs (only if multiple classes)
+                t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
+                t[range(nb), cls_ids] = cp
+                l_cls += BCE_cls(pred_s[:, 5:], t)  # BCE loss for each object class
+                # l_cls += CE(pred_s[:, 5:], cls_ids)  # CE
+
+            # ----- compute reid loss_funcs for each GT box
+            # get center point coordinates for all GT
+            center_x = gx + pred_s[:, 0]
+            center_y = gy + pred_s[:, 1]
+
+            # convert to reid_feature map's scale
+            center_x *= float(id_map_w) / float(nx)
+            center_y *= float(id_map_h) / float(ny)
+
+            # convert to int64 for indexing
+            center_x += 0.5
+            center_y += 0.5
+            center_x = center_x.long()
+            center_y = center_y.long()
+
+            # avoid exceed reid feature map's range
+            center_x.clamp_(0, id_map_w - 1)
+            center_y.clamp_(0, id_map_h - 1)
+
+            # get reid feature vector for GT boxes
+            t_reid_feat_vects = reid_feat_out[i][b, :, center_y, center_x]  # nb × 128
+
+            # ----- compute each object class's reid loss_funcs
+            multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+            if multi_gpu:
+                for cls_id, id_num in model.module.max_id_dict.items():
+                    inds = torch.where(cls_ids == cls_id)
+                    if inds[0].shape[0] == 0:
+                        # print('skip class id', cls_id)
+                        continue
+
+                    id_vects = t_reid_feat_vects[inds]
+                    id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
+
+                    fc_preds = model.module.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    l_reid += CE_reid(fc_preds, tr_ids[inds])
+            else:
+                for cls_id, id_num in model.max_id_dict.items():
+                    inds = torch.where(cls_ids == cls_id)
+                    if inds[0].shape[0] == 0:
+                        # print('skip class id', cls_id)
+                        continue
+
+                    id_vects = t_reid_feat_vects[inds]
+
+                    # L2 normalize the feature vector
+                    id_vects = F.normalize(id_vects, dim=1)
+
+                    fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    l_reid += CE_reid(fc_preds, tr_ids[inds])
+
+            # Append targets to text file
+            # with open('targets.txt', 'a') as file:
+            #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+
+        l_obj += BCE_obj(pred_i[..., 4], t_obj)  # obj loss_funcs(confidence score loss_funcs)
+
+    l_box *= h['giou']
+    l_obj *= h['obj']
+    l_cls *= h['cls']
+    # l_reid *= h['reid']
+    l_reid /= float(nb)  # reid loss_funcs normalize by number of GT objects
+
+    if red == 'sum':
+        bs = t_obj.shape[0]  # batch size
+        l_obj *= 3 / (6300 * bs) * 2  # 3 / np * 2
+        if ng:
+            l_cls *= 3 / ng / model.nc
+            l_box *= 3 / ng
+
+    loss = l_box + l_obj + l_cls + l_reid
+    return loss, torch.cat((l_box, l_obj, l_cls, l_reid, loss)).detach()
+
+
 def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
     """
     :param preds:
@@ -438,7 +582,8 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
-            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
+                t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
@@ -625,7 +770,8 @@ def build_targets_with_ids(preds, targets, track_ids, model):
 
             if use_all_anchors:
                 na = anchors.shape[0]  # number of anchors
-                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(-1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
+                a = torch.arange(na).view(-1, 1).repeat(1, nt).view(
+                    -1)  # anchor index, N_a × N_gt_box:e.g. 56个0, 56个1, 56个2
                 t = t.repeat(na, 1)  # 56 × 6 -> (56×3) × 6
                 tr_ids = track_ids.repeat(na)  # 56 -> 56×3
             else:  # use best anchor only
@@ -729,7 +875,110 @@ def build_targets(preds, targets, model):
     return t_cls, t_box, indices, av
 
 
-def non_max_suppression(prediction,
+def non_max_suppression_with_yolo_inds(predictions,
+                                       yolo_inds,
+                                       conf_thres=0.1,
+                                       iou_thres=0.6,
+                                       merge=False,
+                                       classes=None,
+                                       agnostic=False):
+    """Performs Non-Maximum Suppression (NMS) on inference results
+
+    Returns:
+         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
+    """
+    if predictions.dtype is torch.float16:
+        predictions = predictions.float()  # to FP32
+
+    nc = predictions[0].shape[1] - 5  # number of classes
+    xc = predictions[..., 4] > conf_thres  # candidates
+
+    # Settings
+    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    max_det = 300  # maximum number of detections per image
+    time_limit = 10.0  # seconds to quit after
+    redundant = True  # require redundant detections
+    multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
+
+    # t = time.time()
+    output = [None] * predictions.shape[0]
+    output_yolo_inds = [None] * predictions.shape[0]
+    for xi, x in enumerate(predictions):  # xi: image index in the batch, image inference
+        # Apply constraints
+        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        x = x[xc[xi]]  # confidence
+        yolo_inds = yolo_inds[xi][xc[xi]]
+
+        # If none remain process next image
+        if not x.shape[0]:
+            continue
+
+        # Compute conf
+        x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf(目标概率*前景概率)
+
+        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
+        box = xywh2xyxy(x[:, :4])
+
+        # Detections matrix nx6 (xyxy, conf, cls)
+        if multi_label:
+            i, j = (x[:, 5:] > conf_thres).nonzero().t()
+
+            boxes = box[i]
+            cls_scores = x[i, j + 5, None]
+            cls_inds = j[:, None].float()
+
+            yolo_inds = yolo_inds[i]
+
+            # x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            x = torch.cat((boxes, cls_scores, cls_inds), 1)  # box(4), cls_score(1), cls_id(1): n×6
+
+        else:  # best class only
+            conf, j = x[:, 5:].max(1, keepdim=True)
+            x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+
+        # Filter by class
+        if classes:
+            x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
+
+        # Apply finite constraint
+        # if not torch.isfinite(x).all():
+        #     x = x[torch.isfinite(x).all(1)]
+
+        # If none remain process next image
+        n = x.shape[0]  # number of boxes
+        if not n:
+            continue
+
+        # Sort by confidence
+        # x = x[x[:, 4].argsort(descending=True)]
+
+        # Batched NMS
+        c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
+        boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+        i = torchvision.ops.boxes.nms(boxes, scores, iou_thres)
+        if i.shape[0] > max_det:  # limit detections
+            i = i[:max_det]
+        if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
+            try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+                iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                weights = iou * scores[None]  # box weights
+                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+                if redundant:
+                    i = i[iou.sum(1) > 1]  # require redundancy
+            except:  # possible CUDA error https://github.com/ultralytics/yolov3/issues/1139
+                print(x, i, x.shape, i.shape)
+                pass
+
+        output[xi] = x[i]
+        # if (time.time() - t) > time_limit:
+        #    break  # time limit exceeded
+
+        output_yolo_inds[xi] = yolo_inds[i]
+
+    return output, output_yolo_inds
+
+
+def non_max_suppression(predictions,
                         conf_thres=0.1,
                         iou_thres=0.6,
                         merge=False,
@@ -740,11 +989,11 @@ def non_max_suppression(prediction,
     Returns:
          detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
-    if prediction.dtype is torch.float16:
-        prediction = prediction.float()  # to FP32
+    if predictions.dtype is torch.float16:
+        predictions = predictions.float()  # to FP32
 
-    nc = prediction[0].shape[1] - 5  # number of classes
-    xc = prediction[..., 4] > conf_thres  # candidates
+    nc = predictions[0].shape[1] - 5  # number of classes
+    xc = predictions[..., 4] > conf_thres  # candidates
 
     # Settings
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
@@ -754,8 +1003,8 @@ def non_max_suppression(prediction,
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
 
     # t = time.time()
-    output = [None] * prediction.shape[0]
-    for xi, x in enumerate(prediction):  # image index, image inference
+    output = [None] * predictions.shape[0]
+    for xi, x in enumerate(predictions):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
         x = x[xc[xi]]  # confidence

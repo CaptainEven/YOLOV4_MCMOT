@@ -120,7 +120,7 @@ def embedding_distance(tracks, detections, metric='cosine'):
     # cost_matrix[i, :] = np.maximum(0.0, cdist(track.smooth_feat.reshape(1,-1), det_features, metric))
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
 
-    # 默认计算两个特征向量之间的夹角余弦
+    # default: cosine distance
     # Nomalized features
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))
 

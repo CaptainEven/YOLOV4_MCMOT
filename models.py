@@ -257,7 +257,7 @@ class YOLOLayer(nn.Module):
             if (self.nx, self.ny) != (nx, ny):
                 self.create_grids(ng=(nx, ny), device=pred.device)
 
-        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, na, ny, nx, no(classes + xywh))
         pred = pred.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
@@ -286,7 +286,13 @@ class YOLOLayer(nn.Module):
             io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
             torch.sigmoid_(io[..., 4:])  # sigmoid for confidence score and cls pred
 
-            return io.view(bs, -1, self.no), pred  # view [1, 3, 13, 13, 85] as [1, 507, 85]
+            # gathered pred output: io: view [1, 3, 13, 13, 85] as [1, 507, 85]
+            io = io.view(bs, -1, self.no)
+
+            # yolo inds
+            # yolo_inds = torch.full((io.size(0), io.size(1), 1), self.index, dtype=torch.long)
+
+            return io, pred  # , yolo_inds
 
 
 class Darknet(nn.Module):
@@ -317,7 +323,7 @@ class Darknet(nn.Module):
         # ----- Define ReID classifiers
         if max_id_dict is not None:
             self.max_id_dict = max_id_dict
-            self.emb_dim = emb_dim
+            self.emb_dim = emb_dim  # dimension of embedding feature vector
             self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
@@ -366,7 +372,7 @@ class Darknet(nn.Module):
 
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
-        yolo_out, out = [], []
+        yolo_out, out, reid_feat_out = [], [], []  # 3 yolo laers correspond to 3 reid feature map layers
         if verbose:
             print('0', x.shape)
             str = ''
@@ -390,7 +396,7 @@ class Darknet(nn.Module):
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
                 yolo_out.append(module.forward(x, out))
-            elif name == 'ModuleList':  # laset 5 layers of FC: reid classifiers
+            elif name == 'ModuleList':  # last 5 layers of FC: reid classifiers
                 continue
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
@@ -400,21 +406,20 @@ class Darknet(nn.Module):
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
 
-        # Get last feature map for reid feature vector extraction
-        reid_feat_map = out[-1]  # e.g. 5×128×192×192
-        # return reid_feat_map
-        # return out[138], out[149], out[160], out[169]  # for half: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[36], out[43], out[50], out[62]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[36], out[43], out[50], out[59]  # for tiny3l: yolo_1, yolo_2, yolo_3, reid_feat_map
-        # return out[163], out[165], out[167]  # for half: return deconv_1, deconv_2, deconv_3
-        # return out[137], out[148], out[159]
+        # Get 3 feature map layers for reid feature vector extraction
+        reid_feat_out.append(out[-5])
+        reid_feat_out.append(out[-3])
+        reid_feat_out.append(out[-1])
+
+        # 3 yolo output layers and 3 feature layers
+        # return out[36], out[43], out[50], out[-5], out[-3], out[-1]
 
         # ----- Output mode
         if self.training:  # train
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return yolo_out
             elif self.mode == 'track':
-                return yolo_out, reid_feat_map
+                return yolo_out, reid_feat_out
             else:
                 print('[Err]: unrecognized task mode.')
                 return None
@@ -423,6 +428,13 @@ class Darknet(nn.Module):
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
+
+            # record anchor inds
+            yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
+            yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
+            yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
+            yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
+
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
                 x = torch.split(x, nb, dim=0)
@@ -434,7 +446,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_map
+                return x, p, reid_feat_out, yolo_inds
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None
@@ -487,6 +499,8 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+        # if i > 51:
+        #     break
         if mdef['type'] == 'convolutional':
             conv = module[0]
             if mdef['batch_normalize']:
@@ -512,7 +526,11 @@ def load_darknet_weights(self, weights, cutoff=-1):
             else:
                 # Load conv. bias
                 nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+
+                try:
+                    conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+                except Exception as e:
+                    print(e)
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
 
