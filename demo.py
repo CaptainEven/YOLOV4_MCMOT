@@ -7,7 +7,7 @@ import argparse
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
-from tracker.multitracker import JDETracker
+from tracker.multitracker import JDETracker, MCJDETracker
 from tracking_utils import visualization as vis
 from tracking_utils.io import write_results_dict
 
@@ -192,10 +192,8 @@ def run_tracking_of_videos_txt(opt):
                 for cls_id in range(opt.num_classes):  # process each object class
                     online_targets = online_targets_dict[cls_id]
                     for track in online_targets:
-                        tlwh = track.tlwh
-                        t_id = track.track_id
-                        online_tlwhs_dict[cls_id].append(tlwh)
-                        online_ids_dict[cls_id].append(t_id)
+                        online_tlwhs_dict[cls_id].append(track.tlwh)
+                        online_ids_dict[cls_id].append(track.track_id)
 
                 # collect result
                 for cls_id in range(opt.num_classes):
@@ -212,10 +210,8 @@ def run_tracking_of_videos_txt(opt):
                     for cls_id in range(opt.num_classes):  # process each object class
                         online_targets = online_targets_dict[cls_id]
                         for track in online_targets:
-                            tlwh = track.tlwh
-                            t_id = track.track_id
-                            online_tlwhs_dict[cls_id].append(tlwh)
-                            online_ids_dict[cls_id].append(t_id)
+                            online_tlwhs_dict[cls_id].append(track.tlwh)
+                            online_ids_dict[cls_id].append(track.track_id)
 
                     # collect result
                     for cls_id in range(opt.num_classes):
@@ -307,10 +303,8 @@ def run_tracking_of_videos_img(opt):
                 for cls_id in range(opt.num_classes):  # process each object class
                     online_targets = online_targets_dict[cls_id]
                     for track in online_targets:
-                        tlwh = track.tlwh
-                        t_id = track.track_id
-                        online_tlwhs_dict[cls_id].append(tlwh)
-                        online_ids_dict[cls_id].append(t_id)
+                        online_tlwhs_dict[cls_id].append(track.tlwh)
+                        online_ids_dict[cls_id].append(track.track_id)
 
                 # to draw track/detection
                 online_im = vis.plot_tracks(image=img0,
@@ -335,10 +329,8 @@ def run_tracking_of_videos_img(opt):
                     for cls_id in range(opt.num_classes):  # process each object class
                         online_targets = online_targets_dict[cls_id]
                         for track in online_targets:
-                            tlwh = track.tlwh
-                            t_id = track.track_id
-                            online_tlwhs_dict[cls_id].append(tlwh)
-                            online_ids_dict[cls_id].append(t_id)
+                            online_tlwhs_dict[cls_id].append(track.tlwh)
+                            online_ids_dict[cls_id].append(track.track_id)
 
                     # to draw track/detection
                     online_im = vis.plot_tracks(image=img0,
@@ -389,7 +381,8 @@ def run_tracking(opt):
         cls2id[cls_name] = cls_id
 
     # Set MCMOT tracker
-    tracker = JDETracker(opt)  # Joint detection and embedding
+    # tracker = JDETracker(opt)  # Joint detection and embedding
+    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     # Update tracking frames
     out_fps = int(opt.outFPS / opt.interval)
@@ -409,18 +402,18 @@ def run_tracking(opt):
 
         # update tracking result of this frame
         if opt.interval == 1:
-            online_targets_dict = tracker.update_tracking(img, img0)
+
+            # update tracking result of the current frame
+            track_dict = tracker.update_tracking(img, img0)
 
             # aggregate current frame's results for each object class
             online_tlwhs_dict = defaultdict(list)
             online_ids_dict = defaultdict(list)
             for cls_id in range(opt.num_classes):  # process each object class
-                online_targets = online_targets_dict[cls_id]
-                for track in online_targets:
-                    tlwh = track.tlwh
-                    t_id = track.track_id
-                    online_tlwhs_dict[cls_id].append(tlwh)
-                    online_ids_dict[cls_id].append(t_id)
+                cls_tracks = track_dict[cls_id]
+                for track in cls_tracks:
+                    online_tlwhs_dict[cls_id].append(track.tlwh)
+                    online_ids_dict[cls_id].append(track.track_id)
 
             # collect result
             for cls_id in range(opt.num_classes):
@@ -441,36 +434,36 @@ def run_tracking(opt):
                 cv2.imwrite(img_save_path, online_im)
         else:
             if fr_id % opt.interval == 0:  # skip some frames
-                online_targets_dict = tracker.update_tracking(img, img0)
+
+                # update tracking results of current frame
+                track_dict = tracker.update_tracking(img, img0)
 
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
                 for cls_id in range(opt.num_classes):  # process each object class
-                    online_targets = online_targets_dict[cls_id]
-                    for track in online_targets:
-                        tlwh = track.tlwh
-                        t_id = track.track_id
-                        online_tlwhs_dict[cls_id].append(tlwh)
-                        online_ids_dict[cls_id].append(t_id)
+                    cls_tracks = track_dict[cls_id]
+                    for track in cls_tracks:
+                        online_tlwhs_dict[cls_id].append(tlwh = track.tlwh)
+                        online_ids_dict[cls_id].append(t_id = track.track_id)
 
                 # collect result
                 for cls_id in range(opt.num_classes):
                     results_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
 
-                # # to draw track/detection
-                # if opt.show_image:
-                #     if tracker.frame_id > 0:
-                #         online_im = vis.plot_tracks(image=img0,
-                #                                     tlwhs_dict=online_tlwhs_dict,
-                #                                     obj_ids_dict=online_ids_dict,
-                #                                     num_classes=opt.num_classes,
-                #                                     frame_id=fr_cnt,
-                #                                     id2cls=id2cls)
-                #
-                # if opt.save_img_dir is not None:
-                #     img_save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
-                #     cv2.imwrite(img_save_path, online_im)
+                # to draw track/detection
+                if opt.show_image:
+                    if tracker.frame_id > 0:
+                        online_im = vis.plot_tracks(image=img0,
+                                                    tlwhs_dict=online_tlwhs_dict,
+                                                    obj_ids_dict=online_ids_dict,
+                                                    num_classes=opt.num_classes,
+                                                    frame_id=fr_cnt,
+                                                    id2cls=id2cls)
+
+                if opt.save_img_dir is not None:
+                    img_save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
+                    cv2.imwrite(img_save_path, online_im)
 
                 # update sampled frame count
                 fr_cnt += 1
@@ -483,11 +476,11 @@ def run_tracking(opt):
     # output track/detection results as txt(MOT16 format)
     write_results_dict(result_f_name, results_dict, data_type)
 
-    # # output tracking result as video
-    # result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
-    # cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
-    #     .format(out_fps, frame_dir, result_video_path)  # set output frame rate 12 FPS
-    # os.system(cmd_str)
+    # output tracking result as video
+    result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
+    cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
+        .format(out_fps, frame_dir, result_video_path)  # set output frame rate 12 FPS
+    os.system(cmd_str)
 
 
 if __name__ == '__main__':
@@ -518,7 +511,7 @@ if __name__ == '__main__':
     parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
-    parser.add_argument('--track-buffer', type=int, default=60, help='tracking buffer frames')
+    parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
@@ -535,8 +528,9 @@ if __name__ == '__main__':
     print(opt)
 
     if opt.task == 'track':
-        # run_tracking(opt)
-        run_tracking_of_videos_txt(opt)
+        run_tracking(opt)
+        # run_tracking_of_videos_txt(opt)
+        # run_tracking_of_videos_img(opt)
     elif opt.task == 'detect':
         run_detection(opt)
     else:

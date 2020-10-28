@@ -492,7 +492,9 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
                         continue
 
                     id_vects = t_reid_feat_vects[inds]
-                    id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
+
+                    # L2 normalize the feature vector
+                    id_vects = F.normalize(id_vects, dim=1)
 
                     fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
@@ -873,13 +875,13 @@ def build_targets(preds, targets, model):
     return t_cls, t_box, indices, av
 
 
-def non_max_suppression_with_anchor_inds(predictions,
-                                         yolo_ins,
-                                         conf_thres=0.1,
-                                         iou_thres=0.6,
-                                         merge=False,
-                                         classes=None,
-                                         agnostic=False):
+def non_max_suppression_with_yolo_inds(predictions,
+                                       yolo_inds,
+                                       conf_thres=0.1,
+                                       iou_thres=0.6,
+                                       merge=False,
+                                       classes=None,
+                                       agnostic=False):
     """Performs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
@@ -905,7 +907,7 @@ def non_max_suppression_with_anchor_inds(predictions,
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
         x = x[xc[xi]]  # confidence
-        yolo_ins = yolo_ins[xi][xc[xi]]
+        yolo_inds = yolo_inds[xi][xc[xi]]
 
         # If none remain process next image
         if not x.shape[0]:
@@ -925,7 +927,7 @@ def non_max_suppression_with_anchor_inds(predictions,
             cls_scores = x[i, j + 5, None]
             cls_inds = j[:, None].float()
 
-            yolo_ins = yolo_ins[i]
+            yolo_inds = yolo_inds[i]
 
             # x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
             x = torch.cat((boxes, cls_scores, cls_inds), 1)  # box(4), cls_score(1), cls_id(1): n×6
@@ -971,7 +973,7 @@ def non_max_suppression_with_anchor_inds(predictions,
         # if (time.time() - t) > time_limit:
         #    break  # time limit exceeded
 
-        output_yolo_inds[xi] = yolo_ins[i]
+        output_yolo_inds[xi] = yolo_inds[i]
 
     return output, output_yolo_inds
 
