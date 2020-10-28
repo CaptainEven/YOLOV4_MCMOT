@@ -578,10 +578,11 @@ class MCJDETracker(object):
             else:
                 cls_detections = []
 
-            # reset the track ids for a different object class in the first frame
+            # ----- reset the track ids for a different object class in the first frame
             if self.frame_id == 1:
                 for track in cls_detections:
                     track.reset_track_id()
+            # -----
 
             ''' Add newly detected tracks(current frame) to tracked_tracks'''
             unconfirmed_dict = defaultdict(list)
