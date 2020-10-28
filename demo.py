@@ -68,8 +68,9 @@ def run_detection(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # Set tracker
-    tracker = JDETracker(opt)  # Joint detection and embedding
+    # Set MCMOT tracker
+    # tracker = JDETracker(opt)  # Joint detection and embedding
+    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(opt.device)
@@ -144,8 +145,9 @@ def run_tracking_of_videos_txt(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # set MCMOT tracker
-    tracker = JDETracker(opt)  # Joint detection and embedding
+    # Set MCMOT tracker
+    # tracker = JDETracker(opt)  # Joint detection and embedding
+    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     out_fps = int(opt.outFPS / opt.interval)
     data_type = 'mot'
@@ -255,8 +257,9 @@ def run_tracking_of_videos_img(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # set MCMOT tracker
-    tracker = JDETracker(opt)  # Joint detection and embedding
+    # Set MCMOT tracker
+    # tracker = JDETracker(opt)  # Joint detection and embedding
+    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     out_fps = int(opt.outFPS / opt.interval)
     data_type = 'mot'
