@@ -31,15 +31,6 @@ class MCBaseTrack(object):
     # multi-camera
     location = (np.inf, np.inf)
 
-    def __init__(self, num_classes):
-        """
-        Initiate _count for each object class
-        :param num_classes:
-        """
-        self.num_classes = num_classes
-        for cls_id in range(self.num_classes):
-            MCBaseTrack._count_dict[cls_id] = 0
-
     @property
     def end_frame(self):
         return self.frame_id
@@ -50,6 +41,15 @@ class MCBaseTrack(object):
         return MCBaseTrack._count_dict[cls_id]
 
     # @even: reset track id
+    @staticmethod
+    def init_count(num_classes):
+        """
+        Initiate _count for all object classes
+        :param num_classes:
+        """
+        for cls_id in range(num_classes):
+            MCBaseTrack._count_dict[cls_id] = 0
+
     @staticmethod
     def reset_track_count(cls_id):
         MCBaseTrack._count_dict[cls_id] = 0

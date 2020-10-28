@@ -27,9 +27,6 @@ class MCTrack(MCBaseTrack):
         :param cls_id:
         :param buff_size:
         """
-        # Call parent class's init function
-        # super(MCTrack, self).__init__(num_classes)
-
         # object class id
         self.cls_id = cls_id
 
@@ -483,6 +480,11 @@ class MCJDETracker(object):
         # update frame id
         self.frame_id += 1
 
+        # ----- reset the track ids for all object classes in the first frame
+        if self.frame_id == 1:
+            MCTrack.init_count(self.opt.num_classes)
+        # -----
+
         # record tracking states of the current frame
         activated_tracks_dict = defaultdict(list)
         refined_tracks_dict = defaultdict(list)
@@ -577,13 +579,6 @@ class MCJDETracker(object):
                     zip(cls_dets[:, :5], cls_id_feature)]  # detection of current frame
             else:
                 cls_detections = []
-
-            # ----- reset the track ids for a different object class in the first frame
-            if self.frame_id == 1:
-                super(MCTrack, cls_detections[0]).__init__(self.opt.num_classes)
-                # for track in cls_detections:
-                #     track.reset_track_id()
-            # -----
 
             ''' Add newly detected tracks(current frame) to tracked_tracks'''
             unconfirmed_dict = defaultdict(list)

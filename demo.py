@@ -490,7 +490,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test11.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
     parser.add_argument('--videos', type=str, default='data/samples/', help='')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
