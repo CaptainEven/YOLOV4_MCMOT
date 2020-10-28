@@ -35,11 +35,6 @@ class MCBaseTrack(object):
     def end_frame(self):
         return self.frame_id
 
-    @staticmethod
-    def next_id(cls_id):
-        MCBaseTrack._count_dict[cls_id] += 1
-        return MCBaseTrack._count_dict[cls_id]
-
     # @even: reset track id
     @staticmethod
     def init_count(num_classes):
@@ -49,6 +44,11 @@ class MCBaseTrack(object):
         """
         for cls_id in range(num_classes):
             MCBaseTrack._count_dict[cls_id] = 0
+
+    @staticmethod
+    def next_id(cls_id):
+        MCBaseTrack._count_dict[cls_id] += 1
+        return MCBaseTrack._count_dict[cls_id]
 
     @staticmethod
     def reset_track_count(cls_id):

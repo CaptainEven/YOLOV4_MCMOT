@@ -528,9 +528,9 @@ if __name__ == '__main__':
     print(opt)
 
     if opt.task == 'track':
-        run_tracking(opt)
+        # run_tracking(opt)
         # run_tracking_of_videos_txt(opt)
-        # run_tracking_of_videos_img(opt)
+        run_tracking_of_videos_img(opt)
     elif opt.task == 'detect':
         run_detection(opt)
     else:
