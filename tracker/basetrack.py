@@ -14,9 +14,7 @@ class TrackState(object):
 
 # TODO: Create a multi-object class BaseTrack class
 class MCBaseTrack(object):
-    # _count = 0
-
-    _count_dict = defaultdict(int)
+    _count_dict = defaultdict(int)  # the MCBaseTrack class owns this dict
 
     track_id = 0
     is_activated = False
@@ -48,16 +46,12 @@ class MCBaseTrack(object):
 
     @staticmethod
     def next_id(cls_id):
-        # BaseTrack._count += 1
-        # return BaseTrack._count
-
         MCBaseTrack._count_dict[cls_id] += 1
         return MCBaseTrack._count_dict[cls_id]
 
     # @even: reset track id
     @staticmethod
     def reset_track_count(cls_id):
-        # BaseTrack._count = 0
         MCBaseTrack._count_dict[cls_id] = 0
 
     def activate(self, *args):
