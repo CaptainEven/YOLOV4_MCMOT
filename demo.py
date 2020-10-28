@@ -264,6 +264,7 @@ def run_tracking_of_videos_img(opt):
     out_fps = int(opt.outFPS / opt.interval)
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
+    video_path_list.sort()
 
     # tracking each input video
     for video_i, video_path in enumerate(video_path_list):
