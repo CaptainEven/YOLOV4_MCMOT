@@ -196,7 +196,6 @@ class MCTrack(MCBaseTrack):
         return ret
 
     def __repr__(self):
-        # return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
         return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
