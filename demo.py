@@ -243,6 +243,8 @@ def run_tracking_of_videos_img(opt):
         return
 
     # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -365,8 +367,12 @@ def run_tracking(opt):
     :param opt:
     :return:
     """
-    # Set dataset and device
+    # Set dataset
     dataset = LoadImages(opt.source, img_size=opt.img_size)
+
+    # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
