@@ -129,6 +129,8 @@ def run_tracking_of_videos_txt(opt):
         return
 
     # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -241,6 +243,8 @@ def run_tracking_of_videos_img(opt):
         return
 
     # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -264,6 +268,7 @@ def run_tracking_of_videos_img(opt):
     out_fps = int(opt.outFPS / opt.interval)
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
+    video_path_list.sort()
 
     # tracking each input video
     for video_i, video_path in enumerate(video_path_list):
@@ -362,8 +367,12 @@ def run_tracking(opt):
     :param opt:
     :return:
     """
-    # Set dataset and device
+    # Set dataset
     dataset = LoadImages(opt.source, img_size=opt.img_size)
+
+    # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -486,6 +495,18 @@ def run_tracking(opt):
     os.system(cmd_str)
 
 
+def FindFreeGPU():
+    """
+    :return:
+    """
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+    memory_left_gpu = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+
+    most_free_gpu_idx = np.argmax(memory_left_gpu)
+    # print(str(most_free_gpu_idx))
+    return int(most_free_gpu_idx)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
@@ -505,7 +526,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
@@ -530,11 +551,15 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     print(opt)
 
+    # ----------
     if opt.task == 'track':
         # run_tracking(opt)
-        # run_tracking_of_videos_txt(opt)
-        run_tracking_of_videos_img(opt)
+        run_tracking_of_videos_txt(opt)
+        # run_tracking_of_videos_img(opt)
     elif opt.task == 'detect':
         run_detection(opt)
     else:
         print("[Err]: un-recognized task mode, neither 'track' or 'detect'")
+    # ----------
+
+    # TestFreeGPU()
