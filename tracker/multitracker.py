@@ -512,13 +512,13 @@ class MCJDETracker(object):
                                                                      agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_ids[0].squeeze()
+            dets_yolo_ids = pred_yolo_ids[0]
 
             # t2 = torch_utils.time_synchronized()
             # print('run time (%.3fs)' % (t2 - t1))
 
             # get reid feature for each object class
-            if dets is None:
+            if dets is None or dets_yolo_ids is None:
                 print('[Warning]: no objects detected.')
                 return None
 
