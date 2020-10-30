@@ -262,7 +262,6 @@ def run_tracking_of_videos_img(opt):
         cls2id[cls_name] = cls_id
 
     # Set MCMOT tracker
-    # tracker = JDETracker(opt)  # Joint detection and embedding
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     out_fps = int(opt.outFPS / opt.interval)
@@ -303,7 +302,10 @@ def run_tracking_of_videos_img(opt):
 
             # update tracking result of this frame
             if opt.interval == 1:
+
+                # ----- update tracking result of current frame
                 online_targets_dict = tracker.update_tracking(img, img0)
+                # -----
 
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
@@ -327,7 +329,10 @@ def run_tracking_of_videos_img(opt):
                     cv2.imwrite(save_path, online_im)
             else:  # interval > 1
                 if fr_id % opt.interval == 0:  # skip some frames
+
+                    # ----- update tracking result of current frame
                     online_targets_dict = tracker.update_tracking(img, img0)
+                    # -----
 
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
@@ -456,8 +461,8 @@ def run_tracking(opt):
                 for cls_id in range(opt.num_classes):  # process each object class
                     cls_tracks = track_dict[cls_id]
                     for track in cls_tracks:
-                        online_tlwhs_dict[cls_id].append(tlwh = track.tlwh)
-                        online_ids_dict[cls_id].append(t_id = track.track_id)
+                        online_tlwhs_dict[cls_id].append(track.tlwh)
+                        online_ids_dict[cls_id].append(track.track_id)
 
                 # collect result
                 for cls_id in range(opt.num_classes):
@@ -514,7 +519,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test5.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/test29.mp4', help='source')
     parser.add_argument('--videos', type=str, default='data/samples/', help='')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
@@ -526,7 +531,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
@@ -553,8 +558,8 @@ if __name__ == '__main__':
 
     # ----------
     if opt.task == 'track':
-        # run_tracking(opt)
-        run_tracking_of_videos_txt(opt)
+        run_tracking(opt)
+        # run_tracking_of_videos_txt(opt)
         # run_tracking_of_videos_img(opt)
     elif opt.task == 'detect':
         run_detection(opt)
