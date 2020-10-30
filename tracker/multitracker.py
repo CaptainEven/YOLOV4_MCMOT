@@ -512,7 +512,7 @@ class MCJDETracker(object):
                                                                      agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_ids[0]
+            dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
 
             # t2 = torch_utils.time_synchronized()
             # print('run time (%.3fs)' % (t2 - t1))
