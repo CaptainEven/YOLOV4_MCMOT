@@ -5,7 +5,7 @@ from utils.parse_config import *
 ONNX_EXPORT = False
 
 
-# 解析.cfg文件, 创建网络各层
+# Parse cfg file, create every layer
 def create_modules(module_defs, img_size, cfg, id_classifiers=None):
     # Constructs module list of layer blocks from module configuration in module_defs
 
@@ -43,12 +43,14 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                                                           bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
             if mdef['activation'] == 'leaky':  # activation study https://github.com/ultralytics/yolov3/issues/441
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
+            elif mdef['activation'] == 'relu':
+                modules.add_module('activation', nn.ReLU(inplace=True))
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -76,12 +78,14 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                                                               bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
             if mdef['activation'] == 'leaky':  # activation study https://github.com/ultralytics/yolov3/issues/441
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
+            elif mdef['activation'] == 'relu':
+                modules.add_module('activation', nn.ReLU(inplace=True))
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -112,11 +116,23 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             else:
                 modules = nn.Upsample(scale_factor=mdef['stride'])
 
+        # Add GroupRoute support
         elif mdef['type'] == 'route':  # nn.Sequential() placeholder for 'route' layer
+            # layers = mdef['layers']
+            # filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
+            # routs.extend([i + l if l < 0 else l for l in layers])
+            # modules = FeatureConcat(layers=layers)
+
             layers = mdef['layers']
             filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = FeatureConcat(layers=layers)
+            if 'groups' in mdef:
+                groups = mdef['groups']
+                group_id = mdef['group_id']
+                modules = RouteGroup(layers, groups, group_id)
+                filters //= groups
+            else:
+                modules = FeatureConcat(layers=layers)
 
         elif mdef['type'] == 'route_lhalf':  # nn.Sequential() placeholder for 'route' layer
             layers = mdef['layers']
@@ -241,7 +257,7 @@ class YOLOLayer(nn.Module):
             if (self.nx, self.ny) != (nx, ny):
                 self.create_grids(ng=(nx, ny), device=pred.device)
 
-        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, na, ny, nx, no(classes + xywh))
         pred = pred.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
@@ -270,7 +286,13 @@ class YOLOLayer(nn.Module):
             io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
             torch.sigmoid_(io[..., 4:])  # sigmoid for confidence score and cls pred
 
-            return io.view(bs, -1, self.no), pred  # view [1, 3, 13, 13, 85] as [1, 507, 85]
+            # gathered pred output: io: view [1, 3, 13, 13, 85] as [1, 507, 85]
+            io = io.view(bs, -1, self.no)
+
+            # yolo inds
+            # yolo_inds = torch.full((io.size(0), io.size(1), 1), self.index, dtype=torch.long)
+
+            return io, pred  # , yolo_inds
 
 
 class Darknet(nn.Module):
@@ -301,13 +323,13 @@ class Darknet(nn.Module):
         # ----- Define ReID classifiers
         if max_id_dict is not None:
             self.max_id_dict = max_id_dict
-            self.emb_dim = emb_dim
-            self.id_classifiers = nn.ModuleList()
+            self.emb_dim = emb_dim  # dimension of embedding feature vector
+            self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
                 self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
 
-            # add reid classifiers(nn.ModuleDict) to self.module_list to be registered
+            # add reid classifiers(nn.ModuleList) to self.module_list to be registered
             self.module_list.append(self.id_classifiers)
 
         self.yolo_layer_inds = get_yolo_layers(self)
@@ -321,6 +343,7 @@ class Darknet(nn.Module):
     def forward(self, x, augment=False, verbose=False):
         if not augment:
             return self.forward_once(x, verbose=verbose)
+
         else:  # Augment images (inference and test only) https://github.com/ultralytics/yolov3/issues/931
             img_size = x.shape[-2:]  # height, width
             s = [0.83, 0.67]  # scales
@@ -349,7 +372,7 @@ class Darknet(nn.Module):
 
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
-        yolo_out, out = [], []
+        yolo_out, out, reid_feat_out = [], [], []  # 3 yolo laers correspond to 3 reid feature map layers
         if verbose:
             print('0', x.shape)
             str = ''
@@ -364,13 +387,8 @@ class Darknet(nn.Module):
                            ), 0)
 
         for i, module in enumerate(self.module_list):
-            # reid classifiers: use id classifiers in train phase only,
-            # forward in loss computation, not here, so just skip this module
-            if i == 170:
-                continue
-
             name = module.__class__.__name__
-            if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l']:  # sum, concat
+            if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l', 'RouteGroup']:  # sum, concat
                 if verbose:
                     l = [i - 1] + module.layers  # layers
                     sh = [list(x.shape)] + [list(out[i].shape) for i in module.layers]  # shapes
@@ -378,6 +396,8 @@ class Darknet(nn.Module):
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
                 yolo_out.append(module.forward(x, out))
+            elif name == 'ModuleList':  # last 5 layers of FC: reid classifiers
+                continue
             else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
                 x = module(x)
 
@@ -386,15 +406,20 @@ class Darknet(nn.Module):
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
 
-        # Get last feature map for reid feature vector extraction
-        reid_feat_map = out[169]  # e.g. 5×128×192×192
+        # Get 3 feature map layers for reid feature vector extraction
+        reid_feat_out.append(out[-5])
+        reid_feat_out.append(out[-3])
+        reid_feat_out.append(out[-1])
+
+        # 3 yolo output layers and 3 feature layers
+        # return out[36], out[43], out[50], out[-5], out[-3], out[-1]
 
         # ----- Output mode
         if self.training:  # train
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return yolo_out
             elif self.mode == 'track':
-                return yolo_out, reid_feat_map
+                return yolo_out, reid_feat_out
             else:
                 print('[Err]: unrecognized task mode.')
                 return None
@@ -403,6 +428,13 @@ class Darknet(nn.Module):
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
+
+            # record anchor inds
+            yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
+            yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
+            yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
+            yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
+
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
                 x = torch.split(x, nb, dim=0)
@@ -414,7 +446,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_map
+                return x, p, reid_feat_out, yolo_inds
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None
@@ -463,35 +495,45 @@ def load_darknet_weights(self, weights, cutoff=-1):
         # Read Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
         self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
         self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
-
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+        # if i > 51:
+        #     break
         if mdef['type'] == 'convolutional':
             conv = module[0]
             if mdef['batch_normalize']:
                 # Load BN bias, weights, running mean and running variance
                 bn = module[1]
                 nb = bn.bias.numel()  # number of biases
+
                 # Bias
                 bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
                 ptr += nb
+
                 # Weight
                 bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
                 ptr += nb
+
                 # Running Mean
                 bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
                 ptr += nb
+
                 # Running Var
                 bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
                 ptr += nb
             else:
                 # Load conv. bias
                 nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+
+                try:
+                    conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+                except Exception as e:
+                    print(e)
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
+
             # Load conv. weights
             nw = conv.weight.numel()  # number of weights
             conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
@@ -503,25 +545,47 @@ def save_weights(self, path='model.weights', cutoff=-1):
     # Note: Does not work if model.fuse() is applied
     with open(path, 'wb') as f:
         # Write Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
-        self.version.tofile(f)  # (int32) version info: major, minor, revision
-        self.seen.tofile(f)  # (int64) number of images seen during training
+        multi_gpu = type(self) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
+        if multi_gpu:
+            self.module.version.tofile(f)  # (int32) version info: major, minor, revision
+            self.module.seen.tofile(f)  # (int64) number of images seen during training
 
-        # Iterate through layers
-        for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-            if mdef['type'] == 'convolutional':
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if mdef['batch_normalize']:
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(f)
-                    bn_layer.weight.data.cpu().numpy().tofile(f)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
-                    bn_layer.running_var.data.cpu().numpy().tofile(f)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(f)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(f)
+            # Iterate through layers
+            for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
+                if mdef['type'] == 'convolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if mdef['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
+        else:
+            self.version.tofile(f)  # (int32) version info: major, minor, revision
+            self.seen.tofile(f)  # (int64) number of images seen during training
+
+            # Iterate through layers
+            for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+                if mdef['type'] == 'convolutional':
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if mdef['batch_normalize']:
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(f)
+                        bn_layer.weight.data.cpu().numpy().tofile(f)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                        bn_layer.running_var.data.cpu().numpy().tofile(f)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(f)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(f)
 
 
 def convert(cfg='cfg/yolov4-pacsp.cfg', weights='weights/yolov4-pacsp.weights'):

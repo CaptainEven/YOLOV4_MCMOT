@@ -52,7 +52,7 @@ class AdaBound(Optimizer):
         """Performs a single optimization step.
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
+                and returns the loss_funcs.
         """
         loss = None
         if closure is not None:
@@ -167,7 +167,7 @@ class AdaBoundW(Optimizer):
         """Performs a single optimization step.
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
+                and returns the loss_funcs.
         """
         loss = None
         if closure is not None:

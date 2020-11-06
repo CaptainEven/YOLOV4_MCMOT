@@ -1,4 +1,4 @@
 classes=5
-train=/mnt/diskb/even/dataset/MCMOT/train_mcmot.txt
-valid=/mnt/diskb/even/dataset/MCMOT/val_mcmot.txt
+train=./data/train_mcmot.txt
+valid=./data/val_mcmot.txt
 names=data/mcmot.names

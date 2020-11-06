@@ -9,6 +9,7 @@ import test  # import test.py to get mAP after each epoch
 from models import *
 from utils.datasets import *
 from utils.utils import *
+from auto_weighted_loss import AutomaticWeightedLoss
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
@@ -23,18 +24,18 @@ best = wdir + 'best.pt'
 results_file = 'results.txt'
 
 # Hyper-parameters
-hyp = {'giou': 3.54,  # g_iou loss gain
-       'cls': 37.4,  # cls loss gain
+hyp = {'giou': 3.54,  # g_iou loss_funcs gain
+       'cls': 37.4,  # cls loss_funcs gain
        'cls_pw': 1.0,  # cls BCELoss positive_weight
-       'obj': 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
-       'reid': 0.1,  # reid loss weight
+       'obj': 64.3,  # obj loss_funcs gain (*=img_size/320 if img_size != 320)
+       'reid': 0.1,  # reid loss_funcs weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-       'lrf': 0.0005,  # final learning rate (with cos scheduler)
+       'lr0': 0.00075,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+       'lrf': 0.0003,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.000484,  # optimizer weight decay
-       'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
+       'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
        'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
        'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
        'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
@@ -50,13 +51,15 @@ if f:
     for k, v in zip(hyp.keys(), np.loadtxt(f[0])):
         hyp[k] = v
 
-# Print focal loss if gamma > 0
+# Print focal loss_funcs if gamma > 0
 if hyp['fl_gamma']:
     print('Using FocalLoss(gamma=%g)' % hyp['fl_gamma'])
 
 
 def train():
     print('Task mode: {}'.format(opt.task))
+
+    last = wdir + opt.task + '_last.pt'
 
     cfg = opt.cfg
     data = opt.data
@@ -144,6 +147,13 @@ def train():
         else:
             pg0 += [v]  # all else
 
+    # do not succeed...
+    if opt.auto_weight:
+        if opt.task == 'pure_detect' or opt.task == 'detect':
+            awl = AutomaticWeightedLoss(3)
+        elif opt.task == 'track':
+            awl = AutomaticWeightedLoss(4)
+
     if opt.adam:
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
         optimizer = optim.Adam(pg0, lr=hyp['lr0'])
@@ -152,6 +162,8 @@ def train():
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+    if opt.auto_weight:
+        optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
     del pg0, pg1, pg2
 
     start_epoch = 0
@@ -187,6 +199,14 @@ def train():
     elif len(weights) > 0:  # darknet format
         load_darknet_weights(model, weights)
 
+    # # freeze weights of some previous layers
+    # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
+    #     if layer_i < 52:
+    #         for param in child.parameters():
+    #             param.requires_grad = False
+    #     else:
+    #         print('Layer ', name, ' requires grad.')
+
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
@@ -211,7 +231,7 @@ def train():
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend='nccl',  # 'distributed backend'
-                                init_method='tcp://127.0.0.1:9995',  # distributed training init method
+                                init_method='tcp://127.0.0.1:9997',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
@@ -222,52 +242,52 @@ def train():
 
     nw = 0  # for debugging
     if not opt.is_debug:
-        nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=batch_size,
-                                             num_workers=nw,
-                                             shuffle=not opt.rect,  # Shuffle=True unless rectangular training is used
-                                             pin_memory=True,
-                                             collate_fn=dataset.collate_fn)
+    data_loader = torch.utils.data.DataLoader(dataset,
+                                              batch_size=batch_size,
+                                              num_workers=nw,
+                                              shuffle=not opt.rect,  # Shuffle=True unless rectangular training is used
+                                              pin_memory=True,
+                                              collate_fn=dataset.collate_fn)
 
     # Testloader
     if opt.task == 'pure_detect':
-        testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
-                                                                     imgsz_test,
-                                                                     batch_size,
-                                                                     hyp=hyp,
-                                                                     rect=True,  # True
-                                                                     cache_images=opt.cache_images,
-                                                                     single_cls=opt.single_cls),
-                                                 batch_size=batch_size,
-                                                 num_workers=nw,
-                                                 pin_memory=True,
-                                                 collate_fn=dataset.collate_fn)
-    else:
-        testloader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+        test_loader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
                                                                       imgsz_test,
                                                                       batch_size,
                                                                       hyp=hyp,
-                                                                      rect=True,
+                                                                      rect=True,  # True
                                                                       cache_images=opt.cache_images,
                                                                       single_cls=opt.single_cls),
-                                                 batch_size=batch_size,
-                                                 num_workers=nw,
-                                                 pin_memory=True,
-                                                 collate_fn=dataset.collate_fn)
+                                                  batch_size=batch_size,
+                                                  num_workers=nw,
+                                                  pin_memory=True,
+                                                  collate_fn=dataset.collate_fn)
+    else:
+        test_loader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+                                                                       imgsz_test,
+                                                                       batch_size,
+                                                                       hyp=hyp,
+                                                                       rect=True,
+                                                                       cache_images=opt.cache_images,
+                                                                       single_cls=opt.single_cls),
+                                                  batch_size=batch_size,
+                                                  num_workers=nw,
+                                                  pin_memory=True,
+                                                  collate_fn=dataset.collate_fn)
 
     # Define model parameters
     model.nc = nc  # attach number of classes to model
     model.hyp = hyp  # attach hyper-parameters to model
-    model.gr = 1.0  # g_iou loss ratio (obj_loss = 1.0 or g_iou)
+    model.gr = 1.0  # g_iou loss_funcs ratio (obj_loss = 1.0 or g_iou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
-    # Model EMA
+    # Model EMA: expotional moving average
     ema = torch_utils.ModelEMA(model)
 
     # Start training
-    nb = len(dataloader)  # number of batches
+    nb = len(data_loader)  # number of batches
     n_burn = max(3 * nb, 500)  # burn-in iterations, max(3 epochs, 500 iterations)
     maps = np.zeros(nc)  # mAP per class
     # torch.autograd.set_detect_anomaly(True)
@@ -303,16 +323,18 @@ def train():
             print('[Err]: unrecognized task mode.')
             return
 
-        pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
+        p_bar = tqdm(enumerate(data_loader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for i, (imgs, targets, paths, shape) in pbar:  # batch -------------------------------------------------------------
-                ni = i + nb * epoch  # number integrated batches (since train start)
+            for batch_i, (imgs, targets, paths,
+                          shape) in p_bar:  # batch -------------------------------------------------------------
+                ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
 
                 # Burn-in
                 if ni <= n_burn * 2:
-                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    model.gr = np.interp(ni, [0, n_burn * 2],
+                                         [0.0, 1.0])  # giou loss_funcs ratio (obj_loss = 1.0 or giou)
                     if ni == n_burn:  # burnin complete
                         print_model_biases(model)
 
@@ -333,23 +355,17 @@ def train():
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    pred = model.forward(imgs)
-                elif opt.task == 'track':
-                    pred, reid_feat_map = model.forward(imgs)
-                else:
-                    print('[Err]: un-recognized task mode.')
-                    return
+                pred = model.forward(imgs)
 
                 # Loss
                 loss, loss_items = compute_loss(pred, targets, model)
 
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    print('WARNING: infinite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
-                loss *= batch_size / 64.0  # scale loss
+                loss *= batch_size / 64.0  # scale loss_funcs
                 if mixed_precision:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -363,36 +379,52 @@ def train():
                     ema.update(model)
 
                 # Print
-                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    s = ('%10s' * 2 + '%10.3g' * 6) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                elif opt.task == 'track':
-                    s = ('%10s' * 2 + '%10.3g' * 7) % (
-                        '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                else:
-                    print('[Err]: unrecognized task mode.')
-                    return
-                pbar.set_description(s)
+                s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                p_bar.set_description(s)
 
                 # Plot
                 if ni < 1:
-                    f = 'train_batch%g.jpg' % i  # filename
+                    f = 'train_batch%g.jpg' % batch_i  # filename
                     plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
                     if tb_writer:
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+
+                # Save model
+                if ni % 300 == 0:  # save checkpoint every 100 batches
+                    save = (not opt.nosave) or (not opt.evolve)
+                    if save:
+                        chkpt = {'epoch': epoch,
+                                 'batch': ni,
+                                 'best_fitness': best_fitness,
+                                 'model': ema.ema.module.state_dict() \
+                                     if hasattr(model, 'module') else ema.ema.state_dict(),
+                                 'optimizer': optimizer.state_dict()}
+
+                        # Save last, best and delete
+                        torch.save(chkpt, last)
+                        print('{:s} saved.'.format(last))
+                        del chkpt
+
+                        # Save .weights file
+                        wei_f_path = wdir + opt.task + '_last.weights'
+                        save_weights(model, wei_f_path)
+                        print('{:s} saved.'.format(wei_f_path))
+
         elif opt.task == 'track':
-            for i, (imgs, targets, paths, shape, track_ids) in pbar:  # batch -------------------------------------------------------------
-                ni = i + nb * epoch  # number integrated batches (since train start)
+            for batch_i, (imgs, targets, paths, shape,
+                          track_ids) in p_bar:  # batch -------------------------------------------------------------
+                ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
                 track_ids = track_ids.to(device)
 
                 # Burn-in
                 if ni <= n_burn * 2:
-                    model.gr = np.interp(ni, [0, n_burn * 2], [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                    model.gr = np.interp(ni, [0, n_burn * 2],
+                                         [0.0, 1.0])  # giou loss_funcs ratio (obj_loss = 1.0 or giou)
                     if ni == n_burn:  # burnin complete
                         print_model_biases(model)
 
@@ -401,6 +433,7 @@ def train():
                         x['lr'] = np.interp(ni, [0, n_burn], [0.1 if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                         if 'momentum' in x:
                             x['momentum'] = np.interp(ni, [0, n_burn], [0.9, hyp['momentum']])
+                    # print('Lr {:.3f}'.format(x['lr']))
 
                 # Multi-Scale
                 if opt.multi_scale:
@@ -413,23 +446,23 @@ def train():
                         imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
 
                 # Forward
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    pred = model.forward(imgs)
-                elif opt.task == 'track':
-                    pred, reid_feat_map = model.forward(imgs)
-                else:
-                    print('[Err]: un-recognized task mode.')
-                    return
+                pred, reid_feat_out = model.forward(imgs)
 
                 # Loss
-                loss, loss_items = compute_loss_with_ids(pred, targets, reid_feat_map, track_ids, model)
+                loss, loss_items = compute_loss_no_upsample(pred, reid_feat_out, targets, track_ids, model)
 
+                if opt.auto_weight:
+                    loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
+
+                if not torch.isfinite(loss_items[3]):
+                    print('[Warning]: infinite reid loss.')
+                    loss_items[3:] = 0.0
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss, ending training ', loss_items)
+                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
-                loss *= batch_size / 64.0  # scale loss
+                loss *= batch_size / 64.0  # scale loss_funcs
                 if mixed_precision:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -443,26 +476,39 @@ def train():
                     ema.update(model)
 
                 # Print
-                m_loss = (m_loss * i + loss_items) / (i + 1)  # update mean losses
+                m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-                if opt.task == 'pure_detect' or opt.task == 'detect':
-                    s = ('%10s' * 2 + '%10.3g' * 6) % (
-                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                elif opt.task == 'track':
-                    s = ('%10s' * 2 + '%10.3g' * 7) % (
-                    '%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
-                else:
-                    print('[Err]: unrecognized task mode.')
-                    return
-                pbar.set_description(s)
+                s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
+                p_bar.set_description(s)
 
                 # Plot
                 if ni < 1:
-                    f = 'train_batch%g.jpg' % i  # filename
+                    f = 'train_batch%g.jpg' % batch_i  # filename
                     plot_images(imgs=imgs, targets=targets, paths=paths, fname=f)
                     if tb_writer:
                         tb_writer.add_image(f, cv2.imread(f)[:, :, ::-1], dataformats='HWC')
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
+
+                # Save model
+                if ni % 100 == 0:  # save checkpoint every 100 batches
+                    save = (not opt.nosave) or (not opt.evolve)
+                    if save:
+                        chkpt = {'epoch': epoch,
+                                 'batch': ni,
+                                 'best_fitness': best_fitness,
+                                 'model': ema.ema.module.state_dict() \
+                                     if hasattr(model, 'module') else ema.ema.state_dict(),
+                                 'optimizer': optimizer.state_dict()}
+
+                        # Save last, best and delete
+                        torch.save(chkpt, last)
+                        print('{:s} saved.'.format(last))
+                        del chkpt
+
+                        # Save .weights file
+                        wei_f_path = wdir + opt.task + '_last.weights'
+                        save_weights(model, wei_f_path)
+                        print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:
@@ -486,7 +532,7 @@ def train():
                                       model=ema.ema,
                                       save_json=final_epoch and is_coco,
                                       single_cls=opt.single_cls,
-                                      data_loader=testloader,
+                                      data_loader=test_loader,
                                       task=opt.task)
 
         # Write
@@ -518,18 +564,22 @@ def train():
         # Save model
         save = (not opt.nosave) or (final_epoch and not opt.evolve)
         if save:
-            with open(results_file, 'r') as f:  # create checkpoint
-                chkpt = {'epoch': epoch,
-                         'best_fitness': best_fitness,
-                         'training_results': f.read(),
-                         'model': ema.ema.module.state_dict() if hasattr(model, 'module') else ema.ema.state_dict(),
-                         'optimizer': None if final_epoch else optimizer.state_dict()}
+            # create checkpoint: whithin an epoch, no results yet, donot save results.txt
+            chkpt = {'epoch': epoch,
+                     'best_fitness': best_fitness,
+                     'model': ema.ema.module.state_dict() if hasattr(model, 'module') else ema.ema.state_dict(),
+                     'optimizer': None if final_epoch else optimizer.state_dict()}
 
             # Save last, best and delete
             torch.save(chkpt, last)
             if (best_fitness == fi) and not final_epoch:
                 torch.save(chkpt, best)
             del chkpt
+
+            # Save .weights file
+            wei_f_path = wdir + opt.task + '_last.weights'
+            save_weights(model, wei_f_path)
+            print('{:s} saved.'.format(wei_f_path))
 
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
@@ -555,12 +605,12 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=600)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=20)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-paspp-mcmot.cfg', help='*.cfg path')
+    parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 800, 768],
+    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
@@ -569,21 +619,26 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='./weights/best.pt', help='initial weights path')
+    parser.add_argument('--weights',
+                        type=str,
+                        default='./weights/track_last_freeze.pt',
+                        help='initial weights path')
     parser.add_argument('--name', default='yolov4-paspp-mcmot',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='4,5,6', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='5', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
-    # Set task mode: pure_detect | detect | track
+    # Set 3 task mode: pure_detect | detect | track
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='pure_detect', help='Do detect or track training')
+    parser.add_argument('--task', type=str, default='pure_detect', help=' pure_detect, detect or track mode.')
+
+    parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is_debug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--is-debug', type=bool, default=True, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

@@ -116,11 +116,11 @@ def test(cfg,
             with torch.no_grad():
                 # Run model
                 t = torch_utils.time_synchronized()
-                inf_out, train_out = model.forward(imgs, augment=augment)  # inference and training outputs
+                inf_out, train_out, reid_feat_map, anchor_inds = model.forward(imgs, augment=augment)  # inference and training outputs
                 t0 += torch_utils.time_synchronized() - t
 
-                # Compute loss
-                if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
+                # Compute loss_funcs
+                if hasattr(model, 'hyp'):  # if model has loss_funcs hyper-parameters
                     loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
 
                 # Run NMS
@@ -215,8 +215,8 @@ def test(cfg,
                     print(e)
                 t0 += torch_utils.time_synchronized() - t
 
-                # Compute loss
-                if hasattr(model, 'hyp'):  # if model has loss hyper-parameters
+                # Compute loss_funcs
+                if hasattr(model, 'hyp'):  # if model has loss_funcs hyper-parameters
                     loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
 
                 # Run NMS

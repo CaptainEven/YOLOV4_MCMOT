@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import glob
 import math
 import os
@@ -44,26 +46,38 @@ def exif_size(img):
 
 class LoadImages:  # for inference
     def __init__(self, path, img_size=416):
-        path = str(Path(path))  # os-agnostic
-        files = []
-        if os.path.isdir(path):
-            files = sorted(glob.glob(os.path.join(path, '*.*')))
-        elif os.path.isfile(path):
-            files = [path]
+        if type(path) == list:
+            self.files = path
 
-        images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
-        videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
-        nI, nV = len(images), len(videos)
+            nI, nV = len(self.files), 0
+            self.nF = nI + nV  # number of files
+            self.video_flag = [False] * nI + [True] * nV
 
-        self.img_size = img_size
-        self.files = images + videos
-        self.nF = nI + nV  # number of files
-        self.video_flag = [False] * nI + [True] * nV
-        self.mode = 'images'
-        if any(videos):
-            self.new_video(videos[0])  # new video
-        else:
+            self.img_size = img_size
+            self.mode = 'images'
             self.cap = None
+        else:
+            path = str(Path(path))  # os-agnostic
+            files = []
+            if os.path.isdir(path):
+                files = sorted(glob.glob(os.path.join(path, '*.*')))
+            elif os.path.isfile(path):
+                files = [path]
+
+            images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
+            videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
+            nI, nV = len(images), len(videos)
+
+            self.img_size = img_size
+            self.files = images + videos
+            self.nF = nI + nV  # number of files
+            self.video_flag = [False] * nI + [True] * nV
+            self.mode = 'images'
+            if any(videos):
+                self.new_video(videos[0])  # new video
+            else:
+                self.cap = None
+
         assert self.nF > 0, 'No images or videos found in ' + path
 
     def __iter__(self):
@@ -89,8 +103,10 @@ class LoadImages:  # for inference
                     self.new_video(path)
                     ret_val, img0 = self.cap.read()
 
+            if self.frame % 30 == 0:
+                # print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path))
+                print('video (%g/%g) %s: ' % (self.frame, self.nframes, path))
             self.frame += 1
-            print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path))
 
         else:
             # Read image
@@ -593,6 +609,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         # Define labels
         self.label_files = [x.replace('JPEGImages', 'labels').replace(os.path.splitext(x)[-1], '.txt')
                             for x in self.img_files]
+        print(self.label_files[0])
 
         # Rectangular Training  https://github.com/ultralytics/yolov3/issues/232
         if self.rect:
@@ -882,8 +899,8 @@ def load_mosaic_with_ids(self, index):
             x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
 
         img4[y1a:y2a, x1a:x2a] = img[y1b:y2b, x1b:x2b]  # img4[ymin:ymax, xmin:xmax]
-        padw = x1a - x1b
-        padh = y1a - y1b
+        pad_w = x1a - x1b
+        pad_h = y1a - y1b
 
         # Labels
         x = self.labels[index][:, [0, 2, 3, 4, 5]]  # do not load track id here.
@@ -892,10 +909,10 @@ def load_mosaic_with_ids(self, index):
         labels_orig = y.copy()  # labels with ids
 
         if x.size > 0:  # Normalized xywh to pixel xyxy format
-            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
-            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
-            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
-            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
+            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + pad_w
+            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + pad_h
+            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + pad_w
+            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + pad_h
         labels4.append(labels)
         label4_orig.append(labels_orig)
 
