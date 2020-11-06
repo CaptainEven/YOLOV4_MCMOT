@@ -361,7 +361,7 @@ def train():
                 loss, loss_items = compute_loss(pred, targets, model)
 
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
+                    print('WARNING: infinite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
@@ -455,7 +455,7 @@ def train():
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss_items[3]):
-                    print('[Warning]: non-infinite reid loss.')
+                    print('[Warning]: infinite reid loss.')
                     loss_items[3:] = 0.0
                 if not torch.isfinite(loss):
                     print('WARNING: non-finite loss_funcs, ending training ', loss_items)
