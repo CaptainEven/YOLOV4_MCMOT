@@ -3,6 +3,7 @@
 import os
 
 
+# @TODO: build evaluation pipeline for test set
 def evaluate_test_set(test_root):
     """
     :param test_root:
