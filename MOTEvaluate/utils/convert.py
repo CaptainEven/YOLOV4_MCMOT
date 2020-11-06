@@ -31,7 +31,10 @@ id2cls = {
 W, H = 1920, 1080
 
 
-def convert_darklabel_2_mot16(darklabel_txt_path, interval=1, out_mot16_path=None):
+def convert_darklabel_2_mot16(darklabel_txt_path,
+                              interval=1,
+                              fps=12,
+                              out_mot16_path=None):
     """
     将darklabel标注格式frame # n [id, x1, y1, x2, y2, label]
     转换成mot16格式
@@ -41,11 +44,12 @@ def convert_darklabel_2_mot16(darklabel_txt_path, interval=1, out_mot16_path=Non
         return
 
     if out_mot16_path is None:
+        out_fps = fps // int(interval)
         print('[Note]: out_mot16_path not defined, using default.')
         dir_name, file_name = os.path.split(darklabel_txt_path)
         out_mot16_path = dir_name + '/' + \
                          file_name.split('.')[0] + \
-                         '_mot16_interval{:d}.txt'.format(interval)
+                         '_mot16_fps{:d}.txt'.format(out_fps)
 
     with open(darklabel_txt_path, 'r', encoding='utf-8') as r_h, \
             open(out_mot16_path, 'w', encoding='utf-8') as w_h:
