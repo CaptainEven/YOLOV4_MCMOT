@@ -349,34 +349,34 @@ def compute_distance(traj1, traj2, matched_pos):
     return distance
 
 
-def cost_between_trajectories(traj1, traj2, threshold):
-    [npoints1, dim1] = traj1.shape
-    [n_points_2, dim2] = traj2.shape
+def cost_between_trajectories(traj_1, traj_2, threshold):
+    [n_points_1, dim_1] = traj_1.shape
+    [n_points_2, dim_2] = traj_2.shape
     # find start and end frame of each trajectories
-    start1 = traj1[0, 0]
-    end1 = traj1[-1, 0]
-    start2 = traj2[0, 0]
-    end2 = traj2[-1, 0]
+    start_1 = traj_1[0, 0]
+    end_1 = traj_1[-1, 0]
+    start_2 = traj_2[0, 0]
+    end_2 = traj_2[-1, 0]
 
     # check frame overlap
-    has_overlap = max(start1, start2) < min(end1, end2)
+    has_overlap = max(start_1, start_2) < min(end_1, end_2)
     if not has_overlap:
-        fn = npoints1
+        fn = n_points_1
         fp = n_points_2
         return fp, fn
 
     # gt trajectory mapping to st, check gt missed
     matched_pos1 = corresponding_frame(
-        traj1[:, 0], npoints1, traj2[:, 0], n_points_2)
+        traj_1[:, 0], n_points_1, traj_2[:, 0], n_points_2)
 
     # st trajectory mapping to gt, check computed one false alarms
     matched_pos2 = corresponding_frame(
-        traj2[:, 0], n_points_2, traj1[:, 0], npoints1)
-    dist1 = compute_distance(traj1, traj2, matched_pos1)
-    dist2 = compute_distance(traj2, traj1, matched_pos2)
+        traj_2[:, 0], n_points_2, traj_1[:, 0], n_points_1)
+    dist1 = compute_distance(traj_1, traj_2, matched_pos1)
+    dist2 = compute_distance(traj_2, traj_1, matched_pos2)
 
     # FN
-    fn = sum([1 for i in range(npoints1) if dist1[i] < threshold])
+    fn = sum([1 for i in range(n_points_1) if dist1[i] < threshold])
 
     # FP
     fp = sum([1 for i in range(n_points_2) if dist2[i] < threshold])
