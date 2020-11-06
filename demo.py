@@ -507,7 +507,7 @@ def FindFreeGPU():
     """
     :return:
     """
-    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free > tmp')
     memory_left_gpu = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
 
     most_free_gpu_idx = np.argmax(memory_left_gpu)
@@ -522,7 +522,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/test30.mp4', help='source')
+    parser.add_argument('--source', type=str, default='data/samples/val_1.mp4', help='source')
     parser.add_argument('--videos', type=str, default='data/samples/', help='')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
@@ -534,7 +534,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
