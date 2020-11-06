@@ -275,7 +275,7 @@ def id_measures(gtDB, trackDB, threshold):
         cost[i + n_ids_gt, i] = prediction[i].shape[0]
         fp[i + n_ids_gt, i] = prediction[i].shape[0]
 
-    # groundtruth trajectory match no computed trajectory, FN
+    # ground_truth trajectory match no computed trajectory, FN
     for i in range(n_ids_gt):
         cost[i, i + n_ids_res] = groundtruth[i].shape[0]
         fn[i, i + n_ids_res] = groundtruth[i].shape[0]
@@ -315,18 +315,18 @@ def id_measures(gtDB, trackDB, threshold):
     return measures
 
 
-def corresponding_frame(traj1, len1, traj2, len2):
+def corresponding_frame(traj_1, len_1, traj_2, len_2):
     """
     Find the matching position in traj2 regarding to traj1
     Assume both trajectories in ascending frame ID
     """
     p1, p2 = 0, 0
-    loc = -1 * np.ones((len1,), dtype=int)
-    while p1 < len1 and p2 < len2:
-        if traj1[p1] < traj2[p2]:
+    loc = -1 * np.ones((len_1,), dtype=int)
+    while p1 < len_1 and p2 < len_2:
+        if traj_1[p1] < traj_2[p2]:
             loc[p1] = -1
             p1 += 1
-        elif traj1[p1] == traj2[p2]:
+        elif traj_1[p1] == traj_2[p2]:
             loc[p1] = p2
             p1 += 1
             p2 += 1
@@ -335,7 +335,7 @@ def corresponding_frame(traj1, len1, traj2, len2):
     return loc
 
 
-def compute_distance(traj1, traj2, matched_pos):
+def compute_distance(traj_1, traj_2, matched_pos):
     """
     Compute the loss hit in traj2 regarding to traj1
     """
@@ -344,7 +344,7 @@ def compute_distance(traj1, traj2, matched_pos):
         if matched_pos[i] == -1:
             continue
         else:
-            iou = bbox_overlap(traj1[i, 2:6], traj2[matched_pos[i], 2:6])
+            iou = bbox_overlap(traj_1[i, 2:6], traj_2[matched_pos[i], 2:6])
             distance[i] = iou
     return distance
 
@@ -352,6 +352,7 @@ def compute_distance(traj1, traj2, matched_pos):
 def cost_between_trajectories(traj_1, traj_2, threshold):
     [n_points_1, dim_1] = traj_1.shape
     [n_points_2, dim_2] = traj_2.shape
+
     # find start and end frame of each trajectories
     start_1 = traj_1[0, 0]
     end_1 = traj_1[-1, 0]
@@ -366,12 +367,10 @@ def cost_between_trajectories(traj_1, traj_2, threshold):
         return fp, fn
 
     # gt trajectory mapping to st, check gt missed
-    matched_pos1 = corresponding_frame(
-        traj_1[:, 0], n_points_1, traj_2[:, 0], n_points_2)
+    matched_pos1 = corresponding_frame(traj_1[:, 0], n_points_1, traj_2[:, 0], n_points_2)
 
     # st trajectory mapping to gt, check computed one false alarms
-    matched_pos2 = corresponding_frame(
-        traj_2[:, 0], n_points_2, traj_1[:, 0], n_points_1)
+    matched_pos2 = corresponding_frame(traj_2[:, 0], n_points_2, traj_1[:, 0], n_points_1)
     dist1 = compute_distance(traj_1, traj_2, matched_pos1)
     dist2 = compute_distance(traj_2, traj_1, matched_pos2)
 
