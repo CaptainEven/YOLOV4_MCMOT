@@ -550,9 +550,10 @@ class MCJDETracker(object):
                 center_y += 0.5
                 center_x = center_x.long()
                 center_y = center_y.long()
-                center_x.clamp_(0, w_id_map - 1)  # avoid out of reid feature map's range
+                center_x.clamp_(0, w_id_map - 1)  # to avoid the object center out of reid feature map's range
                 center_y.clamp_(0, h_id_map - 1)
 
+                # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
