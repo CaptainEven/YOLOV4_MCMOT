@@ -523,7 +523,7 @@ if __name__ == '__main__':
 
     # input file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='data/samples/val_1.mp4', help='source')
-    parser.add_argument('--videos', type=str, default='data/samples/', help='')
+    parser.add_argument('--videos', type=str, default='data/samples/videos/', help='')
     # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
