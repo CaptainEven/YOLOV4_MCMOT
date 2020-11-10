@@ -407,9 +407,9 @@ class Darknet(nn.Module):
                 str = ''
 
         # Get 3 feature map layers for reid feature vector extraction
-        reid_feat_out.append(out[-5])
-        reid_feat_out.append(out[-3])
-        reid_feat_out.append(out[-1])
+        reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
+        reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
+        reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
         # 3 yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]
@@ -499,8 +499,8 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-        # if i > 51:
-        #     break
+        if i > 90:
+            break
         if mdef['type'] == 'convolutional':
             conv = module[0]
             if mdef['batch_normalize']:
