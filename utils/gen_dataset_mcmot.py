@@ -712,7 +712,7 @@ def gen_dataset_from_txt(path_prefix, in_txt_f_path, dst_root, out_txt_f_path):
 
                 # 生成检测对象的标签行: class_id, bbox_center_x, box_center_y, bbox_width, bbox_height
                 obj_str = '{:d} {:.6f} {:.6f} {:.6f} {:.6f}\n'.format(
-                    cls_id,   # class_id
+                    cls_id,  # class_id
                     bbox[0],  # center_x
                     bbox[1],  # center_y
                     bbox[2],  # bbox_w
@@ -739,14 +739,17 @@ def gen_dataset_from_txt(path_prefix, in_txt_f_path, dst_root, out_txt_f_path):
     for k, v in class_cnt_dict.items():
         print('Class {} contains {:d} items'.format(k, v))
 
+
 if __name__ == "__main__":
     # gen_one_voc_train_dir()
 
+    # for mcmot_centernet
     gen_dataset_for_mcmot_det(src_root='/mnt/diskb/maqiao/multiClass',
                               dst_root='/mnt/diskb/even/dataset/MCMOT_DET',
                               dot_train_f_path='/mnt/diskb/even/MCMOT/src/data/mcmot_det.train',
                               dataset_prefix='/mnt/diskb/even/dataset/')
 
+    # for mcmot_yolov4
     # gen_dataset_from_txt(path_prefix='/mnt/diskb/maqiao/multiClass/',
     #                      in_txt_f_path='/mnt/diskb/even/YOLOV4/data/test.txt',
     #                      dst_root='/mnt/diskb/even/dataset/MCMOT_DET/test',
