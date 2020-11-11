@@ -49,6 +49,9 @@ def run_detection(opt):
     else:
         dataset = LoadImages(opt.source, img_size=opt.img_size)
 
+    # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -307,6 +310,10 @@ def run_tracking_of_videos_img(opt):
                 online_targets_dict = tracker.update_tracking(img, img0)
                 # -----
 
+                if online_targets_dict is None:
+                    print('[Warning]: Skip frame {:d}.'.format(fr_id))
+                    continue
+
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
@@ -333,6 +340,10 @@ def run_tracking_of_videos_img(opt):
                     # ----- update tracking result of current frame
                     online_targets_dict = tracker.update_tracking(img, img0)
                     # -----
+
+                    if online_targets_dict is None:
+                        print('[Warning]: Skip frame {:d}.'.format(fr_cnt))
+                        continue
 
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
@@ -517,13 +528,13 @@ def FindFreeGPU():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-3l.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
     parser.add_argument('--videos', type=str, default='data/samples/videos/', help='')
-    # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
+    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test1.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
@@ -533,7 +544,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')

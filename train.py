@@ -455,11 +455,13 @@ def train():
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss_items[3]):
-                    print('[Warning]: infinite reid loss.')
-                    loss_items[3:] = 0.0
+                    # print('[Warning]: infinite reid loss.')
+                    loss_items[3:] = torch.zeros((1, 1), device=device)
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
-                    return results
+                    for i in range(loss_items.shape[0]):
+                        loss_items[i] = torch.zeros((1, 1), device=device)
+                    # print('[Warning] infinite loss_funcs', loss_items)  #  ending training
+                    # return results
 
                 # Backward
                 loss *= batch_size / 64.0  # scale loss_funcs
@@ -490,7 +492,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni % 100 == 0:  # save checkpoint every 100 batches
+                if ni != 0 and ni % 300 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -505,10 +507,10 @@ def train():
                         print('{:s} saved.'.format(last))
                         del chkpt
 
-                        # Save .weights file
-                        wei_f_path = wdir + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
-                        print('{:s} saved.'.format(wei_f_path))
+                        # # Save .weights file
+                        # wei_f_path = wdir + opt.task + '_last.weights'
+                        # save_weights(model, wei_f_path)
+                        # print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:
@@ -607,8 +609,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/mobile-yolo-3l.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-3l.cfg', help='*.cfg path')
+    parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
@@ -633,7 +635,7 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='pure_detect', help=' pure_detect, detect or track mode.')
+    parser.add_argument('--task', type=str, default='track', help=' pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
