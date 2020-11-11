@@ -522,15 +522,15 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
 
     # input file/folder, 0 for webcam
-    # parser.add_argument('--videos', type=str, default='data/samples/videos/', help='')
-    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
+    parser.add_argument('--videos', type=str, default='data/samples/videos/', help='')
+    # parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
     parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
 
     # task mode
-    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
+    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
     parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
@@ -560,9 +560,9 @@ if __name__ == '__main__':
 
     # ----------
     if opt.task == 'track':
-        run_tracking(opt)
+        # run_tracking(opt)
         # run_tracking_of_videos_txt(opt)
-        # run_tracking_of_videos_img(opt)
+        run_tracking_of_videos_img(opt)
     elif opt.task == 'detect':
         run_detection(opt)
     else:
