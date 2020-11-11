@@ -63,6 +63,9 @@ class LoadImages:  # for inference
                 files = sorted(glob.glob(os.path.join(path, '*.*')))
             elif os.path.isfile(path):
                 files = [path]
+            else:
+                print('[Err]: invalid file list path.')
+                exit(-1)
 
             images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
             videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
