@@ -34,6 +34,7 @@ W, H = 1920, 1080
 def convert_darklabel_2_mot16(darklabel_txt_path,
                               interval=1,
                               fps=12,
+                              one_plus=True,
                               out_mot16_path=None):
     """
     将darklabel标注格式frame # n [id, x1, y1, x2, y2, label]
@@ -71,7 +72,10 @@ def convert_darklabel_2_mot16(darklabel_txt_path,
                 class_id = cls2id[class_type]  # class type => class id
 
                 # 读取track id
-                track_id = int(line[cur]) + 1  # track_id从1开始统计
+                if one_plus:
+                    track_id = int(line[cur]) + 1  # track_id从1开始统计
+                else:
+                    track_id = int(line[cur])
 
                 # 读取bbox坐标
                 x1, y1 = int(line[cur + 1]), int(line[cur + 2])
@@ -111,7 +115,7 @@ def convert_darklabel_2_mot16(darklabel_txt_path,
                 w_h.write(write_line_str + '\n')
 
             fr_idx += 1
-            print('Frame(start from 0) ', str(fr_id), 'sampled.')
+        print('Total {:d} frames sampled'.format(fr_idx))
 
 
 def convert_seqs(seq_root, interval=1):
@@ -147,6 +151,8 @@ if __name__ == '__main__':
     # convert_seqs(seq_root='F:/seq_data/', interval=2)
     convert_darklabel_2_mot16(darklabel_txt_path='F:/val_seq/val_1_gt.txt',
                               interval=2,
+                              fps=12,
+                              one_plus=False,
                               out_mot16_path=None)
 
     print('Done.')
