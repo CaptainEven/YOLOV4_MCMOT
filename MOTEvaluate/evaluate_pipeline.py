@@ -2,9 +2,6 @@
 
 import os
 
-<<<<<<< HEAD
-if __name__ == '__main__':
-=======
 
 # @TODO: build evaluation pipeline for test set
 def evaluate_test_set(test_root):
@@ -20,7 +17,6 @@ def evaluate_test_set(test_root):
 
     # Do evaluation using results and ground truth for each seq
 
-if __name__ == '__main__':
 
->>>>>>> remotes/origin/No_Upsample
+if __name__ == '__main__':
     print('Done.')
