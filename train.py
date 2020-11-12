@@ -196,7 +196,8 @@ def train():
         start_epoch = chkpt['epoch'] + 1
         del chkpt
 
-    elif len(weights) > 0:  # darknet format
+    # laod darknet format weights
+    elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
     # # freeze weights of some previous layers
@@ -461,7 +462,7 @@ def train():
                     for i in range(loss_items.shape[0]):
                         loss_items[i] = torch.zeros((1, 1), device=device)
                     # print('[Warning] infinite loss_funcs', loss_items)  #  ending training
-                    # return results
+                    return results
 
                 # Backward
                 loss *= batch_size / 64.0  # scale loss_funcs
@@ -609,7 +610,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-3l.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-2l.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
@@ -623,7 +624,7 @@ if __name__ == '__main__':
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last.pt',
+                        default='./weights/mobile-yolo-2l_last.weights',
                         help='initial weights path')
     parser.add_argument('--name', default='yolov4-mobilenetv2',
                         help='renames results.txt to results_name.txt if supplied')
