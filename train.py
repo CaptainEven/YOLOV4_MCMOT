@@ -641,7 +641,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is-debug', type=bool, default=True, help='whether in debug mode or not')
+    parser.add_argument('--is-debug', type=bool, default=False, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

@@ -877,6 +877,40 @@ def build_test_set(test_txt_f, dataset_root, f_list_out_root):
             w_h.write(dst_img_path.replace('images', 'JPEGImages') + '\n')
 
 
+def cp_to_dst(mcmot_det_train, src_path_prefix, dst_path_prefix=''):
+    """
+    :param mcmot_det_train:
+    :return:
+    """
+    if not os.path.isfile(mcmot_det_train):
+        print('[Err]: invalid file.')
+        return
+
+    with open(mcmot_det_train, 'r', encoding='utf-8') as r_h:
+        lines = r_h.readlines()
+        lines = [line.strip() for line in lines]
+
+        for line in lines:
+            if os.path.isfile(line):
+                print('{:s} exists.'.format(line))
+                continue
+            else:
+                src_img_f_path = line.replace(dst_path_prefix, src_path_prefix)
+
+                items = src_img_f_path.split('/')
+                items[-2], items[-3] = items[-3], items[-2]
+                src_img_f_path = '/'.join(items)
+
+                dst_dir = os.path.split(line)[0]
+                if not os.path.isdir(dst_dir):
+                    os.makedirs(dst_dir)
+
+                if os.path.isfile(src_img_f_path):
+                    shutil.copy(src_img_f_path, dst_dir)
+                    print('{:s} copied to {:s}.'.format(src_img_f_path, dst_dir))
+
+
+
 if __name__ == "__main__":
     # gen_one_voc_train_dir()
 
@@ -892,6 +926,10 @@ if __name__ == "__main__":
     #                      dst_root='/mnt/diskb/even/dataset/MCMOT_DET/test',
     #                      out_txt_f_path='/mnt/diskb/even/dataset/MCMOT_DET/test/mcmot_det_test.txt')
 
-    build_test_set(test_txt_f='/users/duanyou/c5/all_pretrain/test1.txt',
-                   dataset_root='/mnt/diskb/even/dataset/MCMOT_DET',
-                   f_list_out_root='/mnt/diskb/even/YOLOV4/data')
+    # build_test_set(test_txt_f='/users/duanyou/c5/all_pretrain/test1.txt',
+    #                dataset_root='/mnt/diskb/even/dataset/MCMOT_DET',
+    #                f_list_out_root='/mnt/diskb/even/YOLOV4/data')
+
+    cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det.train',
+              src_path_prefix='/mnt/diskb/maqiao/multiClass/',
+              dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
