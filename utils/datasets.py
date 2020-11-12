@@ -363,6 +363,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
         self.imgs = [None] * n
         self.labels = [np.zeros((0, 6), dtype=np.float32)] * n
+
         extract_bounding_boxes = False
         create_data_subset = False
         p_bar = tqdm(self.label_files, desc='Caching labels')
@@ -375,7 +376,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                 nm += 1  # print('missing labels for image %s' % self.img_files[i])  # file missing
                 continue
 
-            if lb.shape[0]:  # 该图片标注的目标个数
+            if lb.shape[0]:  # objects number in the image
                 assert lb.shape[1] == 6, '!= 6 label columns: %s' % file
                 assert (lb >= 0).all(), 'negative labels: %s' % file
                 assert (lb[:, 2:] <= 1).all(), 'non-normalized or out of bounds coordinate labels: %s' % file
@@ -429,7 +430,11 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
             p_bar.desc = 'Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)' % (
                 nf, nm, ne, nd, n)
-        assert nf > 0, 'No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
+
+        # assert nf > 0, 'No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
+        if nf == 0:
+            print('No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url))
+            exit(-1)
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         if cache_images:  # if training

@@ -436,10 +436,17 @@ class Darknet(nn.Module):
             x, p = zip(*yolo_out)  # inference output, training output
 
             # record anchor inds
-            yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
-            yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
-            yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
-            yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
+            # yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
+            # yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
+            # yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
+            # yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
+
+            for yolo_i, yolo_out in enumerate(x):
+                yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), 0, dtype=torch.long)
+                if yolo_i == 0:
+                    yolo_inds = yolo_inds_i
+                else:
+                    yolo_inds = torch.cat((yolo_inds, yolo_inds_i), 1)
 
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
