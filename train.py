@@ -394,7 +394,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni % 300 == 0:  # save checkpoint every 100 batches
+                if ni != 0 and ni % 300 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -622,10 +622,12 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
+
     parser.add_argument('--weights',
                         type=str,
                         default='./weights/track_last.pt',
                         help='initial weights path')
+
     parser.add_argument('--name', default='yolov4-mobilenetv2',
                         help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
