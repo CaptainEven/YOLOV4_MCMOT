@@ -1,7 +1,7 @@
 #!/bin/bash
 #for i in 0 1 2 3
 #do
-#  t=ultralytics/yolov3:v139 && sudo docker pull $t && sudo nvidia-docker run -d --ipc=host -v "$(pwd)"/coco:/usr/src/coco $t utils/evolve.sh $i
+#  t=ultralytics/yolov3:v139 && sudo docker pull $t && sudo nvidia-docker run -d --ipc=host -v "$(pwd)"/coco:/usr/src/coco $t evaluate_utils/evolve.sh $i
 #  sleep 30
 #done
 

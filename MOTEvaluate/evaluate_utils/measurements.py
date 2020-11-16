@@ -31,9 +31,9 @@ python evaluate_tracking.py
 
 import sys
 import numpy as np
-# from sklearn.utils.linear_assignment_ import linear_assignment
+# from sklearn.evaluate_utils.linear_assignment_ import linear_assignment
 from scipy.optimize import linear_sum_assignment as linear_assignment
-from utils.bbox import bbox_overlap
+from MOTEvaluate.evaluate_utils.bbox import bbox_overlap
 from easydict import EasyDict as edict
 
 VERBOSE = False
@@ -67,13 +67,13 @@ def clear_mot_metrics(resDB, gtDB, iou_thresh):
     mme = np.zeros((n_frames_gt,), dtype=float)  # ID switch in each frame
 
     # matches found in each frame
-    c = np.zeros((n_frames_gt,), dtype=float)
+    tp = np.zeros((n_frames_gt,), dtype=float)
 
     # false positives in each frame
     fp = np.zeros((n_frames_gt,), dtype=float)
 
     # missed gts in each frame
-    missed = np.zeros((n_frames_gt,), dtype=float)
+    fn = np.zeros((n_frames_gt,), dtype=float)
 
     # gt count in each frame
     gt_counts = np.zeros((n_frames_gt,), dtype=float)
@@ -93,8 +93,8 @@ def clear_mot_metrics(resDB, gtDB, iou_thresh):
     # hash the indices to speed up indexing
     for i in range(gtDB.shape[0]):  # traverse each item(gt bbox)
         frame = np.where(gt_frames == gtDB[i, 0])[0][0]  # original gt track ids(may start from 1)
-        gt_id = np.where(gt_ids == gtDB[i, 1])[0][0]  # key: gt_id start from 0
-        gt_idx_dicts[frame][gt_id] = i  # i: gt data's item idx
+        idx = np.where(gt_ids == gtDB[i, 1])[0][0]  # key: gt_id start from 0
+        gt_idx_dicts[frame][idx] = i  # i: gt data's item idx
 
     gt_frames_list = list(gt_frames)
     for i in range(resDB.shape[0]):
@@ -107,8 +107,8 @@ def clear_mot_metrics(resDB, gtDB, iou_thresh):
             print(e)
             continue
 
-        res_id = np.where(res_ids == resDB[i, 1])[0][0]  # key: res_id start from 0
-        res_idx_dicts[frame][res_id] = i  # i: result data's item idx
+        idx = np.where(res_ids == resDB[i, 1])[0][0]  # key: res_id start from 0
+        res_idx_dicts[frame][idx] = i  # i: result data's item idx
 
     # statistics for each frame(start from the second frame)
     for fr_i in range(n_frames_gt):
@@ -221,14 +221,14 @@ def clear_mot_metrics(resDB, gtDB, iou_thresh):
                         mme[fr_i] += 1  # mismatched
 
         # true positive: matched number of gt ids in the current frame @ time t
-        c[fr_i] = len(gt_tracked_ids)
+        tp[fr_i] = len(gt_tracked_ids)
 
         # false positive in the current frame:
         fp[fr_i] = len(list(res_idx_dicts[fr_i].keys()))  # all res positive
-        fp[fr_i] -= c[fr_i]
+        fp[fr_i] -= tp[fr_i]
 
         # false negative in the current frame: missed gt ids count
-        missed[fr_i] = gt_counts[fr_i] - c[fr_i]
+        fn[fr_i] = gt_counts[fr_i] - tp[fr_i]
 
         for i in range(len(gt_tracked_ids)):
             gt_tracked_id = gt_tracked_ids[i]
@@ -239,7 +239,7 @@ def clear_mot_metrics(resDB, gtDB, iou_thresh):
 
             d[fr_i][gt_tracked_id] = bbox_overlap(resDB[row_res, 2:6], gtDB[row_gt, 2:6])
 
-    return mme, c, fp, gt_counts, missed, d, MatchedDicts, all_fps
+    return mme, tp, fp, gt_counts, fn, d, MatchedDicts, all_fps
 
 
 def id_measures(gtDB, trackDB, threshold):

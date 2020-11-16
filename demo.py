@@ -49,6 +49,9 @@ def run_detection(opt):
     else:
         dataset = LoadImages(opt.source, img_size=opt.img_size)
 
+    # set device
+    opt.device = str(FindFreeGPU())
+    print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
 
@@ -119,7 +122,7 @@ def run_detection(opt):
     print('Total {:d} images tested.'.format(fr_id + 1))
 
 
-def run_tracking_of_videos_txt(opt):
+def track_videos_txt(opt):
     """
     :param opt:
     :return:
@@ -188,6 +191,10 @@ def run_tracking_of_videos_txt(opt):
             if opt.interval == 1:
                 online_targets_dict = tracker.update_tracking(img, img0)
 
+                if online_targets_dict is None:
+                    print('[Warning]: Skip frame {:d}.'.format(fr_id))
+                    continue
+
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
@@ -205,6 +212,10 @@ def run_tracking_of_videos_txt(opt):
             else:
                 if fr_id % opt.interval == 0:  # skip some frames
                     online_targets_dict = tracker.update_tracking(img, img0)
+
+                    if online_targets_dict is None:
+                        print('[Warning]: Skip frame {:d}.'.format(fr_cnt))
+                        continue
 
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
@@ -233,7 +244,7 @@ def run_tracking_of_videos_txt(opt):
         write_results_dict(result_f_name, results_dict, data_type)  # write txt to opt.save_img_dir
 
 
-def run_tracking_of_videos_img(opt):
+def track_videos_vid(opt):
     """
     :param opt:
     :return:
@@ -307,6 +318,10 @@ def run_tracking_of_videos_img(opt):
                 online_targets_dict = tracker.update_tracking(img, img0)
                 # -----
 
+                if online_targets_dict is None:
+                    print('[Warning]: Skip frame {:d}.'.format(fr_id))
+                    continue
+
                 # aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
@@ -333,6 +348,10 @@ def run_tracking_of_videos_img(opt):
                     # ----- update tracking result of current frame
                     online_targets_dict = tracker.update_tracking(img, img0)
                     # -----
+
+                    if online_targets_dict is None:
+                        print('[Warning]: Skip frame {:d}.'.format(fr_cnt))
+                        continue
 
                     # aggregate current frame's results for each object class
                     online_tlwhs_dict = defaultdict(list)
@@ -367,142 +386,6 @@ def run_tracking_of_videos_img(opt):
         os.system(cmd_str)
 
 
-def run_tracking(opt):
-    """
-    :param opt:
-    :return:
-    """
-    # Set dataset
-    dataset = LoadImages(opt.source, img_size=opt.img_size)
-
-    # set device
-    opt.device = str(FindFreeGPU())
-    print('Using gpu: {:s}'.format(opt.device))
-    device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
-    opt.device = device
-
-    # Set result output
-    frame_dir = opt.save_img_dir + '/frame'
-    if not os.path.isdir(frame_dir):
-        os.makedirs(frame_dir)
-    else:
-        shutil.rmtree(frame_dir)
-        os.makedirs(frame_dir)
-
-    # class name to class id and class id to class name
-    names = load_classes(opt.names)
-    id2cls = defaultdict(str)
-    cls2id = defaultdict(int)
-    for cls_id, cls_name in enumerate(names):
-        id2cls[cls_id] = cls_name
-        cls2id[cls_name] = cls_id
-
-    # Set MCMOT tracker
-    # tracker = JDETracker(opt)  # Joint detection and embedding
-    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
-
-    # Update tracking frames
-    out_fps = int(opt.outFPS / opt.interval)
-    data_type = 'mot'
-    src_name = os.path.split(opt.source)[-1]
-    name, suffix = src_name.split('.')
-    result_f_name = opt.save_img_dir + '/' + name + '_results_fps{:d}.txt'.format(out_fps)
-    results_dict = defaultdict(list)  # to store tracking results for txt output
-
-    fr_cnt = 0
-    for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
-        img = torch.from_numpy(img).to(opt.device)
-        img = img.float()  # uint8 to fp32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
-
-        # update tracking result of this frame
-        if opt.interval == 1:
-
-            # update tracking result of the current frame
-            track_dict = tracker.update_tracking(img, img0)
-            if track_dict is None:
-                print('[Note]: empty track dict for frame {:d}.'.format(fr_id))
-                continue
-
-            # aggregate current frame's results for each object class
-            online_tlwhs_dict = defaultdict(list)
-            online_ids_dict = defaultdict(list)
-            for cls_id in range(opt.num_classes):  # process each object class
-                cls_tracks = track_dict[cls_id]
-                for track in cls_tracks:
-                    online_tlwhs_dict[cls_id].append(track.tlwh)
-                    online_ids_dict[cls_id].append(track.track_id)
-
-            # collect result
-            for cls_id in range(opt.num_classes):
-                results_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
-
-            # to draw track/detection
-            if opt.show_image:
-                if tracker.frame_id > 0:
-                    online_im = vis.plot_tracks(image=img0,
-                                                tlwhs_dict=online_tlwhs_dict,
-                                                obj_ids_dict=online_ids_dict,
-                                                num_classes=opt.num_classes,
-                                                frame_id=fr_id,
-                                                id2cls=id2cls)
-
-            if opt.save_img_dir is not None:
-                img_save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
-                cv2.imwrite(img_save_path, online_im)
-        else:
-            if fr_id % opt.interval == 0:  # skip some frames
-
-                # update tracking results of current frame
-                track_dict = tracker.update_tracking(img, img0)
-
-                # aggregate current frame's results for each object class
-                online_tlwhs_dict = defaultdict(list)
-                online_ids_dict = defaultdict(list)
-                for cls_id in range(opt.num_classes):  # process each object class
-                    cls_tracks = track_dict[cls_id]
-                    for track in cls_tracks:
-                        online_tlwhs_dict[cls_id].append(track.tlwh)
-                        online_ids_dict[cls_id].append(track.track_id)
-
-                # collect result
-                for cls_id in range(opt.num_classes):
-                    results_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
-
-                # to draw track/detection
-                if opt.show_image:
-                    if tracker.frame_id > 0:
-                        online_im = vis.plot_tracks(image=img0,
-                                                    tlwhs_dict=online_tlwhs_dict,
-                                                    obj_ids_dict=online_ids_dict,
-                                                    num_classes=opt.num_classes,
-                                                    frame_id=fr_cnt,
-                                                    id2cls=id2cls)
-
-                if opt.save_img_dir is not None:
-                    img_save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
-                    cv2.imwrite(img_save_path, online_im)
-
-                # update sampled frame count
-                fr_cnt += 1
-
-    if opt.interval == 1:
-        print('Total {:d} frames.'.format(fr_id + 1))
-    else:
-        print('Total {:d} frames.'.format(fr_cnt + 1))
-
-    # output track/detection results as txt(MOT16 format)
-    write_results_dict(result_f_name, results_dict, data_type)
-
-    # output tracking result as video
-    result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
-    cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
-        .format(out_fps, frame_dir, result_video_path)  # set output frame rate 12 FPS
-    os.system(cmd_str)
-
-
 def FindFreeGPU():
     """
     :return:
@@ -515,26 +398,117 @@ def FindFreeGPU():
     return int(most_free_gpu_idx)
 
 
-if __name__ == '__main__':
+class DemoRunner(object):
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+
+        self.parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+                                 help='*.cfg path')
+        self.parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
+        self.parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_no_upsample_track_last.pt',
+                                 help='weights path')
+
+        # input file/folder, 0 for webcam
+        self.parser.add_argument('--videos',
+                                 type=str,
+                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                                 help='')  # 'data/samples/videos/'
+        self.parser.add_argument('--source',  # for detection
+                                 type=str,
+                                 default='/users/duanyou/c5/all_pretrain/test1.txt',
+                                 help='source')
+
+        # output detection results as txt file for mMAP computation
+        self.parser.add_argument('--output-txt-dir',
+                                 type=str,
+                                 default='/users/duanyou/c5/results_new/results_all/tmp')
+
+        self.parser.add_argument('--save-img-dir',
+                                 type=str,
+                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',  # './results'
+                                 help='dir to save visualized results(imgs).')
+
+        # -----
+        # task mode
+        self.parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
+
+        # output type
+        self.parser.add_argument('--output-type', type=str, default='txts', help='videos or txts')
+        # -----
+
+        # output FPS interval
+        self.parser.add_argument('--interval', type=int, default=1,
+                                 help='The interval frame of tracking, default no interval.')
+
+        # standard output FPS
+        self.parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
+
+        self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
+        self.parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
+        self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
+
+        self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
+
+        self.parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
+        self.parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
+        self.parser.add_argument('--fourcc', type=str, default='mp4v',
+                                 help='output video codec (verify ffmpeg support)')
+        self.parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
+        self.parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1) or cpu')
+        self.parser.add_argument('--view-img', action='store_true', help='display results')
+        self.parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+        self.parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
+        self.parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
+        self.parser.add_argument('--show-image', type=bool, default=True, help='whether to show results.')
+        self.parser.add_argument('--augment', action='store_true', help='augmented inference')
+
+        self.opt = self.parser.parse_args()
+
+    def run(self):
+        # ----------
+        if self.opt.task == 'track':
+            print('Run tracking...')
+
+            if self.opt.output_type == 'txts':
+                track_videos_txt(self.opt)
+            elif self.opt.output_type == 'videos':
+                track_videos_vid(self.opt)
+            else:
+                print('[Err]: un-recognized output mode.')
+        elif self.opt.task == 'detect':
+            print('Run detection...')
+
+            run_detection(self.opt)
+        else:
+            print("[Err]: un-recognized task mode, neither 'track' or 'detect'")
+        # ----------
+
+
+def run_demo():
     parser = argparse.ArgumentParser()
+
     parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/track_last.pt', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_no_upsample_track_last.pt',
+                        help='weights path')
 
     # input file/folder, 0 for webcam
-    parser.add_argument('--source', type=str, default='data/samples/val_1.mp4', help='source')
-    # parser.add_argument('--videos', type=str, default='data/samples/videos/', help='')
-    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test.txt', help='source')
+    parser.add_argument('--videos', type=str, default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                        help='')  # 'data/samples/videos/'
+    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test1.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
-    parser.add_argument('--save-img-dir', type=str, default='./results', help='dir to save visualized results(imgs).')
+    parser.add_argument('--save-img-dir',
+                        type=str,
+                        default='/mnt/diskb/even/dataset/MCMOT_Evaluate',  # './results'
+                        help='dir to save visualized results(imgs).')
 
     # task mode
-    parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
+    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
 
     # output FPS interval
-    parser.add_argument('--interval', type=int, default=2, help='The interval frame of tracking, default no interval.')
+    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
 
     # standard output FPS
     parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
@@ -556,18 +530,23 @@ if __name__ == '__main__':
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--show-image', type=bool, default=True, help='whether to show results.')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
+
     opt = parser.parse_args()
-    print(opt)
+    # print(opt)
 
     # ----------
     if opt.task == 'track':
-        run_tracking(opt)
-        # run_tracking_of_videos_txt(opt)
-        # run_tracking_of_videos_img(opt)
+        track_videos_txt(opt)
+        # track_videos_vid(opt)
     elif opt.task == 'detect':
         run_detection(opt)
     else:
         print("[Err]: un-recognized task mode, neither 'track' or 'detect'")
     # ----------
 
-    # TestFreeGPU()
+
+if __name__ == '__main__':
+    # run_demo()
+
+    demo = DemoRunner()
+    demo.run()

@@ -373,19 +373,21 @@ class Track(BaseTrack):
         return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
 
 
-# TODO: Multi-class JDETracker
+# Multi-class JDETracker
+from train import max_ids_dict
 class MCJDETracker(object):
     def __init__(self, opt):
         self.opt = opt
 
         # ---------- Init model
-        max_ids_dict = {
-            0: 330,
-            1: 102,
-            2: 104,
-            3: 312,
-            4: 53
-        }  # cls_id -> track id number for traning
+        # max_ids_dict = {
+        #     0: 330,
+        #     1: 102,
+        #     2: 104,
+        #     3: 312,
+        #     4: 53
+        # }  # cls_id -> track id number for training
+
         device = opt.device
 
         # model in track mode(do detection and reid feature vector extraction)

@@ -63,6 +63,9 @@ class LoadImages:  # for inference
                 files = sorted(glob.glob(os.path.join(path, '*.*')))
             elif os.path.isfile(path):
                 files = [path]
+            else:
+                print('[Err]: invalid file list path.')
+                exit(-1)
 
             images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
             videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
@@ -360,6 +363,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
         self.imgs = [None] * n
         self.labels = [np.zeros((0, 6), dtype=np.float32)] * n
+
         extract_bounding_boxes = False
         create_data_subset = False
         p_bar = tqdm(self.label_files, desc='Caching labels')
@@ -372,7 +376,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                 nm += 1  # print('missing labels for image %s' % self.img_files[i])  # file missing
                 continue
 
-            if lb.shape[0]:  # 该图片标注的目标个数
+            if lb.shape[0]:  # objects number in the image
                 assert lb.shape[1] == 6, '!= 6 label columns: %s' % file
                 assert (lb >= 0).all(), 'negative labels: %s' % file
                 assert (lb[:, 2:] <= 1).all(), 'non-normalized or out of bounds coordinate labels: %s' % file
@@ -426,7 +430,11 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
             p_bar.desc = 'Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)' % (
                 nf, nm, ne, nd, n)
-        assert nf > 0, 'No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
+
+        # assert nf > 0, 'No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
+        if nf == 0:
+            print('No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url))
+            exit(-1)
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         if cache_images:  # if training
@@ -1040,6 +1048,7 @@ def letterbox(img,
 
     if shape[::-1] != new_unpad:  # resize
         img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
@@ -1251,7 +1260,7 @@ def cutout(image, labels):
     return labels
 
 
-def reduce_img_size(path='../data/sm4/images', img_size=1024):  # from utils.datasets import *; reduce_img_size()
+def reduce_img_size(path='../data/sm4/images', img_size=1024):  # from evaluate_utils.datasets import *; reduce_img_size()
     # creates a new ./images_reduced folder with reduced size images of maximum size img_size
     path_new = path + '_reduced'  # reduced images path
     create_folder(path_new)
@@ -1268,7 +1277,7 @@ def reduce_img_size(path='../data/sm4/images', img_size=1024):  # from utils.dat
             print('WARNING: image failure %s' % f)
 
 
-def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
+def convert_images2bmp():  # from evaluate_utils.datasets import *; convert_images2bmp()
     # Save images
     formats = [x.lower() for x in img_formats] + [x.upper() for x in img_formats]
     # for path in ['../coco/images/val2014', '../coco/images/train2014']:
@@ -1292,7 +1301,7 @@ def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
             f.write(lines)
 
 
-def recursive_dataset2bmp(dataset='../data/sm4_bmp'):  # from utils.datasets import *; recursive_dataset2bmp()
+def recursive_dataset2bmp(dataset='../data/sm4_bmp'):  # from evaluate_utils.datasets import *; recursive_dataset2bmp()
     # Converts dataset to bmp (for faster training)
     formats = [x.lower() for x in img_formats] + [x.upper() for x in img_formats]
     for a, b, files in os.walk(dataset):
@@ -1312,7 +1321,7 @@ def recursive_dataset2bmp(dataset='../data/sm4_bmp'):  # from utils.datasets imp
                     os.system("rm '%s'" % p)
 
 
-def imagelist2folder(path='data/coco_64img.txt'):  # from utils.datasets import *; imagelist2folder()
+def imagelist2folder(path='data/coco_64img.txt'):  # from evaluate_utils.datasets import *; imagelist2folder()
     # Copies all the images in a text file (list of images) into a folder
     create_folder(path[:-4])
     with open(path, 'r') as f:

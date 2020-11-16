@@ -19,15 +19,15 @@ import os
 import copy
 import numpy as np
 import argparse
-# from sklearn.utils.linear_assignment_ import linear_assignment
+# from sklearn.evaluate_utils.linear_assignment_ import linear_assignment
 from collections import defaultdict
 from scipy.optimize import linear_sum_assignment as linear_assignment
 from easydict import EasyDict as edict
-from utils.io import read_txt_to_struct, read_seqmaps, \
+from MOTEvaluate.evaluate_utils.io import read_txt_to_struct, read_seqmaps, \
     extract_valid_gt_data, print_metrics
-from utils.bbox import bbox_overlap
-from utils.measurements import clear_mot_metrics, id_measures
-from utils.convert import cls2id, id2cls
+from MOTEvaluate.evaluate_utils.bbox import bbox_overlap
+from MOTEvaluate.evaluate_utils.convert import cls2id, id2cls
+from MOTEvaluate.evaluate_utils.measurements import clear_mot_metrics, id_measures
 
 
 def filter_DB(trackDB, gtDB, distractor_ids, iou_thres, min_vis):
@@ -141,12 +141,13 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     # mme: mis-match error
     # tp: true positive
     # fp: false positive
-    # g: ground truth
-    # missed: false negative
+    # gt_cnt: ground truth
+    # fn: false negative
     # d: iou(or 1-distance), key: gt_tracked_id
     # M: matched dict, key: gt_track_id, col: res_track_id
     # all_fps: all frames' false positive
-    mme, tp, fp, g, missed, d, M, all_fps = clear_mot_metrics(resDB, gtDB, iou_thresh)
+    # mme, tp, fp, gt_counts, fn, d, MatchedDicts, all_fps
+    mme, tp, fp, gt_cnt, fn, d, M, all_fps = clear_mot_metrics(resDB, gtDB, iou_thresh)
     # -----
 
     gt_frames = np.unique(gtDB[:, 0])
@@ -158,7 +159,7 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     n_ids_gt = len(gt_ids)
     n_ids_res = len(res_ids)
 
-    FN = sum(missed)  # false negative
+    FN = sum(fn)  # false negative
     FP = sum(fp)  # false positive
     IDS = sum(mme)
 
@@ -166,18 +167,20 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     MOTP = (sum(sum(d)) / sum(tp)) * 100.0
 
     # MOTAL = 1.0 - (# fp + # fn + #log10(ids)) / # gts
-    MOTAL = (1.0 - (sum(fp) + sum(missed) +
-                    np.log10(sum(mme) + 1)) / sum(g)) * 100.0
+    MOTAL = (1.0 - (sum(fp) + sum(fn) +
+                    np.log10(sum(mme) + 1)) / sum(gt_cnt)) * 100.0
 
     sum_fp = sum(fp)
-    sum_missed = sum(missed)
+    sum_fn = sum(fn)
     sum_mme = sum(mme)
-    sum_g = sum(g)
-    MOTA = (1.0 - (sum_fp + sum_missed + sum_mme) / sum_g) * 100.0
-    # MOTA = (1.0 - (sum(fp) + sum(missed) + sum(mme)) / sum(g)) * 100.0
+    sum_g = sum(gt_cnt)
+    MOTA = (1.0 - (sum_fp + sum_fn + sum_mme) / sum_g) * 100.0
+    # MOTA = (1.0 - (sum(fp) + sum(fn) + sum(mme)) / sum(g)) * 100.0
+    # if MOTA < 0.0:
+    #     print('[Debug here].')
 
     # recall = TP / (TP + FN) = # corrected boxes / # gt boxes
-    recall = sum(tp) / sum(g) * 100.0
+    recall = sum(tp) / sum(gt_cnt) * 100.0
 
     # precision = TP / (TP + FP) = # corrected boxes / # det boxes
     precision = sum(tp) / (sum(fp) + sum(tp)) * \
@@ -244,8 +247,8 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     extra_info.mme = sum(mme)
     extra_info.c = sum(tp)
     extra_info.fp = sum(fp)
-    extra_info.g = sum(g)
-    extra_info.missed = sum(missed)
+    extra_info.g = sum(gt_cnt)
+    extra_info.missed = sum(fn)
     extra_info.d = d
 
     # extra_info.m = M
@@ -375,6 +378,8 @@ def evaluate_mcmot_seq(gt_path, res_path):
     print_metrics('Seq evaluation mean metrics:', mean_metrics)
     # ----------
 
+    return mean_metrics
+
 
 def evaluate_seqs(seqs, track_dir, gt_dir):
     all_info = []
@@ -423,6 +428,43 @@ def parse_args():
     return args
 
 
+def evaluate_mcmot_seqs(test_root, default_fps=12):
+    """
+    :param test_root:
+    :param default_fps: fps for sampling
+    :return:
+    """
+    if not os.path.isdir(test_root):
+        print('[Err]: invalid test root.')
+        return
+
+    seq_names = [x for x in os.listdir(test_root) if x.endswith('.mp4')]
+    if len(seq_names) == 0 or seq_names is None:
+        print('[Err]: no test videos detected.')
+        return
+
+    metrics = np.zeros((len(seq_names), len(metric_names)), dtype=float)
+    for i, seq_name in enumerate(seq_names):
+        seq_name = seq_name[:-4]
+        gt_path = test_root + '/' + seq_name + '_gt_mot16' + '_fps' + str(default_fps) + '.txt'
+        res_path = test_root + '/' + seq_name + '_results_fps' + str(default_fps) + '.txt'
+
+        if not (os.path.isfile(gt_path) and os.path.isfile(res_path)):
+            print('[Warning]: {:s} test file not exists.'.format(seq_name))
+            continue
+
+        # ---------
+        seq_mean_metrics = evaluate_mcmot_seq(gt_path, res_path)
+        print_metrics('Seq {:s} evaluation mean metrics: '.format(seq_name), seq_mean_metrics)
+        # ---------
+
+        metrics[i] = seq_mean_metrics
+
+    mean_metrics = metrics.mean(axis=0)  # mean value of each column
+    print_metrics('All test seq evaluation mean metrics: '.format(seq_name), mean_metrics)
+
+
+
 if __name__ == '__main__':
     # # ----- command line running
     # args = parse_args()
@@ -432,6 +474,10 @@ if __name__ == '__main__':
     # evaluate_seqs(seqs, args.track, args.gt)
 
     # ----- test running
-    evaluate_mcmot_seq(gt_path='F:/val_seq/val_1_gt_mot16_interval1.txt',
-                       res_path='F:/val_seq/val_1_results_fps12.txt')
+    # evaluate_mcmot_seq(gt_path='F:/val_seq/val_1_gt_mot16_fps12.txt',
+    #                    res_path='F:/val_seq/val_1_results_fps12.txt')
+
+    evaluate_mcmot_seqs(test_root='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                        default_fps=12)
+
     print('Done.')

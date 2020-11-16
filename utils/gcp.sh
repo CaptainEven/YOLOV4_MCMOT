@@ -7,7 +7,7 @@ git clone https://github.com/ultralytics/yolov3
 # sudo apt-get install zip
 #git clone https://github.com/NVIDIA/apex && cd apex && pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" . --user && cd .. && rm -rf apex
 sudo conda install -yc conda-forge scikit-image pycocotools
-# python3 -c "from yolov3.utils.google_utils import gdrive_download; gdrive_download('193Zp_ye-3qXMonR1nZj3YyxMtQkMy50k','coco2014.zip')"
+# python3 -c "from yolov3.evaluate_utils.google_utils import gdrive_download; gdrive_download('193Zp_ye-3qXMonR1nZj3YyxMtQkMy50k','coco2014.zip')"
 python3 -c "from yolov3.utils.google_utils import gdrive_download; gdrive_download('1WQT6SOktSe8Uw6r10-2JhbEhMY5DJaph','coco2017.zip')"
 python3 -c "from yolov3.utils.google_utils import gdrive_download; gdrive_download('1C3HewOG9akA3y456SZLBJZfNDPkBwAto','knife.zip')"
 python3 -c "from yolov3.utils.google_utils import gdrive_download; gdrive_download('13g3LqdpkNE8sPosVJT6KFXlfoMypzRP4','sm4.zip')"

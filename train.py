@@ -42,7 +42,16 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'degrees': 1.98 * 0,  # image rotation (+/- deg)
        'translate': 0.05 * 0,  # image translation (+/- fraction)
        'scale': 0.5,  # image scale (+/- gain)
-       'shear': 0.641 * 0}  # image shear (+/- deg)
+       'shear': 0.641 * 0  # image shear (+/- deg)
+       }
+
+max_ids_dict = {
+    0: 341,  # car
+    1: 103,  # bicycle
+    2: 104,  # person
+    3: 329,  # cyclist
+    4: 48    # tricycle
+}
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -114,13 +123,6 @@ def train():
                                        single_cls=opt.single_cls)
 
     # Initialize model
-    max_ids_dict = {
-        0: 330,
-        1: 102,
-        2: 104,
-        3: 312,
-        4: 53
-    }
     if opt.task == 'pure_detect':
         model = Darknet(cfg,
                         img_size=img_size,
@@ -162,8 +164,10 @@ def train():
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+
     if opt.auto_weight:
         optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
+
     del pg0, pg1, pg2
 
     start_epoch = 0
@@ -196,7 +200,8 @@ def train():
         start_epoch = chkpt['epoch'] + 1
         del chkpt
 
-    elif len(weights) > 0:  # darknet format
+    # load darknet format weights
+    elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
     # # freeze weights of some previous layers
@@ -393,7 +398,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni % 300 == 0:  # save checkpoint every 100 batches
+                if ni != 0 and ni % 300 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -455,10 +460,12 @@ def train():
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss_items[3]):
-                    print('[Warning]: infinite reid loss.')
-                    loss_items[3:] = 0.0
+                    # print('[Warning]: infinite reid loss.')
+                    loss_items[3:] = torch.zeros((1, 1), device=device)
                 if not torch.isfinite(loss):
-                    print('WARNING: non-finite loss_funcs, ending training ', loss_items)
+                    for i in range(loss_items.shape[0]):
+                        loss_items[i] = torch.zeros((1, 1), device=device)
+                    # print('[Warning] infinite loss_funcs', loss_items)  #  ending training
                     return results
 
                 # Backward
@@ -490,7 +497,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni % 100 == 0:  # save checkpoint every 100 batches
+                if ni != 0 and ni % 300 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -505,10 +512,10 @@ def train():
                         print('{:s} saved.'.format(last))
                         del chkpt
 
-                        # Save .weights file
-                        wei_f_path = wdir + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
-                        print('{:s} saved.'.format(wei_f_path))
+                        # # Save .weights file
+                        # wei_f_path = wdir + opt.task + '_last.weights'
+                        # save_weights(model, wei_f_path)
+                        # print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:
@@ -607,7 +614,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/mobile-yolo-3l.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-2l.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
@@ -619,10 +626,12 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
+
     parser.add_argument('--weights',
                         type=str,
                         default='./weights/pure_detect_last.pt',
                         help='initial weights path')
+
     parser.add_argument('--name', default='yolov4-mobilenetv2',
                         help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')

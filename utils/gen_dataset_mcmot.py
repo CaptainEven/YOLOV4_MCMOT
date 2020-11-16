@@ -621,6 +621,7 @@ def gen_dataset_from_txt(path_prefix, in_txt_f_path, dst_root, out_txt_f_path):
             if not os.path.isfile(xml_path):
                 print('[Warning]: invalid label file.')
                 continue
+
             xml_name = os.path.split(xml_path)[-1]
             img_name = os.path.split(img_path)[-1]
             assert xml_name[:-4] == img_name[:-4]
@@ -740,17 +741,226 @@ def gen_dataset_from_txt(path_prefix, in_txt_f_path, dst_root, out_txt_f_path):
         print('Class {} contains {:d} items'.format(k, v))
 
 
+def parse_xml(xml_path):
+    """
+    :param xml_path:
+    :return:
+    """
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    # print(root)
+
+    mark_node = root.find('markNode')
+    if mark_node is None:
+        print('[Warning]: markNode not found.')
+        return
+
+    # 该图片对应的labels
+    label_obj_strs = []
+
+    try:
+        # 图片宽高
+        w = int(root.find('width').text.strip())
+        h = int(root.find('height').text.strip())
+    except Exception as e:
+        print('[Warning]: invalid (w, h)')
+        print(e)
+        return
+
+    for obj in mark_node.iter('object'):
+        target_type = obj.find('targettype')
+        cls_name = target_type.text
+        if cls_name not in target_types:
+            print("=> " + cls_name + " is not in targetTypes list.")
+            continue
+
+        # classes_c5(5类别的特殊处理)
+        if cls_name == 'car_front' or cls_name == 'car_rear':
+            cls_name = 'car_fr'
+        if cls_name == 'car':
+            car_type = obj.find('cartype').text
+            if car_type == 'motorcycle':
+                cls_name = 'bicycle'
+        if cls_name == "motorcycle":
+            cls_name = "bicycle"
+        if cls_name not in classes:
+            # print("=> " + cls_name + " is not in class list.")
+            continue
+        if cls_name == 'non_interest_zone':
+            # print('Non interest zone.')
+            continue
+
+        # 获取class_id
+        cls_id = classes.index(cls_name)
+        assert (0 <= cls_id < 5)
+
+        # 获取bounding box
+        xml_box = obj.find('bndbox')
+        box = (float(xml_box.find('xmin').text),
+               float(xml_box.find('xmax').text),
+               float(xml_box.find('ymin').text),
+               float(xml_box.find('ymax').text))
+
+        # bounding box格式化: bbox([0.0, 1.0]): center_x, center_y, width, height
+        bbox = bbox_format((w, h), box)
+        if bbox is None:
+            print('[Warning]: bbox err.')
+            continue
+
+        # 生成检测对象的标签行: class_id, bbox_center_x, box_center_y, bbox_width, bbox_height
+        obj_str = '{:d} {:.6f} {:.6f} {:.6f} {:.6f}\n'.format(
+            cls_id,  # class_id
+            bbox[0],  # center_x
+            bbox[1],  # center_y
+            bbox[2],  # bbox_w
+            bbox[3])  # bbox_h
+        label_obj_strs.append(obj_str)
+
+    return label_obj_strs
+
+
+def build_test_set(test_txt_f, dataset_root, f_list_out_root):
+    """
+    :param test_txt_f:
+    :return:
+    """
+    if not os.path.isfile(test_txt_f):
+        print('[Err]: invalid test txt file.')
+        return
+
+    mcmot_det_txt = f_list_out_root + '/' + 'mcmot_det_test.txt'
+    with open(test_txt_f, 'r', encoding='utf-8') as r_h, \
+            open(mcmot_det_txt, 'w', encoding='utf-8') as w_h:
+        lines = r_h.readlines()
+        lines = [line.strip() for line in lines]
+
+        for line in lines:
+            print(line)
+            dir_name = line.split('/')[-3]
+
+            # src dirs
+            src_dir_img_path = os.path.split(line)[0]
+            src_dir_txt_path = src_dir_img_path.replace('JPEGImages', 'Annotations')
+
+            # src image and label
+            img_name = os.path.split(line)[-1]
+            xml_name = img_name.replace('.jpg', '.xml')
+            src_img_path = src_dir_img_path + '/' + img_name
+            src_xml_path = src_dir_txt_path + '/' + xml_name
+
+            # dest dirs
+            dst_dir_img_path = dataset_root + '/JPEGImages'
+            dst_dir_txt_path = dataset_root + '/labels_with_ids'
+            if not os.path.isdir(dst_dir_img_path):
+                os.makedirs(dst_dir_img_path)
+            if not os.path.isdir(dst_dir_txt_path):
+                os.makedirs(dst_dir_txt_path)
+
+            # ----- copy src img and parse src xml label
+            dst_img_path = dst_dir_img_path + '/' + dir_name + '/' + img_name
+            if not os.path.isfile(dst_img_path):
+                shutil.copy(src_img_path, dst_dir_img_path)
+                print('{:s} copied to {:s}.'.format(img_name, dst_dir_img_path))
+
+            # ----- parse sec label(xml file)
+            label_obj_strs = parse_xml(src_xml_path)
+
+            # 写入txt标签文件
+            dst_txt_path = dst_dir_txt_path + '/' + dir_name + '/' + img_name.replace('.jpg', '.txt')
+            if not os.path.isfile(dst_txt_path):
+                with open(dst_txt_path, 'w', encoding='utf-8') as w_label_h:
+                    for obj in label_obj_strs:
+                        w_label_h.write(obj)
+                    print('{} written'.format(os.path.split(dst_txt_path)[-1]))
+
+            # 写入
+            w_h.write(dst_img_path.replace('images', 'JPEGImages') + '\n')
+
+
+from tqdm import tqdm
+def gen_mcmot_data(img_root, out_f_path):
+    """
+
+    :param img_root:
+    :return:
+    """
+    if not os.path.isdir(img_root):
+        print('[Err]: ')
+        return
+
+    dir_names = [img_root + '/' + x for x in os.listdir(img_root) if os.path.isdir(img_root + '/' + x)]
+
+    with open(out_f_path, 'w', encoding='utf-8') as w_h:
+        for dir in tqdm(dir_names):
+            for img_name in os.listdir(dir):
+                if not img_name.endswith('.jpg'):
+                    continue
+
+                img_path = dir + '/' + img_name
+                if not os.path.isfile(img_path):
+                    print('[Warning]: invalid image file.')
+                    continue
+
+                w_h.write(img_path + '\n')
+
+
+
+def cp_to_dst(mcmot_det_train, src_path_prefix, dst_path_prefix=''):
+    """
+    :param mcmot_det_train:
+    :return:
+    """
+    if not os.path.isfile(mcmot_det_train):
+        print('[Err]: invalid file.')
+        return
+
+    with open(mcmot_det_train, 'r', encoding='utf-8') as r_h:
+        lines = r_h.readlines()
+        lines = [line.strip() for line in lines]
+
+        for line in lines:
+            if os.path.isfile(line):
+                print('{:s} exists.'.format(line))
+                continue
+            else:
+                src_img_f_path = line.replace(dst_path_prefix, src_path_prefix)
+
+                items = src_img_f_path.split('/')
+                items[-2], items[-3] = items[-3], items[-2]
+                src_img_f_path = '/'.join(items)
+
+                dst_dir = os.path.split(line)[0]
+                if not os.path.isdir(dst_dir):
+                    os.makedirs(dst_dir)
+
+                if os.path.isfile(src_img_f_path):
+                    shutil.copy(src_img_f_path, dst_dir)
+                    print('{:s} copied to {:s}.'.format(src_img_f_path, dst_dir))
+
+
+
 if __name__ == "__main__":
     # gen_one_voc_train_dir()
 
     # for mcmot_centernet
-    gen_dataset_for_mcmot_det(src_root='/mnt/diskb/maqiao/multiClass',
-                              dst_root='/mnt/diskb/even/dataset/MCMOT_DET',
-                              dot_train_f_path='/mnt/diskb/even/MCMOT/src/data/mcmot_det.train',
-                              dataset_prefix='/mnt/diskb/even/dataset/')
+    # gen_dataset_for_mcmot_det(src_root='/mnt/diskb/maqiao/multiClass',
+    #                           dst_root='/mnt/diskb/even/dataset/MCMOT_DET',
+    #                           dot_train_f_path='/mnt/diskb/even/MCMOT/src/data/mcmot_det.train',
+    #                           dataset_prefix='/mnt/diskb/even/dataset/')
 
     # for mcmot_yolov4
     # gen_dataset_from_txt(path_prefix='/mnt/diskb/maqiao/multiClass/',
     #                      in_txt_f_path='/mnt/diskb/even/YOLOV4/data/test.txt',
     #                      dst_root='/mnt/diskb/even/dataset/MCMOT_DET/test',
     #                      out_txt_f_path='/mnt/diskb/even/dataset/MCMOT_DET/test/mcmot_det_test.txt')
+
+    # build_test_set(test_txt_f='/users/duanyou/c5/all_pretrain/test1.txt',
+    #                dataset_root='/mnt/diskb/even/dataset/MCMOT_DET',
+    #                f_list_out_root='/mnt/diskb/even/YOLOV4/data')
+
+    # cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det_test.txt',  # mcmot_det.train
+    #           src_path_prefix='/mnt/diskb/maqiao/multiClass/',
+    #           dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
