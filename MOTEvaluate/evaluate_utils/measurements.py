@@ -31,9 +31,9 @@ python evaluate_tracking.py
 
 import sys
 import numpy as np
-# from sklearn.utils.linear_assignment_ import linear_assignment
+# from sklearn.evaluate_utils.linear_assignment_ import linear_assignment
 from scipy.optimize import linear_sum_assignment as linear_assignment
-from utils.bbox import bbox_overlap
+from MOTEvaluate.evaluate_utils.bbox import bbox_overlap
 from easydict import EasyDict as edict
 
 VERBOSE = False

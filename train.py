@@ -42,7 +42,16 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'degrees': 1.98 * 0,  # image rotation (+/- deg)
        'translate': 0.05 * 0,  # image translation (+/- fraction)
        'scale': 0.5,  # image scale (+/- gain)
-       'shear': 0.641 * 0}  # image shear (+/- deg)
+       'shear': 0.641 * 0  # image shear (+/- deg)
+       }
+
+max_ids_dict = {
+    0: 341,  # car
+    1: 103,  # bicycle
+    2: 104,  # person
+    3: 329,  # cyclist
+    4: 48    # tricycle
+}
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -114,13 +123,6 @@ def train():
                                        single_cls=opt.single_cls)
 
     # Initialize model
-    max_ids_dict = {
-        0: 330,
-        1: 102,
-        2: 104,
-        3: 312,
-        4: 53
-    }
     if opt.task == 'pure_detect':
         model = Darknet(cfg,
                         img_size=img_size,
@@ -162,8 +164,10 @@ def train():
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+
     if opt.auto_weight:
         optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
+
     del pg0, pg1, pg2
 
     start_epoch = 0
@@ -196,7 +200,7 @@ def train():
         start_epoch = chkpt['epoch'] + 1
         del chkpt
 
-    # laod darknet format weights
+    # load darknet format weights
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
@@ -625,7 +629,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/track_last.pt',
+                        default='./weights/pure_detect_last.pt',
                         help='initial weights path')
 
     parser.add_argument('--name', default='yolov4-mobilenetv2',

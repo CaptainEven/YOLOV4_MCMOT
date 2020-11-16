@@ -1091,14 +1091,14 @@ def print_model_biases(model):
         pass
 
 
-def strip_optimizer(f='weights/last.pt'):  # from utils.utils import *; strip_optimizer()
+def strip_optimizer(f='weights/last.pt'):  # from evaluate_utils.evaluate_utils import *; strip_optimizer()
     # Strip optimizer from *.pt files for lighter files (reduced by 2/3 size)
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
     torch.save(x, f)
 
 
-def create_backbone(f='weights/last.pt'):  # from utils.utils import *; create_backbone()
+def create_backbone(f='weights/last.pt'):  # from evaluate_utils.evaluate_utils import *; create_backbone()
     # create a backbone from a *.pt file
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
@@ -1123,7 +1123,7 @@ def coco_class_count(path='../coco/labels/train2014/'):
         print(i, len(files))
 
 
-def coco_only_people(path='../coco/labels/train2017/'):  # from utils.utils import *; coco_only_people()
+def coco_only_people(path='../coco/labels/train2017/'):  # from evaluate_utils.evaluate_utils import *; coco_only_people()
     # Find images with only people
     files = sorted(glob.glob('%s/*.*' % path))
     for i, file in enumerate(files):
@@ -1132,14 +1132,14 @@ def coco_only_people(path='../coco/labels/train2017/'):  # from utils.utils impo
             print(labels.shape[0], file)
 
 
-def select_best_evolve(path='evolve*.txt'):  # from utils.utils import *; select_best_evolve()
+def select_best_evolve(path='evolve*.txt'):  # from evaluate_utils.evaluate_utils import *; select_best_evolve()
     # Find best evolved mutation
     for file in sorted(glob.glob(path)):
         x = np.loadtxt(file, dtype=np.float32, ndmin=2)
         print(file, x[fitness(x).argmax()])
 
 
-def crop_images_random(path='../images/', scale=0.50):  # from utils.utils import *; crop_images_random()
+def crop_images_random(path='../images/', scale=0.50):  # from evaluate_utils.evaluate_utils import *; crop_images_random()
     # crops images into random squares up to scale fraction
     # WARNING: overwrites images!
     for file in tqdm(sorted(glob.glob('%s/*.*' % path))):
@@ -1163,7 +1163,7 @@ def crop_images_random(path='../images/', scale=0.50):  # from utils.utils impor
 
 
 def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
-    # Makes single-class coco datasets. from utils.utils import *; coco_single_class_labels()
+    # Makes single-class coco datasets. from evaluate_utils.evaluate_utils import *; coco_single_class_labels()
     if os.path.exists('new/'):
         shutil.rmtree('new/')  # delete output folder
     os.makedirs('new/')  # make new output folder
@@ -1185,7 +1185,7 @@ def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
 
 
 def kmean_anchors(path='../coco/train2017.txt', n=12, img_size=(320, 1024), thr=0.10, gen=1000):
-    # Creates kmeans anchors for use in *.cfg files: from utils.utils import *; _ = kmean_anchors()
+    # Creates kmeans anchors for use in *.cfg files: from evaluate_utils.evaluate_utils import *; _ = kmean_anchors()
     # n: number of anchors
     # img_size: (min, max) image size used for multi-scale training (can be same values)
     # thr: IoU threshold hyperparameter used for training (0.0 - 1.0)
@@ -1338,7 +1338,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
 
-def plot_wh_methods():  # from utils.utils import *; plot_wh_methods()
+def plot_wh_methods():  # from evaluate_utils.evaluate_utils import *; plot_wh_methods()
     # Compares the two methods for width-height anchor multiplication
     # https://github.com/ultralytics/yolov3/issues/168
     x = np.arange(-4.0, 4.0, .1)
@@ -1384,7 +1384,7 @@ def plot_images(imgs, targets, paths=None, fname='images.png'):
     plt.close()
 
 
-def plot_test_txt():  # from utils.utils import *; plot_test()
+def plot_test_txt():  # from evaluate_utils.evaluate_utils import *; plot_test()
     # Plot test.txt histograms
     x = np.loadtxt('test.txt', dtype=np.float32)
     box = xyxy2xywh(x[:, :4])
@@ -1403,7 +1403,7 @@ def plot_test_txt():  # from utils.utils import *; plot_test()
     plt.savefig('hist1d.png', dpi=200)
 
 
-def plot_targets_txt():  # from utils.utils import *; plot_targets_txt()
+def plot_targets_txt():  # from evaluate_utils.evaluate_utils import *; plot_targets_txt()
     # Plot targets.txt histograms
     x = np.loadtxt('targets.txt', dtype=np.float32).T
     s = ['x targets', 'y targets', 'width targets', 'height targets']
@@ -1417,7 +1417,7 @@ def plot_targets_txt():  # from utils.utils import *; plot_targets_txt()
     plt.savefig('targets.jpg', dpi=200)
 
 
-def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_results(hyp)
+def plot_evolution_results(hyp):  # from evaluate_utils.evaluate_utils import *; plot_evolution_results(hyp)
     # Plot hyperparameter evolution results in evolve.txt
     x = np.loadtxt('evolve.txt', ndmin=2)
     f = fitness(x)
@@ -1437,7 +1437,7 @@ def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_re
     plt.savefig('evolve.png', dpi=200)
 
 
-def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
+def plot_results_overlay(start=0, stop=0):  # from evaluate_utils.evaluate_utils import *; plot_results_overlay()
     # Plot training results files 'results*.txt', overlaying train and val losses
     s = ['train', 'train', 'train', 'Precision', 'mAP@0.5', 'val', 'val', 'val', 'Recall', 'F1']  # legends
     t = ['GIoU', 'Objectness', 'Classification', 'P-R', 'mAP-F1']  # titles
@@ -1460,7 +1460,7 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
         fig.savefig(f.replace('.txt', '.png'), dpi=200)
 
 
-def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import *; plot_results()
+def plot_results(start=0, stop=0, bucket='', id=()):  # from evaluate_utils.evaluate_utils import *; plot_results()
     # Plot training 'results*.txt' as seen in https://github.com/ultralytics/yolov3#training
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
     ax = ax.ravel()

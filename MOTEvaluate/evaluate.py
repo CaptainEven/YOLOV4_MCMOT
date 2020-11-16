@@ -19,15 +19,15 @@ import os
 import copy
 import numpy as np
 import argparse
-# from sklearn.utils.linear_assignment_ import linear_assignment
+# from sklearn.evaluate_utils.linear_assignment_ import linear_assignment
 from collections import defaultdict
 from scipy.optimize import linear_sum_assignment as linear_assignment
 from easydict import EasyDict as edict
-from utils.io import read_txt_to_struct, read_seqmaps, \
+from MOTEvaluate.evaluate_utils.io import read_txt_to_struct, read_seqmaps, \
     extract_valid_gt_data, print_metrics
-from utils.bbox import bbox_overlap
-from utils.measurements import clear_mot_metrics, id_measures
-from utils.convert import cls2id, id2cls
+from MOTEvaluate.evaluate_utils.bbox import bbox_overlap
+from MOTEvaluate.evaluate_utils.convert import cls2id, id2cls
+from MOTEvaluate.evaluate_utils.measurements import clear_mot_metrics, id_measures
 
 
 def filter_DB(trackDB, gtDB, distractor_ids, iou_thres, min_vis):
@@ -375,6 +375,8 @@ def evaluate_mcmot_seq(gt_path, res_path):
     print_metrics('Seq evaluation mean metrics:', mean_metrics)
     # ----------
 
+    return mean_metrics
+
 
 def evaluate_seqs(seqs, track_dir, gt_dir):
     all_info = []
@@ -423,6 +425,41 @@ def parse_args():
     return args
 
 
+def evaluate_mcmot_seqs(test_root, default_fps=12):
+    """
+    :param test_root:
+    :param default_fps: fps for sampling
+    :return:
+    """
+    if not os.path.isdir(test_root):
+        print('[Err]: invalid test root.')
+        return
+
+    seq_names = [x for x in os.listdir(test_root) if x.endswith('.mp4')]
+    if len(seq_names) == 0 or seq_names is None:
+        print('[Err]: no test videos detected.')
+        return
+
+    metrics = np.zeros((len(seq_names), len(metric_names)), dtype=float)
+    for i, seq_name in enumerate(seq_names):
+        seq_name = seq_name[:-4]
+        gt_path = test_root + '/' + seq_name + '_gt_mot16' + '_fps' + str(default_fps) + '.txt'
+        res_path = test_root + '/' + seq_name + '_results_fps' + str(default_fps) + '.txt'
+
+        if not (os.path.isfile(gt_path) and os.path.isfile(res_path)):
+            print('[Warning]: {:s} test file not exists.'.format(seq_name))
+            continue
+
+        seq_mean_metrics = evaluate_mcmot_seq(gt_path, res_path)
+        print_metrics('Seq {:s} evaluation mean metrics: '.format(seq_name), seq_mean_metrics)
+
+        metrics[i] = seq_mean_metrics
+
+    mean_metrics = metrics.mean(axis=0)  # mean value of each column
+    print_metrics('All test seq evaluation mean metrics: '.format(seq_name), mean_metrics)
+
+
+
 if __name__ == '__main__':
     # # ----- command line running
     # args = parse_args()
@@ -432,6 +469,10 @@ if __name__ == '__main__':
     # evaluate_seqs(seqs, args.track, args.gt)
 
     # ----- test running
-    evaluate_mcmot_seq(gt_path='F:/val_seq/val_1_gt_mot16_interval1.txt',
-                       res_path='F:/val_seq/val_1_results_fps12.txt')
+    # evaluate_mcmot_seq(gt_path='F:/val_seq/val_1_gt_mot16_fps12.txt',
+    #                    res_path='F:/val_seq/val_1_results_fps12.txt')
+
+    evaluate_mcmot_seqs(test_root='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                        default_fps=12)
+
     print('Done.')

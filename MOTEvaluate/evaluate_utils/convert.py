@@ -33,7 +33,7 @@ W, H = 1920, 1080
 
 def convert_darklabel_2_mot16(darklabel_txt_path,
                               interval=1,
-                              fps=12,
+                              default_fps=12,
                               one_plus=True,
                               out_mot16_path=None):
     """
@@ -45,7 +45,7 @@ def convert_darklabel_2_mot16(darklabel_txt_path,
         return
 
     if out_mot16_path is None:
-        out_fps = fps // int(interval)
+        out_fps = default_fps // int(interval)
         print('[Note]: out_mot16_path not defined, using default.')
         dir_name, file_name = os.path.split(darklabel_txt_path)
         out_mot16_path = dir_name + '/' + \
@@ -111,48 +111,45 @@ def convert_darklabel_2_mot16(darklabel_txt_path,
                                      + str(width) + ',' \
                                      + str(height) + ',' \
                                      + '1,' + str(class_id) + ',' + '1'
-                print(write_line_str)
+                # print(write_line_str)
                 w_h.write(write_line_str + '\n')
 
             fr_idx += 1
         print('Total {:d} frames sampled'.format(fr_idx))
 
+    print('{:s} written.'.format(out_mot16_path))
 
-def convert_seqs(seq_root, interval=1):
+
+def convert_seqs(seq_root, interval=1, default_fps=12, one_plus=True):
     """
     """
     if not os.path.isdir(seq_root):
         print('[Err]: invalid seq root.')
         return
 
-    img_root = seq_root + '/images'
-    seq_names = [x for x in os.listdir(img_root)]
-    # print(seq_names)
-
-    seq_dir_paths = [img_root + '/' + x for x in seq_names]
-    # print(seq_dir_paths)
-
-    for seq_dir in seq_dir_paths:
-        if not os.path.isdir(seq_dir):
-            print('[Err]: invalid seq image dir.')
-            continue
-
-        seq_name = os.path.split(seq_dir)[-1]
-        darklabel_txt_path = seq_dir + '/' + seq_name + '_gt.txt'
+    seq_names = [x for x in os.listdir(seq_root) if x.endswith('.mp4')]
+    for seq_name in seq_names:
+        darklabel_txt_path = seq_root  + '/' + seq_name[:-4] + '_gt.txt'
 
         # ---------- do pasing for a seq
-        convert_darklabel_2_mot16(darklabel_txt_path, interval=interval,
+        convert_darklabel_2_mot16(darklabel_txt_path,
+                                  interval=interval,
+                                  default_fps=default_fps,
+                                  one_plus=one_plus,
                                   out_mot16_path=None)
         # ----------
 
 
 if __name__ == '__main__':
     # convert_darklabel_2_mot16(darklabel_txt_path='F:/seq_data/images/mcmot_seq_imgs_1/mcmot_seq_imgs_1_gt.txt')
-    # convert_seqs(seq_root='F:/seq_data/', interval=2)
-    convert_darklabel_2_mot16(darklabel_txt_path='F:/val_seq/val_1_gt.txt',
-                              interval=2,
-                              fps=12,
-                              one_plus=False,
-                              out_mot16_path=None)
+    convert_seqs(seq_root='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                 interval=1,
+                 default_fps=12,
+                 one_plus=True)
+    # convert_darklabel_2_mot16(darklabel_txt_path='F:/val_seq/val_1_gt.txt',
+    #                           interval=1,
+    #                           fps=12,
+    #                           one_plus=False,
+    #                           out_mot16_path=None)
 
     print('Done.')

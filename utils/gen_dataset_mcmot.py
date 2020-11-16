@@ -877,6 +877,34 @@ def build_test_set(test_txt_f, dataset_root, f_list_out_root):
             w_h.write(dst_img_path.replace('images', 'JPEGImages') + '\n')
 
 
+from tqdm import tqdm
+def gen_mcmot_data(img_root, out_f_path):
+    """
+
+    :param img_root:
+    :return:
+    """
+    if not os.path.isdir(img_root):
+        print('[Err]: ')
+        return
+
+    dir_names = [img_root + '/' + x for x in os.listdir(img_root) if os.path.isdir(img_root + '/' + x)]
+
+    with open(out_f_path, 'w', encoding='utf-8') as w_h:
+        for dir in tqdm(dir_names):
+            for img_name in os.listdir(dir):
+                if not img_name.endswith('.jpg'):
+                    continue
+
+                img_path = dir + '/' + img_name
+                if not os.path.isfile(img_path):
+                    print('[Warning]: invalid image file.')
+                    continue
+
+                w_h.write(img_path + '\n')
+
+
+
 def cp_to_dst(mcmot_det_train, src_path_prefix, dst_path_prefix=''):
     """
     :param mcmot_det_train:
@@ -930,6 +958,9 @@ if __name__ == "__main__":
     #                dataset_root='/mnt/diskb/even/dataset/MCMOT_DET',
     #                f_list_out_root='/mnt/diskb/even/YOLOV4/data')
 
-    cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det.train',
-              src_path_prefix='/mnt/diskb/maqiao/multiClass/',
-              dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
+    # cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det_test.txt',  # mcmot_det.train
+    #           src_path_prefix='/mnt/diskb/maqiao/multiClass/',
+    #           dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
