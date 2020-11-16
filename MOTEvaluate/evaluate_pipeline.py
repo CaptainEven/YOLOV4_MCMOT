@@ -1,13 +1,12 @@
 # encoding=utf-8
 
 import os
-from easydict import EasyDict
 from MOTEvaluate.evaluate_utils.convert import convert_seqs
 from MOTEvaluate.evaluate import evaluate_mcmot_seqs
-from demo import run_demo, DemoRunner
+from demo import DemoRunner
 
 
-# @TODO: build evaluation pipeline for test set
+# build evaluation pipeline for test set
 def evaluate_test_set(test_root):
     """
     :param test_root:
@@ -22,9 +21,12 @@ def evaluate_test_set(test_root):
     # set object class names
     demo.opt.names = ROOT + '/data/mcmot.names'
 
-    # set weights and cfg file
-    demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
-    demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
+    # set weights and cfg file for different models
+    # demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
+    # demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
+
+    demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
+    demo.opt.weights = ROOT + '/weights/pure_detect_last.pt'
 
     # set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
@@ -32,7 +34,7 @@ def evaluate_test_set(test_root):
 
     # ---------- labels preparation
     # Check test root for video and dark label format label file(txt)
-    # Convert darklabel label file to mot16 format
+    # Convert dark-label label file to mot16 format
     convert_seqs(seq_root=test_root,
                  interval=demo.opt.interval,
                  default_fps=demo.opt.outFPS,
@@ -40,7 +42,7 @@ def evaluate_test_set(test_root):
     # ----------
 
     # ---------- Run tracking
-    # Call mcmot_yolov4(demo.py) to do tracking(generate results.txt)
+    # Call mcmot-yolov4(demo.py) to do tracking(generate results.txt)
     demo.run()
     # ----------
 

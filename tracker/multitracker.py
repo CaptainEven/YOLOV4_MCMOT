@@ -380,13 +380,13 @@ class MCJDETracker(object):
         self.opt = opt
 
         # ---------- Init model
-        max_ids_dict = {
-            0: 330,
-            1: 102,
-            2: 104,
-            3: 312,
-            4: 53
-        }  # cls_id -> track id number for training
+        # max_ids_dict = {
+        #     0: 330,
+        #     1: 102,
+        #     2: 104,
+        #     3: 312,
+        #     4: 53
+        # }  # cls_id -> track id number for training
 
         device = opt.device
 
