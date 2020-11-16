@@ -141,12 +141,13 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     # mme: mis-match error
     # tp: true positive
     # fp: false positive
-    # g: ground truth
-    # missed: false negative
+    # gt_cnt: ground truth
+    # fn: false negative
     # d: iou(or 1-distance), key: gt_tracked_id
     # M: matched dict, key: gt_track_id, col: res_track_id
     # all_fps: all frames' false positive
-    mme, tp, fp, g, missed, d, M, all_fps = clear_mot_metrics(resDB, gtDB, iou_thresh)
+    # mme, tp, fp, gt_counts, fn, d, MatchedDicts, all_fps
+    mme, tp, fp, gt_cnt, fn, d, M, all_fps = clear_mot_metrics(resDB, gtDB, iou_thresh)
     # -----
 
     gt_frames = np.unique(gtDB[:, 0])
@@ -158,7 +159,7 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     n_ids_gt = len(gt_ids)
     n_ids_res = len(res_ids)
 
-    FN = sum(missed)  # false negative
+    FN = sum(fn)  # false negative
     FP = sum(fp)  # false positive
     IDS = sum(mme)
 
@@ -166,18 +167,20 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     MOTP = (sum(sum(d)) / sum(tp)) * 100.0
 
     # MOTAL = 1.0 - (# fp + # fn + #log10(ids)) / # gts
-    MOTAL = (1.0 - (sum(fp) + sum(missed) +
-                    np.log10(sum(mme) + 1)) / sum(g)) * 100.0
+    MOTAL = (1.0 - (sum(fp) + sum(fn) +
+                    np.log10(sum(mme) + 1)) / sum(gt_cnt)) * 100.0
 
     sum_fp = sum(fp)
-    sum_missed = sum(missed)
+    sum_fn = sum(fn)
     sum_mme = sum(mme)
-    sum_g = sum(g)
-    MOTA = (1.0 - (sum_fp + sum_missed + sum_mme) / sum_g) * 100.0
-    # MOTA = (1.0 - (sum(fp) + sum(missed) + sum(mme)) / sum(g)) * 100.0
+    sum_g = sum(gt_cnt)
+    MOTA = (1.0 - (sum_fp + sum_fn + sum_mme) / sum_g) * 100.0
+    # MOTA = (1.0 - (sum(fp) + sum(fn) + sum(mme)) / sum(g)) * 100.0
+    # if MOTA < 0.0:
+    #     print('[Debug here].')
 
     # recall = TP / (TP + FN) = # corrected boxes / # gt boxes
-    recall = sum(tp) / sum(g) * 100.0
+    recall = sum(tp) / sum(gt_cnt) * 100.0
 
     # precision = TP / (TP + FP) = # corrected boxes / # det boxes
     precision = sum(tp) / (sum(fp) + sum(tp)) * \
@@ -244,8 +247,8 @@ def evaluate_seq(resDB, gtDB, distractor_ids, iou_thresh=0.5, min_vis=0):
     extra_info.mme = sum(mme)
     extra_info.c = sum(tp)
     extra_info.fp = sum(fp)
-    extra_info.g = sum(g)
-    extra_info.missed = sum(missed)
+    extra_info.g = sum(gt_cnt)
+    extra_info.missed = sum(fn)
     extra_info.d = d
 
     # extra_info.m = M
@@ -450,8 +453,10 @@ def evaluate_mcmot_seqs(test_root, default_fps=12):
             print('[Warning]: {:s} test file not exists.'.format(seq_name))
             continue
 
+        # ---------
         seq_mean_metrics = evaluate_mcmot_seq(gt_path, res_path)
         print_metrics('Seq {:s} evaluation mean metrics: '.format(seq_name), seq_mean_metrics)
+        # ---------
 
         metrics[i] = seq_mean_metrics
 

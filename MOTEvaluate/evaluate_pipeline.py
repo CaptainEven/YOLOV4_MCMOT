@@ -13,24 +13,40 @@ def evaluate_test_set(test_root):
     :param test_root:
     :return:
     """
-    # ----------
-    # Check test root for video and dark label format label file(txt)
-    # Convert darklabel label file to mot16 format
-    convert_seqs(seq_root=test_root, interval=1)
-    # ----------
-
-    # ----------
-    # Call mcmot_yolov4(demo.py) to do tracking(generate results.txt)
-    demo = DemoRunner()
+    # set Project root
     ROOT = '/mnt/diskb/even/YOLOV4'
+
+    # init demo runner
+    demo = DemoRunner()
+
+    # set object class names
     demo.opt.names = ROOT + '/data/mcmot.names'
+
+    # set weights and cfg file
     demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
     demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
+
+    # set standard out fps and interval: set test fps
+    demo.opt.outFPS = 12
+    demo.opt.interval = 1
+
+    # ---------- labels preparation
+    # Check test root for video and dark label format label file(txt)
+    # Convert darklabel label file to mot16 format
+    convert_seqs(seq_root=test_root,
+                 interval=demo.opt.interval,
+                 default_fps=demo.opt.outFPS,
+                 one_plus=True)
+    # ----------
+
+    # ---------- Run tracking
+    # Call mcmot_yolov4(demo.py) to do tracking(generate results.txt)
     demo.run()
     # ----------
 
-    # Do evaluation using results and ground truth for each seq
-    evaluate_mcmot_seqs(test_root, default_fps=12)
+    # --------- Run evaluation
+    evaluate_mcmot_seqs(test_root, default_fps=demo.opt.outFPS)
+    # ---------
 
 
 if __name__ == '__main__':
