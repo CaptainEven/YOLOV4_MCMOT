@@ -334,8 +334,12 @@ metric_names = ['IDF1', 'IDP', 'IDR',
                 'MOTA', 'MOTP', 'MOTAL']
 
 
-def evaluate_mcmot_seq(gt_path, res_path):
+def evaluate_mcmot_seq(seq_name, gt_path, res_path):
     """
+    :param seq_name:
+    :param gt_path:
+    :param res_path:
+    :return:
     """
     if not (os.path.isfile(gt_path) and os.path.isfile(gt_path)):
         print('[Err]: invalid file path.')
@@ -371,7 +375,7 @@ def evaluate_mcmot_seq(gt_path, res_path):
         metrics[cls_id] = cls_metrics
         # ----------
 
-        print_metrics('Seq evaluation for class {:s}'.format(id2cls[cls_id]), cls_metrics)
+        print_metrics('Seq {:s} evaluation for class {:s}'.format(seq_name, id2cls[cls_id]), cls_metrics)
 
     # ---------- mean of the metrics
     mean_metrics = metrics.mean(axis=0)  # mean value of each column
@@ -454,7 +458,7 @@ def evaluate_mcmot_seqs(test_root, default_fps=12):
             continue
 
         # ---------
-        seq_mean_metrics = evaluate_mcmot_seq(gt_path, res_path)
+        seq_mean_metrics = evaluate_mcmot_seq(seq_name, gt_path, res_path)
         print_metrics('Seq {:s} evaluation mean metrics: '.format(seq_name), seq_mean_metrics)
         # ---------
 

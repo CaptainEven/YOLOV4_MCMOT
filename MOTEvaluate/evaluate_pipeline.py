@@ -26,7 +26,7 @@ def evaluate_test_set(test_root):
     # demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
 
     demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
-    demo.opt.weights = ROOT + '/weights/pure_detect_last.pt'
+    demo.opt.weights = ROOT + '/weights/track_last.pt'
 
     # set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
@@ -46,6 +46,8 @@ def evaluate_test_set(test_root):
     # set task mode and output results type
     demo.opt.task = 'track'
     demo.opt.output_type = 'txts'
+
+    # run tracking and output results.txt(MOT16)
     demo.run()
     # ----------
 
