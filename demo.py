@@ -402,10 +402,14 @@ class DemoRunner(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
 
-        self.parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+        self.parser.add_argument('--cfg',
+                                 type=str,
+                                 default='cfg/yolov4_mobilev2-2l.cfg',
                                  help='*.cfg path')
         self.parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-        self.parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_no_upsample_track_last.pt',
+        self.parser.add_argument('--weights',
+                                 type=str,
+                                 default='weights/pure_detect_last.pt',
                                  help='weights path')
 
         # input file/folder, 0 for webcam
@@ -430,7 +434,7 @@ class DemoRunner(object):
 
         # -----
         # task mode
-        self.parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
+        self.parser.add_argument('--task', type=str, default='detect', help='task mode: track or detect')
 
         # output type
         self.parser.add_argument('--output-type', type=str, default='txts', help='videos or txts')

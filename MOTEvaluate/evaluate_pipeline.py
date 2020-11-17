@@ -43,6 +43,9 @@ def evaluate_test_set(test_root):
 
     # ---------- Run tracking
     # Call mcmot-yolov4(demo.py) to do tracking(generate results.txt)
+    # set task mode and output results type
+    demo.opt.task = 'track'
+    demo.opt.output_type = 'txts'
     demo.run()
     # ----------
 
