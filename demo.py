@@ -42,6 +42,7 @@ def run_detection(opt):
 
     # Set dataset and device
     if os.path.isfile(opt.source):
+        print('Source test txt: {:s}.'.format(opt.source))
         with open(opt.source, 'r', encoding='utf-8') as r_h:
             paths = [x.strip() for x in r_h.readlines()]
             print('Total {:d} image files.'.format(len(paths)))
@@ -407,6 +408,7 @@ class DemoRunner(object):
                                  default='cfg/yolov4_mobilev2-2l.cfg',
                                  help='*.cfg path')
         self.parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
+
         self.parser.add_argument('--weights',
                                  type=str,
                                  default='weights/pure_detect_last.pt',
@@ -419,7 +421,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='/users/duanyou/c5/all_pretrain/test1.txt',
+                                 default='/users/duanyou/c5/all_pretrain/c5_test.txt',  # test1.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -499,7 +501,7 @@ def run_demo():
     # input file/folder, 0 for webcam
     parser.add_argument('--videos', type=str, default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
                         help='')  # 'data/samples/videos/'
-    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test1.txt', help='source')
+    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/c5_test.txt', help='source')
 
     # output detection results as txt file for mMAP computation
     parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')

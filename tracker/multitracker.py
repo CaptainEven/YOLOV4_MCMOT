@@ -10,7 +10,7 @@ from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.utils import *
 from tracking_utils.log import logger
 
-from .basetrack import BaseTrack, MCBaseTrack, TrackState
+from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
 
 
@@ -398,7 +398,7 @@ class MCJDETracker(object):
             ckpt = torch.load(opt.weights, map_location=device)
             self.model.load_state_dict(ckpt['model'])
             if 'epoch' in ckpt.keys():
-                print('Checkpoint of epoch {} loaded.'.format(ckpt['epoch']))
+                print('Checkpoint of epoch {} loaded.\n'.format(ckpt['epoch']))
         else:  # darknet format
             load_darknet_weights(self.model, opt.weights)
 
