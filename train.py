@@ -45,21 +45,21 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'shear': 0.641 * 0  # image shear (+/- deg)
        }
 
-max_ids_dict = {
-    0: 341,  # car
-    1: 103,  # bicycle
-    2: 104,  # person
-    3: 329,  # cyclist
-    4: 48    # tricycle
-}
-
 # max_ids_dict = {
-#     0: 330,
-#     1: 102,
-#     2: 104,
-#     3: 312,
-#     4: 53
-# }  # previous version
+#     0: 341,  # car
+#     1: 103,  # bicycle
+#     2: 104,  # person
+#     3: 329,  # cyclist
+#     4: 48    # tricycle
+# }
+
+max_ids_dict = {
+    0: 330,
+    1: 102,
+    2: 104,
+    3: 312,
+    4: 53
+}  # previous version
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')

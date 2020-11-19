@@ -417,12 +417,12 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_mobilev2-2l.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/pure_detect_last.pt',
+                                 default='weights/v4_tiny3l_no_upsample_track_last.pt',
                                  help='weights path')
         # ----------
 
@@ -470,7 +470,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
-        # ---------- NMS parameters
+        # ---------- NMS parameters origin: 0.3, 0.6
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
         self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
         # ----------
