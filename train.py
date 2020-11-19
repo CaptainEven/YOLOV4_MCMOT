@@ -53,6 +53,14 @@ max_ids_dict = {
     4: 48    # tricycle
 }
 
+# max_ids_dict = {
+#     0: 330,
+#     1: 102,
+#     2: 104,
+#     3: 312,
+#     4: 53
+# }  # previous version
+
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
 if f:
@@ -515,10 +523,10 @@ def train():
                         print('{:s} saved.'.format(last))
                         del chkpt
 
-                        # # Save .weights file
-                        # wei_f_path = wdir + opt.task + '_last.weights'
-                        # save_weights(model, wei_f_path)
-                        # print('{:s} saved.'.format(wei_f_path))
+                        # Save .weights file
+                        wei_f_path = wdir + opt.task + '_last.weights'
+                        save_weights(model, wei_f_path)
+                        print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:

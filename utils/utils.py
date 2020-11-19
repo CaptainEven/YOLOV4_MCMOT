@@ -439,8 +439,7 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
-            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
-                t_obj.dtype)  # g_iou ratio taken into account
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
