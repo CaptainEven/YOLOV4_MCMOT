@@ -471,8 +471,8 @@ class DemoRunner(object):
         self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
         # ---------- NMS parameters origin: 0.3, 0.6
-        self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
-        self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+        self.parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
+        self.parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
         # ----------
 
         self.parser.add_argument('--fourcc', type=str, default='mp4v',
