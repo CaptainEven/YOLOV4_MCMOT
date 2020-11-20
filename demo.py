@@ -417,12 +417,12 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+                                 default='cfg/yolov4_mobilev2-3l.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_no_upsample_track_last.pt',
+                                 default='weights/pure_detect_last.pt',
                                  help='weights path')
         # ----------
 

@@ -45,6 +45,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'shear': 0.641 * 0  # image shear (+/- deg)
        }
 
+# automatically generate the max_ids_dict
 # max_ids_dict = {
 #     0: 341,  # car
 #     1: 103,  # bicycle
@@ -212,7 +213,7 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
-    # # freeze weights of some previous layers
+    # # freeze weights of some previous layers(for yolo detection only)
     # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
     #     if layer_i < 52:
     #         for param in child.parameters():
@@ -649,7 +650,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/mobile-yolo-3l_last.weights',
+                        default='./weights/pure_detect_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -671,7 +672,7 @@ if __name__ == '__main__':
     parser.add_argument('--task',
                         type=str,
                         default='pure_detect',
-                        help=' pure_detect, detect or track mode.')
+                        help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 

@@ -28,6 +28,9 @@ def evaluate_test_set(test_root):
     demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
     demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
 
+    # set test videos
+    demo.opt.videos = '/mnt/diskb/even/dataset/MCMOT_Evaluate'
+
     # set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
     demo.opt.interval = 1
