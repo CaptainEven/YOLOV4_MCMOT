@@ -379,7 +379,6 @@ def evaluate_mcmot_seq(seq_name, gt_path, res_path):
 
     # ---------- mean of the metrics
     mean_metrics = metrics.mean(axis=0)  # mean value of each column
-    print_metrics('Seq evaluation mean metrics:', mean_metrics)
     # ----------
 
     return mean_metrics
