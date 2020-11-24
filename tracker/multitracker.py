@@ -458,6 +458,7 @@ class MCJDETracker(object):
                                        merge=False,
                                        classes=self.opt.classes,
                                        agnostic=self.opt.agnostic_nms)
+            # print(pred)
 
             dets = pred[0]  # assume batch_size == 1 here
 

@@ -512,7 +512,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-        if i > 90:
+        if i > 51:
             break
 
         if mdef['type'] == 'convolutional':

@@ -423,7 +423,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/pure_detect_last.pt',
+                                 default='weights/pure_detect_last_mbv2_3l.pt',
                                  help='weights path')
         # ----------
 
@@ -434,7 +434,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test1.txt',  # test1.txt or c5_test
+                                 default='./data/test2.txt',  # test1.txt or c5_test or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -471,9 +471,9 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
-        # ---------- NMS parameters origin: 0.3, 0.6
-        self.parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
-        self.parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
+        # ---------- NMS parameters origin: 0.3, 0.6 or 0.2, 0.45
+        self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
+        self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
         # ----------
 
         self.parser.add_argument('--fourcc', type=str, default='mp4v',

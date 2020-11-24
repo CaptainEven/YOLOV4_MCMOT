@@ -25,8 +25,8 @@ def evaluate_test_set(test_root):
     # demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
     # demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
 
-    demo.opt.cfg = ROOT + '/cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg'
-    demo.opt.weights = ROOT + '/weights/v4_tiny3l_no_upsample_track_last.pt'
+    demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-3l.cfg'
+    demo.opt.weights = ROOT + '/weights/track_last_mbv2_3l.pt'
 
     # set test videos' dir
     demo.opt.videos = '/mnt/diskb/even/dataset/MCMOT_Evaluate'

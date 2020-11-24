@@ -31,7 +31,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'reid': 0.1,  # reid loss_funcs weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+       'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
        'lrf': 0.0003,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.000484,  # optimizer weight decay
@@ -46,21 +46,21 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        }
 
 # automatically generate the max_ids_dict
-# max_ids_dict = {
-#     0: 341,  # car
-#     1: 103,  # bicycle
-#     2: 104,  # person
-#     3: 329,  # cyclist
-#     4: 48    # tricycle
-# }
-
 max_ids_dict = {
-    0: 330,
-    1: 102,
-    2: 104,
-    3: 312,
-    4: 53
-}  # previous version
+    0: 341,  # car
+    1: 103,  # bicycle
+    2: 104,  # person
+    3: 329,  # cyclist
+    4: 48    # tricycle
+}
+
+# max_ids_dict = {
+#     0: 330,
+#     1: 102,
+#     2: 104,
+#     3: 312,
+#     4: 53
+# }  # previous version
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -215,7 +215,7 @@ def train():
 
     # # freeze weights of some previous layers(for yolo detection only)
     # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-    #     if layer_i < 52:
+    #     if layer_i < 90:
     #         for param in child.parameters():
     #             param.requires_grad = False
     #     else:
@@ -378,7 +378,7 @@ def train():
                 loss, loss_items = compute_loss(pred, targets, model)
 
                 if not torch.isfinite(loss):
-                    print('WARNING: infinite loss_funcs, ending training ', loss_items)
+                    print('[Warning]: infinite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
@@ -472,12 +472,12 @@ def train():
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss_items[3]):
-                    # print('[Warning]: infinite reid loss.')
+                    print('[Warning]: infinite reid loss.')
                     loss_items[3:] = torch.zeros((1, 1), device=device)
                 if not torch.isfinite(loss):
                     for i in range(loss_items.shape[0]):
                         loss_items[i] = torch.zeros((1, 1), device=device)
-                    # print('[Warning] infinite loss_funcs', loss_items)  #  ending training
+                    print('[Warning] infinite loss_funcs', loss_items)  #  ending training
                     return results
 
                 # Backward
@@ -639,7 +639,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--data',
                         type=str,
-                        default='data/mcmot_det.data',
+                        default='data/mcmot.data',
                         help='*.data path')
 
     # ---------- weights and cfg file
@@ -650,7 +650,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last.pt',
+                        default='./weights/pure_detect_last_mbv2_3l.pt',
                         help='initial weights path')
     # ----------
 
@@ -659,7 +659,7 @@ if __name__ == '__main__':
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='7',
+                        default='6',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -671,7 +671,7 @@ if __name__ == '__main__':
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
     parser.add_argument('--task',
                         type=str,
-                        default='pure_detect',
+                        default='track',
                         help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
