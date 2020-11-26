@@ -25,11 +25,15 @@ def evaluate_test_set(test_root):
     # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
     # demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
 
-    demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
-    demo.opt.weights = ROOT + '/weights/track_last.pt'
+    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2-2l.cfg'
+    demo.opt.weights = ROOT + '/weights/' + 'MobileNetV2-YOLOv3-Lite_41000.weights'
 
-    # ----------- set test videos' dir
+    print('Cfg: {:s}.'.format(demo.opt.cfg))
+    print('Weights: {:s}.\n'.format(demo.opt.weights))
+
+    # ----------- set test input videos' dir and tracking results dir
     demo.opt.videos = '/mnt/diskb/even/dataset/MCMOT_Evaluate'
+    demo.opt.save_img_dir = demo.opt.videos
 
     # ---------- set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
@@ -51,7 +55,6 @@ def evaluate_test_set(test_root):
     demo.opt.output_type = 'txts'
 
     # run tracking and output results.txt(MOT16)
-    print(demo.opt)
     demo.run()
     # ----------
 
