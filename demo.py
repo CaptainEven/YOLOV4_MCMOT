@@ -428,7 +428,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/pure_detect_last.pt',
+                                 default='weights/track_last.pt',
                                  help='weights path')
         # ----------
 
@@ -475,6 +475,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
 
+        # ---------- Set net input image width and height
         self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
         self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
 

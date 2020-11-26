@@ -26,7 +26,7 @@ def evaluate_test_set(test_root):
     # demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
 
     demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2-2l.cfg'
-    demo.opt.weights = ROOT + '/weights/' + 'MobileNetV2-YOLOv3-Lite_41000.weights'
+    demo.opt.weights = ROOT + '/weights/' + 'track_last.pt'
 
     print('Cfg: {:s}.'.format(demo.opt.cfg))
     print('Weights: {:s}.\n'.format(demo.opt.weights))

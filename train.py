@@ -54,13 +54,13 @@ max_ids_dict = {
     4: 48    # tricycle
 }
 
-max_ids_dict = {
-    0: 330,
-    1: 102,
-    2: 104,
-    3: 312,
-    4: 53
-}  # previous version
+# max_ids_dict = {
+#     0: 330,
+#     1: 102,
+#     2: 104,
+#     3: 312,
+#     4: 53
+# }  # previous version
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
