@@ -36,9 +36,9 @@ def write_results(filename, results_dict: Dict, data_type: str):
     logger.info('Save results to {}'.format(filename))
 
 
-def write_results_dict(file_name, results_dict, data_type, num_classes=5):
+def write_results_dict(results_f_path, results_dict, data_type, num_classes=5):
     """
-    :param file_name:
+    :param results_f_path:
     :param results_dict:
     :param data_type:
     :param num_classes:
@@ -51,7 +51,7 @@ def write_results_dict(file_name, results_dict, data_type, num_classes=5):
     else:
         raise ValueError(data_type)
 
-    with open(file_name, 'w') as f:
+    with open(results_f_path, 'w') as f:
         for cls_id in range(num_classes):  # process each object class
             cls_results = results_dict[cls_id]
             for fr_id, tlwhs, track_ids in cls_results:  # fr_id starts from 1
@@ -74,7 +74,7 @@ def write_results_dict(file_name, results_dict, data_type, num_classes=5):
                     f.write(line)
                     # f.flush()
 
-    logger.info('Save results to {}.\n'.format(file_name))
+    logger.info('Save results to {}.\n'.format(results_f_path))
 
 
 def read_results(filename, data_type: str, is_gt=False, is_ignore=False):

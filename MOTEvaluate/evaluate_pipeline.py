@@ -12,26 +12,30 @@ def evaluate_test_set(test_root):
     :param test_root:
     :return:
     """
-    # set Project root
+    # ---------- set Project root
     ROOT = '/mnt/diskb/even/YOLOV4'
 
-    # init demo runner
+    # ---------- init demo runner
     demo = DemoRunner()
 
-    # set object class names
+    # ---------- set object class names
     demo.opt.names = ROOT + '/data/mcmot.names'
 
-    # set weights and cfg file for different models
-    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
-    demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
+    # ----------- set weights and cfg file for different models
+    # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
+    # demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
 
-    # demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
-    # demo.opt.weights = ROOT + '/weights/track_last.pt'
+    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2-2l.cfg'
+    demo.opt.weights = ROOT + '/weights/' + 'track_last.pt'
 
-    # set test videos' dir
+    print('Cfg: {:s}.'.format(demo.opt.cfg))
+    print('Weights: {:s}.\n'.format(demo.opt.weights))
+
+    # ----------- set test input videos' dir and tracking results dir
     demo.opt.videos = '/mnt/diskb/even/dataset/MCMOT_Evaluate'
+    demo.opt.save_img_dir = demo.opt.videos
 
-    # set standard out fps and interval: set test fps
+    # ---------- set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
     demo.opt.interval = 1
 
@@ -51,7 +55,6 @@ def evaluate_test_set(test_root):
     demo.opt.output_type = 'txts'
 
     # run tracking and output results.txt(MOT16)
-    print(demo.opt)
     demo.run()
     # ----------
 
