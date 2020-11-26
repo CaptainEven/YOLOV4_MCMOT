@@ -391,7 +391,8 @@ class MCJDETracker(object):
         device = opt.device
 
         # model in track mode(do detection and reid feature vector extraction)
-        self.model = Darknet(opt.cfg, opt.img_size, False, max_ids_dict, 128, 'track').to(device)
+        self.model = Darknet(opt.cfg, opt.net_w, False, max_ids_dict, 128, 'track').to(device)
+        # print(self.model)
 
         # Load checkpoint
         if opt.weights.endswith('.pt'):  # pytorch format
@@ -447,6 +448,9 @@ class MCJDETracker(object):
         """
         # ----- do detection only(reid feature vector will not be extracted)
         # only get aggregated result, not original YOLO output
+        net_h, net_w = img.shape[2:]
+        orig_h, orig_w, _ = img0.shape  # H×W×C
+
         with torch.no_grad():
             pred, pred_orig, _, _ = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
@@ -468,7 +472,8 @@ class MCJDETracker(object):
                 return None
 
             # Rescale boxes from img_size to img0 size(from net input size to original size)
-            dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
+            # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
+            dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         return dets
 
@@ -486,6 +491,10 @@ class MCJDETracker(object):
         if self.frame_id == 1:
             MCTrack.init_count(self.opt.num_classes)
         # -----
+
+        # Get image size
+        net_h, net_w = img.shape[2:]
+        orig_h, orig_w, _ = img0.shape  # H×W×C
 
         # record tracking states of the current frame
         activated_tracks_dict = defaultdict(list)
@@ -563,7 +572,8 @@ class MCJDETracker(object):
                 id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
             # Rescale boxes from img_size to img0 size(from net input size to original size)
-            dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
+            # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
+            dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         # Process each object class
         for cls_id in range(self.opt.num_classes):
@@ -714,7 +724,7 @@ class JDETracker(object):
         device = opt.device
 
         # model in track mode(do detection and reid feature vector extraction)
-        self.model = Darknet(opt.cfg, opt.img_size, False, max_ids_dict, 128, 'track').to(device)
+        self.model = Darknet(opt.cfg, opt.net_w, False, max_ids_dict, 128, 'track').to(device)
 
         # Load checkpoint
         if opt.weights.endswith('.pt'):  # pytorch format

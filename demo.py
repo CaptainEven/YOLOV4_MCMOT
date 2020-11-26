@@ -39,6 +39,7 @@ def run_detection(opt):
     :return:
     """
     print('Start detection...')
+    print('Net input size: {:d}×{:d}.'.format(opt.net_w, opt.net_h))
 
     # Set dataset and device
     if os.path.isfile(opt.source):
@@ -46,9 +47,9 @@ def run_detection(opt):
         with open(opt.source, 'r', encoding='utf-8') as r_h:
             paths = [x.strip() for x in r_h.readlines()]
             print('Total {:d} image files.'.format(len(paths)))
-            dataset = LoadImages(path=paths, img_size=opt.img_size)
+            dataset = LoadImages(path=paths, net_w=opt.net_w, net_h=opt.net_h)
     else:
-        dataset = LoadImages(opt.source, img_size=opt.img_size)
+        dataset = LoadImages(opt.source, net_w=opt.net_w, net_h=opt.net_h)
 
     if os.path.isdir(opt.output_txt_dir):
         shutil.rmtree(opt.output_txt_dir)
@@ -85,13 +86,15 @@ def run_detection(opt):
         img = torch.from_numpy(img).to(opt.device)
         img = img.float()  # uint8 to fp32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
+
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
         t1 = torch_utils.time_synchronized()
 
-        # update detection result of this frame
+        # ---------- update detection result of this frame
         dets = tracker.update_detection(img, img0)
+        # ----------
 
         t2 = torch_utils.time_synchronized()
         print('%sdone, time (%.3fs)' % (path, t2 - t1))
@@ -174,7 +177,7 @@ def track_videos_txt(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, img_size=opt.img_size)
+        dataset = LoadImages(video_path, net_w=opt.net_w)
 
         # set txt results path
         src_name = os.path.split(video_path)[-1]
@@ -197,7 +200,9 @@ def track_videos_txt(opt):
 
             # update tracking result of this frame
             if opt.interval == 1:
+                # ---------- Update tracking results of current frame
                 online_targets_dict = tracker.update_tracking(img, img0)
+                # ----------
 
                 if online_targets_dict is None:
                     print('[Warning]: Skip frame {:d}.'.format(fr_id))
@@ -294,7 +299,7 @@ def track_videos_vid(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, img_size=opt.img_size)
+        dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
 
         # set txt results path
         src_name = os.path.split(video_path)[-1]
@@ -418,19 +423,19 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_mobilev2-3l.cfg',
+                                 default='cfg/yolov4_mobilev2-2l.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/pure_detect_last_mbv2_3l.pt',
+                                 default='weights/track_last.pt',
                                  help='weights path')
         # ----------
 
         # input file/folder, 0 for webcam
         self.parser.add_argument('--videos',
                                  type=str,
-                                 default='/mnt/diskb/even/YOLOV4/data/samples/videos',
+                                 default='/mnt/diskb/even/YOLOV4/data/videos',
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
@@ -444,18 +449,21 @@ class DemoRunner(object):
 
         self.parser.add_argument('--save-img-dir',
                                  type=str,
-                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',  # './results'
+                                 default='/mnt/diskb/even/YOLOV4/output',  # './results'
                                  help='dir to save visualized results(imgs).')
 
         # -----
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         # output type
-        self.parser.add_argument('--output-type', type=str, default='videos', help='videos or txts')
+        self.parser.add_argument('--output-type',
+                                 type=str,
+                                 default='videos',
+                                 help='videos or txts')
         # -----
 
         # output FPS interval
@@ -466,7 +474,10 @@ class DemoRunner(object):
         self.parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-        self.parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
+
+        self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
+        self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
+
         self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
         self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')

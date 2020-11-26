@@ -126,6 +126,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             layers = mdef['layers']
             filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
             routs.extend([i + l if l < 0 else l for l in layers])
+
             if 'groups' in mdef:
                 groups = mdef['groups']
                 group_id = mdef['group_id']
@@ -152,8 +153,9 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'yolo':
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
-            if any(x in cfg for x in ['yolov4-tiny']):  # stride order reversed
+            if any(x in cfg for x in ['yolov4-tiny', 'mobile', 'Mobile', 'enet']):  # stride order reversed
                 stride = [32, 16, 8]
+
             layers = mdef['from'] if 'from' in mdef else []
             modules = YOLOLayer(anchors=mdef['anchors'][mdef['mask']],  # anchor list
                                 nc=mdef['classes'],  # number of classes
@@ -231,7 +233,8 @@ class YOLOLayer(nn.Module):
     def forward(self, pred, out):
         ASFF = False  # https://arxiv.org/abs/1911.09516
         if ASFF:
-            i, n = self.index, self.nl  # index in layers, number of layers
+            i, n = self.inde
+            x, self.nl  # index in layers, number of layers
             pred = out[self.layers[i]]
             bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
@@ -315,6 +318,8 @@ class Darknet(nn.Module):
         super(Darknet, self).__init__()
 
         self.mode = mode
+
+        # ---------- parsing cfg file
         self.module_defs = parse_model_cfg(cfg)
 
         # create module list from cfg file
@@ -402,6 +407,7 @@ class Darknet(nn.Module):
                 x = module(x)
 
             out.append(x if self.routs[i] else [])
+
             if verbose:
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
@@ -411,6 +417,7 @@ class Darknet(nn.Module):
         # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
         # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
+        # @even: Get feature maps(corresponding to yolo layers)
         yolo_inds = [-1 - i*2 for i in range(len(self.yolo_layer_inds))]
         yolo_inds.sort()
         for yolo_idx in yolo_inds:
@@ -435,7 +442,7 @@ class Darknet(nn.Module):
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
 
-            # record anchor inds
+            # ----- record anchor inds
             # yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
             # yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
             # yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
@@ -512,7 +519,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-        if i > 51:
+        if i > 80:
             break
 
         if mdef['type'] == 'convolutional':

@@ -100,12 +100,17 @@ def scale_coords(img_size, coords, img0_shape):
     gain_w = float(img_size[0]) / img0_shape[1]  # gain  = old / new
     gain_h = float(img_size[1]) / img0_shape[0]
     gain = min(gain_w, gain_h)
+
     pad_x = (img_size[0] - img0_shape[1] * gain) / 2  # width padding
     pad_y = (img_size[1] - img0_shape[0] * gain) / 2  # height padding
+
     coords[:, [0, 2]] -= pad_x
     coords[:, [1, 3]] -= pad_y
+
     coords[:, 0:4] /= gain
+
     coords[:, :4] = torch.clamp(coords[:, :4], min=0)
+
     return coords
 
 
@@ -389,7 +394,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.2):
 
         # From (center x, center y, width, height) to (x1, y1, x2, y2)
         pred[:, :4] = xywh2xyxy(pred[:, :4])
-        nms_indices = nms(pred[:, :4], pred[:, 4], nms_thres)
+        nms_indices = nms(pred[:, :4], pred[:, 4], nms_thres)  # (x1, y1, x2, y2), score, iou_th
         det_max = pred[nms_indices]
 
         if len(det_max) > 0:

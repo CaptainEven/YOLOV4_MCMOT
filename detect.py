@@ -79,7 +79,7 @@ def detect(save_img=False):
         dataset = LoadStreams(source, img_size=img_size)
     else:
         save_img = True
-        dataset = LoadImages(source, img_size=img_size)
+        dataset = LoadImages(source, net_w=img_size)
 
     # Get names and colors
     names = load_classes(opt.names)
