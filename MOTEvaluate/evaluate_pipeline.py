@@ -12,26 +12,26 @@ def evaluate_test_set(test_root):
     :param test_root:
     :return:
     """
-    # set Project root
+    # ---------- set Project root
     ROOT = '/mnt/diskb/even/YOLOV4'
 
-    # init demo runner
+    # ---------- init demo runner
     demo = DemoRunner()
 
-    # set object class names
+    # ---------- set object class names
     demo.opt.names = ROOT + '/data/mcmot.names'
 
-    # set weights and cfg file for different models
-    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
-    demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
+    # ----------- set weights and cfg file for different models
+    # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
+    # demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
 
-    # demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
-    # demo.opt.weights = ROOT + '/weights/track_last.pt'
+    demo.opt.cfg = ROOT + '/cfg/yolov4_mobilev2-2l.cfg'
+    demo.opt.weights = ROOT + '/weights/track_last.pt'
 
-    # set test videos' dir
+    # ----------- set test videos' dir
     demo.opt.videos = '/mnt/diskb/even/dataset/MCMOT_Evaluate'
 
-    # set standard out fps and interval: set test fps
+    # ---------- set standard out fps and interval: set test fps
     demo.opt.outFPS = 12
     demo.opt.interval = 1
 

@@ -645,12 +645,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_mobilev2-3l.cfg',
+                        default='cfg/yolov4_mobilev2-2l.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last_mbv2_3l.pt',
+                        default='./weights/pure_detect_last.pt',
                         help='initial weights path')
     # ----------
 
