@@ -140,7 +140,52 @@ def xywh2xyxy(x):
 #         x1, y1, x2, y2 = box.T
 #         return np.stack(((x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1)).T
 
+# 坐标系转换
+def map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h):
+    """
+    :param dets: x1, y1, x2, y2, score, class: n×6
+    :param net_w:
+    :param net_h:
+    :param orig_w:
+    :param orig_h:
+    :return:
+    """
+    def get_padding():
+        """
+        :return:
+        """
+        ratio_x = float(net_w) / orig_w
+        ratio_y = float(net_h) / orig_h
+        ratio = min(ratio_x, ratio_y)
 
+        # new_w, new_h
+        new_shape = (round(orig_w * ratio), round(orig_h * ratio))
+        new_w, new_h = new_shape
+
+        pad_x = (net_w - new_w) * 0.5  # width padding
+        pad_y = (net_h - new_h) * 0.5  # height padding
+
+        left, right = round(pad_x - 0.1), round(pad_x + 0.1)
+        top, bottom = round(pad_y - 0.1), round(pad_y + 0.1)
+
+        return top, bottom, left, right, new_shape
+
+    # pad_tl, pad_rb, pad_type, new_shape = get_padding()
+    top, bottom, left, right, new_shape = get_padding()
+    new_w, new_h = new_shape
+
+    dets[:, 0] = (dets[:, 0] - left) / new_w * orig_w   # x1
+    dets[:, 2] = (dets[:, 2] - left) / new_w * orig_w   # x2
+    dets[:, 1] = (dets[:, 1] - top)  / new_h * orig_h   # y1
+    dets[:, 3] = (dets[:, 3] - top)  / new_h * orig_h   # y2
+
+    # clamp
+    clip_coords(dets[:, :4], (orig_h, orig_w))
+
+    return dets
+
+
+# 坐标系转换
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
@@ -153,7 +198,9 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
     coords[:, :4] /= gain  # scale back to img0's scale
+
     clip_coords(coords, img0_shape)
+
     return coords
 
 
@@ -439,8 +486,7 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
-            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
-                t_obj.dtype)  # g_iou ratio taken into account
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
@@ -664,9 +710,17 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
 
 
 def compute_loss(preds, targets, model):  # predictions, targets, model
+    """
+    :param preds:
+    :param targets:
+    :param model:
+    :return:
+    """
     ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
+
     l_cls, l_box, l_obj = ft([0]), ft([0]), ft([0])
     t_cls, t_box, indices, anchor_vec = build_targets(preds, targets, model)
+
     h = model.hyp  # hyper parameters
     red = 'mean'  # Loss reduction (sum or mean)
 

@@ -958,9 +958,9 @@ if __name__ == "__main__":
     #                dataset_root='/mnt/diskb/even/dataset/MCMOT_DET',
     #                f_list_out_root='/mnt/diskb/even/YOLOV4/data')
 
-    # cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det_test.txt',  # mcmot_det.train
-    #           src_path_prefix='/mnt/diskb/maqiao/multiClass/',
-    #           dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
+    cp_to_dst(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det.train',  # mcmot_det.train
+              src_path_prefix='/mnt/diskb/maqiao/multiClass/',
+              dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
 
-    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')

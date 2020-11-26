@@ -55,9 +55,9 @@ def plot_detects(img,
     img = np.ascontiguousarray(np.copy(img))
     # im_h, im_w = img.shape[:2]
 
-    text_scale = max(1.0, img.shape[1] / 1200.)  # 1600.
+    text_scale = max(1.0, img.shape[1] / 1200.0)  # 1600.
     text_thickness = 2
-    line_thickness = max(1, int(img.shape[1] / 600.))
+    line_thickness = max(1, int(img.shape[1] / 600.0))
 
     # plot each object of the object class
     for obj_i, obj in enumerate(dets):
@@ -75,9 +75,10 @@ def plot_detects(img,
                       box_int[2:4],
                       color=cls_color,
                       thickness=line_thickness)
-        # draw class name
+
+        # draw class name and score
         cv2.putText(img,
-                    cls_name,
+                    cls_name + ' {:.3f}'.format(float(score)),
                     (box_int[0], box_int[1]),
                     cv2.FONT_HERSHEY_PLAIN,
                     text_scale,

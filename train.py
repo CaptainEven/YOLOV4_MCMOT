@@ -31,7 +31,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'reid': 0.1,  # reid loss_funcs weight
        'obj_pw': 1.0,  # obj BCELoss positive_weight
        'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.00075,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+       'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
        'lrf': 0.0003,  # final learning rate (with cos scheduler)
        'momentum': 0.937,  # SGD momentum
        'weight_decay': 0.000484,  # optimizer weight decay
@@ -45,6 +45,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        'shear': 0.641 * 0  # image shear (+/- deg)
        }
 
+# automatically generate the max_ids_dict
 max_ids_dict = {
     0: 341,  # car
     1: 103,  # bicycle
@@ -52,6 +53,14 @@ max_ids_dict = {
     3: 329,  # cyclist
     4: 48    # tricycle
 }
+
+# max_ids_dict = {
+#     0: 330,
+#     1: 102,
+#     2: 104,
+#     3: 312,
+#     4: 53
+# }  # previous version
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -204,9 +213,9 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
-    # # freeze weights of some previous layers
+    # # freeze weights of some previous layers(for yolo detection only)
     # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-    #     if layer_i < 52:
+    #     if layer_i < 90:
     #         for param in child.parameters():
     #             param.requires_grad = False
     #     else:
@@ -297,10 +306,13 @@ def train():
     maps = np.zeros(nc)  # mAP per class
     # torch.autograd.set_detect_anomaly(True)
     results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+
     t0 = time.time()
+
     print('Image sizes %g - %g train, %g test' % (imgsz_min, imgsz_max, imgsz_test))
     print('Using %g dataloader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
+
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()  # train mode
 
@@ -366,7 +378,7 @@ def train():
                 loss, loss_items = compute_loss(pred, targets, model)
 
                 if not torch.isfinite(loss):
-                    print('WARNING: infinite loss_funcs, ending training ', loss_items)
+                    print('[Warning]: infinite loss_funcs, ending training ', loss_items)
                     return results
 
                 # Backward
@@ -460,12 +472,12 @@ def train():
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
 
                 if not torch.isfinite(loss_items[3]):
-                    # print('[Warning]: infinite reid loss.')
+                    print('[Warning]: infinite reid loss.')
                     loss_items[3:] = torch.zeros((1, 1), device=device)
                 if not torch.isfinite(loss):
                     for i in range(loss_items.shape[0]):
                         loss_items[i] = torch.zeros((1, 1), device=device)
-                    # print('[Warning] infinite loss_funcs', loss_items)  #  ending training
+                    print('[Warning] infinite loss_funcs', loss_items)  #  ending training
                     return results
 
                 # Backward
@@ -512,10 +524,10 @@ def train():
                         print('{:s} saved.'.format(last))
                         del chkpt
 
-                        # # Save .weights file
-                        # wei_f_path = wdir + opt.task + '_last.weights'
-                        # save_weights(model, wei_f_path)
-                        # print('{:s} saved.'.format(wei_f_path))
+                        # Save .weights file
+                        wei_f_path = wdir + opt.task + '_last.weights'
+                        save_weights(model, wei_f_path)
+                        print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
         else:
@@ -614,8 +626,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4_mobilev2-2l.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/mcmot_det.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
@@ -627,14 +637,31 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
 
+    parser.add_argument('--data',
+                        type=str,
+                        default='data/mcmot.data',
+                        help='*.data path')
+
+    # ---------- weights and cfg file
+    parser.add_argument('--cfg',
+                        type=str,
+                        default='cfg/yolov4_mobilev2-3l.cfg',
+                        help='*.cfg path')
+
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last.pt',
+                        default='./weights/pure_detect_last_mbv2_3l.pt',
                         help='initial weights path')
+    # ----------
 
-    parser.add_argument('--name', default='yolov4-mobilenetv2',
+    parser.add_argument('--name',
+                        default='yolov4-mobilenetv2',
                         help='renames results.txt to results_name.txt if supplied')
-    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1 or cpu)')
+
+    parser.add_argument('--device',
+                        default='6',
+                        help='device id (i.e. 0 or 0,1 or cpu)')
+
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
@@ -642,7 +669,10 @@ if __name__ == '__main__':
     # pure detect means the dataset do not contains ID info.
     # detect means the dataset contains ID info, but do not load for training. (i.e. do detection in tracking)
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
-    parser.add_argument('--task', type=str, default='pure_detect', help=' pure_detect, detect or track mode.')
+    parser.add_argument('--task',
+                        type=str,
+                        default='track',
+                        help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 

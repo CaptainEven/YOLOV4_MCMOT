@@ -39,15 +39,23 @@ def run_detection(opt):
     :return:
     """
     print('Start detection...')
+    print('Net input size: {:d}×{:d}.'.format(opt.net_w, opt.net_h))
 
     # Set dataset and device
     if os.path.isfile(opt.source):
+        print('Source test txt: {:s}.'.format(opt.source))
         with open(opt.source, 'r', encoding='utf-8') as r_h:
             paths = [x.strip() for x in r_h.readlines()]
             print('Total {:d} image files.'.format(len(paths)))
-            dataset = LoadImages(path=paths, img_size=opt.img_size)
+            dataset = LoadImages(path=paths, net_w=opt.net_w, net_h=opt.net_h)
     else:
-        dataset = LoadImages(opt.source, img_size=opt.img_size)
+        dataset = LoadImages(opt.source, net_w=opt.net_w, net_h=opt.net_h)
+
+    if os.path.isdir(opt.output_txt_dir):
+        shutil.rmtree(opt.output_txt_dir)
+        os.makedirs(opt.output_txt_dir)
+    else:
+        os.makedirs(opt.output_txt_dir)
 
     # set device
     opt.device = str(FindFreeGPU())
@@ -72,20 +80,21 @@ def run_detection(opt):
         cls2id[cls_name] = cls_id
 
     # Set MCMOT tracker
-    # tracker = JDETracker(opt)  # Joint detection and embedding
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
     for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(opt.device)
         img = img.float()  # uint8 to fp32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
+
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
         t1 = torch_utils.time_synchronized()
 
-        # update detection result of this frame
+        # ---------- update detection result of this frame
         dets = tracker.update_detection(img, img0)
+        # ----------
 
         t2 = torch_utils.time_synchronized()
         print('%sdone, time (%.3fs)' % (path, t2 - t1))
@@ -98,8 +107,9 @@ def run_detection(opt):
                                          id2cls=id2cls)
 
         if opt.save_img_dir is not None:
-            save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
-            cv2.imwrite(save_path, online_im)
+            # save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+            save_img_path = frame_dir + '/' + os.path.split(path)[-1]
+            cv2.imwrite(save_img_path, online_im)
 
         # output results as .txt file
         if dets is None:
@@ -158,6 +168,7 @@ def track_videos_txt(opt):
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
     video_path_list.sort()
+    print('Total {:d} videos for tracking.'.format(len(video_path_list)))
 
     # tracking each input video
     for video_i, video_path in enumerate(video_path_list):
@@ -166,7 +177,7 @@ def track_videos_txt(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, img_size=opt.img_size)
+        dataset = LoadImages(video_path, net_w=opt.net_w)
 
         # set txt results path
         src_name = os.path.split(video_path)[-1]
@@ -189,7 +200,9 @@ def track_videos_txt(opt):
 
             # update tracking result of this frame
             if opt.interval == 1:
+                # ---------- Update tracking results of current frame
                 online_targets_dict = tracker.update_tracking(img, img0)
+                # ----------
 
                 if online_targets_dict is None:
                     print('[Warning]: Skip frame {:d}.'.format(fr_id))
@@ -286,7 +299,7 @@ def track_videos_vid(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, img_size=opt.img_size)
+        dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
 
         # set txt results path
         src_name = os.path.split(video_path)[-1]
@@ -402,20 +415,31 @@ class DemoRunner(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
 
-        self.parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+        self.parser.add_argument('--names',
+                                 type=str,
+                                 default='data/mcmot.names',
+                                 help='*.names path')
+
+        # ---------- cfg and weights file
+        self.parser.add_argument('--cfg',
+                                 type=str,
+                                 default='cfg/yolov4_mobilev2-2l.cfg',
                                  help='*.cfg path')
-        self.parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-        self.parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_no_upsample_track_last.pt',
+
+        self.parser.add_argument('--weights',
+                                 type=str,
+                                 default='weights/track_last.pt',
                                  help='weights path')
+        # ----------
 
         # input file/folder, 0 for webcam
         self.parser.add_argument('--videos',
                                  type=str,
-                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
+                                 default='/mnt/diskb/even/YOLOV4/data/videos',
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='/users/duanyou/c5/all_pretrain/test1.txt',
+                                 default='./data/test2.txt',  # test1.txt or c5_test or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -425,15 +449,21 @@ class DemoRunner(object):
 
         self.parser.add_argument('--save-img-dir',
                                  type=str,
-                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',  # './results'
+                                 default='/mnt/diskb/even/YOLOV4/output',  # './results'
                                  help='dir to save visualized results(imgs).')
 
         # -----
         # task mode
-        self.parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
+        self.parser.add_argument('--task',
+                                 type=str,
+                                 default='track',
+                                 help='task mode: track or detect')
 
         # output type
-        self.parser.add_argument('--output-type', type=str, default='txts', help='videos or txts')
+        self.parser.add_argument('--output-type',
+                                 type=str,
+                                 default='videos',
+                                 help='videos or txts')
         # -----
 
         # output FPS interval
@@ -444,13 +474,19 @@ class DemoRunner(object):
         self.parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-        self.parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
+
+        self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
+        self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
+
         self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
         self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
-        self.parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
-        self.parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
+        # ---------- NMS parameters origin: 0.3, 0.6 or 0.2, 0.45
+        self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
+        self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+        # ----------
+
         self.parser.add_argument('--fourcc', type=str, default='mp4v',
                                  help='output video codec (verify ffmpeg support)')
         self.parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
@@ -465,7 +501,6 @@ class DemoRunner(object):
         self.opt = self.parser.parse_args()
 
     def run(self):
-        # ----------
         if self.opt.task == 'track':
             print('Run tracking...')
 
@@ -481,72 +516,8 @@ class DemoRunner(object):
             run_detection(self.opt)
         else:
             print("[Err]: un-recognized task mode, neither 'track' or 'detect'")
-        # ----------
-
-
-def run_demo():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--cfg', type=str, default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg', help='*.cfg path')
-    parser.add_argument('--names', type=str, default='data/mcmot.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/v4_tiny3l_no_upsample_track_last.pt',
-                        help='weights path')
-
-    # input file/folder, 0 for webcam
-    parser.add_argument('--videos', type=str, default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
-                        help='')  # 'data/samples/videos/'
-    parser.add_argument('--source', type=str, default='/users/duanyou/c5/all_pretrain/test1.txt', help='source')
-
-    # output detection results as txt file for mMAP computation
-    parser.add_argument('--output-txt-dir', type=str, default='/users/duanyou/c5/results_new/results_all/tmp')
-    parser.add_argument('--save-img-dir',
-                        type=str,
-                        default='/mnt/diskb/even/dataset/MCMOT_Evaluate',  # './results'
-                        help='dir to save visualized results(imgs).')
-
-    # task mode
-    parser.add_argument('--task', type=str, default='track', help='task mode: track or detect')
-
-    # output FPS interval
-    parser.add_argument('--interval', type=int, default=1, help='The interval frame of tracking, default no interval.')
-
-    # standard output FPS
-    parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
-
-    parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
-    parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
-
-    parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
-
-    parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
-    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
-    parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1) or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--show-image', type=bool, default=True, help='whether to show results.')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
-
-    opt = parser.parse_args()
-    # print(opt)
-
-    # ----------
-    if opt.task == 'track':
-        track_videos_txt(opt)
-        # track_videos_vid(opt)
-    elif opt.task == 'detect':
-        run_detection(opt)
-    else:
-        print("[Err]: un-recognized task mode, neither 'track' or 'detect'")
-    # ----------
 
 
 if __name__ == '__main__':
-    # run_demo()
-
     demo = DemoRunner()
     demo.run()

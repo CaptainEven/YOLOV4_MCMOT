@@ -45,7 +45,12 @@ def exif_size(img):
 
 
 class LoadImages:  # for inference
-    def __init__(self, path, img_size=416):
+    def __init__(self, path, net_w=416, net_h=416):
+        """
+        :param path:
+        :param net_w:
+        :param net_h:
+        """
         if type(path) == list:
             self.files = path
 
@@ -53,7 +58,10 @@ class LoadImages:  # for inference
             self.nF = nI + nV  # number of files
             self.video_flag = [False] * nI + [True] * nV
 
-            self.img_size = img_size
+            # net input height width
+            self.net_w = net_w
+            self.net_h = net_h
+
             self.mode = 'images'
             self.cap = None
         else:
@@ -71,7 +79,9 @@ class LoadImages:  # for inference
             videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
             nI, nV = len(images), len(videos)
 
-            self.img_size = img_size
+            self.net_w = net_w
+            self.net_h = net_h
+
             self.files = images + videos
             self.nF = nI + nV  # number of files
             self.video_flag = [False] * nI + [True] * nV
@@ -114,15 +124,17 @@ class LoadImages:  # for inference
         else:
             # Read image
             self.count += 1
-            img0 = cv2.imread(path)  # BGR
+            img0 = cv2.imread(path)  # HWC(BGR)
+
             assert img0 is not None, 'Image Not Found ' + path
             print('image %g/%g %s: ' % (self.count, self.nF, path), end='')
 
-        # Padded resize
-        img = letterbox(img0, new_shape=self.img_size)[0]  # to make sure mod by 64
+        # Pad and resize
+        # img = letterbox(img0, new_shape=self.img_size)[0]  # to make sure mod by 64
+        img = pad_resize_ratio(img0, self.net_w, self.net_h)
 
-        # Convert
-        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        # Convert: BGR to RGB and HWC to CHW
+        img = img[:, :, ::-1].transpose(2, 0, 1)
         img = np.ascontiguousarray(img)
 
         # cv2.imwrite(path + '.letterbox.jpg', 255 * img.transpose((1, 2, 0))[:, :, ::-1])  # save letterbox image
@@ -310,7 +322,9 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
 
         self.n = n
         self.batch = bi  # batch index of each image
+
         self.img_size = img_size
+
         self.augment = augment
         self.hyp = hyp
         self.image_weights = image_weights
@@ -604,7 +618,9 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         self.n = n
         self.batch = bi  # batch index of each image
+
         self.img_size = img_size
+
         self.augment = augment
         self.hyp = hyp
         self.image_weights = image_weights
@@ -1007,6 +1023,74 @@ def load_mosaic(self, index):
     return img4, labels4
 
 
+# keep aspect ratio
+def pad_resize_ratio(img, net_w, net_h):
+    """
+    :param img:
+    :param net_w:
+    :param net_h:
+    :return:
+    """
+    img = np.array(img)  # H x W x channels
+    H, W, channels = img.shape
+
+    if net_h / net_w < H / W:  # padding w
+        new_h = int(net_h)
+        new_w = int(net_h / H * W)
+
+        pad = (net_w - new_w) // 2
+
+        left = round(pad - 0.1)
+        right = round(pad + 0.1)
+
+        top, bottom = 0, 0
+    else:  # padding w
+        new_h = int(net_w / W * H)
+        new_w = int(net_w)
+
+        pad = (net_h - new_h) // 2
+
+        left, right = 0, 0
+
+        top = round(pad - 0.1)
+        bottom = round(pad + 0.1)
+
+    img_resize = cv2.resize(img, (new_w, new_h), cv2.INTER_LINEAR)
+
+    # add border
+    img_out = cv2.copyMakeBorder(img_resize, top, bottom, left, right, cv2.BORDER_CONSTANT, value=127)
+    return img_out
+
+
+def pad_resize_img_square(img, square_size):
+    """
+    :param img: RGB image
+    :return: square image
+    """
+    img = np.array(img)  # H x W x channels
+    H, W, channels = img.shape
+    dim_diff = np.abs(H - W)
+
+    # upper(left) and lower(right) padding
+    pad_lu = dim_diff // 2  # integer division
+    pad_rd = dim_diff - pad_lu
+
+    # determine padding for each axis: H, W, channels
+    pad = ((pad_lu, pad_rd), (0, 0), (0, 0)) if H <= W else \
+        ((0, 0), (pad_lu, pad_rd), (0, 0))
+
+    # do padding(0.5) and normalize
+    img = np.pad(img,
+                 pad,
+                 'constant',
+                 constant_values=127.5)  # / 255.0
+    img = cv2.resize(img,
+                     (square_size, square_size),
+                     cv2.INTER_LINEAR)
+    # img.tofile('/mnt/diskb/even/img.bin')
+    return img
+
+
 def letterbox(img,
               new_shape=(416, 416),
               color=(114, 114, 114),
@@ -1051,7 +1135,9 @@ def letterbox(img,
 
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+
     return img, ratio, (dw, dh)
 
 
@@ -1260,7 +1346,8 @@ def cutout(image, labels):
     return labels
 
 
-def reduce_img_size(path='../data/sm4/images', img_size=1024):  # from evaluate_utils.datasets import *; reduce_img_size()
+def reduce_img_size(path='../data/sm4/images',
+                    img_size=1024):  # from evaluate_utils.datasets import *; reduce_img_size()
     # creates a new ./images_reduced folder with reduced size images of maximum size img_size
     path_new = path + '_reduced'  # reduced images path
     create_folder(path_new)
