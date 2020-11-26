@@ -428,7 +428,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_last.pt',
+                                 default='weights/pure_detect_last.pt',
                                  help='weights path')
         # ----------
 
@@ -439,7 +439,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test2.txt',  # test1.txt or c5_test or test2.txt
+                                 default='./data/test1.txt',  # test1.txt or c5_test or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -456,7 +456,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         # output type
@@ -480,7 +480,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
-        self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
+        self.parser.add_argument('--track-buffer', type=int, default=60, help='tracking buffer frames')
 
         # ---------- NMS parameters origin: 0.3, 0.6 or 0.2, 0.45
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
