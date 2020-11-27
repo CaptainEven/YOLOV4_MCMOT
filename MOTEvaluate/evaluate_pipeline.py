@@ -59,7 +59,8 @@ def evaluate_test_set(test_root):
     # ----------
 
     # --------- Run evaluation
-    evaluate_mcmot_seqs(test_root, default_fps=demo.opt.outFPS)
+    out_fps = demo.opt.outFPS // int(demo.opt.interval)
+    evaluate_mcmot_seqs(test_root, default_fps=out_fps)
     # ---------
 
 
