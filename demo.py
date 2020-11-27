@@ -483,7 +483,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer', type=int, default=60, help='tracking buffer frames')
 
-        # ---------- NMS parameters origin: 0.3, 0.6 or 0.2, 0.45
+        # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
         self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
         # ----------
