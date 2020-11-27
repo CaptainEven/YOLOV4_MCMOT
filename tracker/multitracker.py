@@ -471,7 +471,7 @@ class MCJDETracker(object):
                 print('[Warning]: no objects detected.')
                 return None
 
-            # Rescale boxes from img_size to img0 size(from net input size to original size)
+            # ----- Rescale boxes from img_size to img0 size(from net input size to original size)
             # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
             dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 

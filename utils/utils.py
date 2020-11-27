@@ -286,20 +286,20 @@ def compute_ap(recall, precision):
     """
 
     # Append sentinel values to beginning and end
-    mrec = np.concatenate(([0.], recall, [min(recall[-1] + 1E-3, 1.)]))
-    mpre = np.concatenate(([0.], precision, [0.]))
+    m_rec = np.concatenate(([0.], recall, [min(recall[-1] + 1E-3, 1.)]))
+    m_pre = np.concatenate(([0.], precision, [0.]))
 
     # Compute the precision envelope
-    mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
+    m_pre = np.flip(np.maximum.accumulate(np.flip(m_pre)))
 
     # Integrate area under curve
     method = 'interp'  # methods: 'continuous', 'interp'
     if method == 'interp':
         x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
-        ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
+        ap = np.trapz(np.interp(x, m_rec, m_pre), x)  # integrate
     else:  # 'continuous'
-        i = np.where(mrec[1:] != mrec[:-1])[0]  # points where x axis (recall) changes
-        ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # area under curve
+        i = np.where(m_rec[1:] != m_rec[:-1])[0]  # points where x axis (recall) changes
+        ap = np.sum((m_rec[i + 1] - m_rec[i]) * m_pre[i + 1])  # area under curve
 
     return ap
 
