@@ -7,12 +7,12 @@ import numpy
 import copy
 import shutil
 
-import lib.evaluate.darknet as dn
-import lib.evaluate.cmp_det_label_sf as cdl
+import mAPEvaluate.darknet as dn
+import mAPEvaluate.cmp_det_label_sf as cdl
 
-from lib.evaluate.ReadAndSaveDarknetDetRes import read_det_res, save_det_res
-from lib.evaluate.ReadAnnotations import load_label
-from lib.evaluate.voc_eval import voc_eval
+from mAPEvaluate.ReadAndSaveDarknetDetRes import read_det_res, save_det_res
+from mAPEvaluate.ReadAnnotations import load_label
+from mAPEvaluate.voc_eval import voc_eval
 
 
 # 读取文件列表
