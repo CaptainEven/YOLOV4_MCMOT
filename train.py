@@ -6,6 +6,9 @@ import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 import test  # import test.py to get mAP after each epoch
+
+import numpy as np
+
 from models import *
 from utils.datasets import *
 from utils.utils import *
@@ -61,6 +64,12 @@ max_ids_dict = {
 #     3: 312,
 #     4: 53
 # }  # previous version
+
+# read from .npy(max_id_dict.npy file)
+max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npy'
+if os.path.isfile(max_id_dict_file_path):
+    max_ids_dict = np.load(max_id_dict_file_path, allow_pickle=True)
+print(max_ids_dict)
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -251,7 +260,7 @@ def train():
         model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
         model.yolo_layer_inds = model.module.yolo_layer_inds  # move yolo layer indices to top level
 
-    # Dataloader
+    # Data loader
     batch_size = min(batch_size, len(dataset))
 
     nw = 0  # for debugging
@@ -265,7 +274,7 @@ def train():
                                               pin_memory=True,
                                               collate_fn=dataset.collate_fn)
 
-    # Testloader
+    # Test loader
     if opt.task == 'pure_detect':
         test_loader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
                                                                       imgsz_test,
