@@ -458,9 +458,9 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
 
     np, ng = 0, 0  # number grid points, targets(GT)
 
-    # Compute losses for each YOLO layer
+    # Compute losses for each YOLO layer(3 or 2 yolo layers)
     for i, pred_i in enumerate(preds):  # layer index, layer predictions
-        id_map_w, id_map_h = reid_feat_out[i].shape[3], reid_feat_out[i].shape[2]  # 3 feature map layers
+        id_map_w, id_map_h = reid_feat_out[i].shape[3], reid_feat_out[i].shape[2]  # 3(or 2) feature map layers
 
         ny, nx = pred_i.shape[2], pred_i.shape[3]
         b, a, gy, gx = indices[i]  # image, anchor, grid_y, grid_x
