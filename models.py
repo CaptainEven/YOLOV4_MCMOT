@@ -425,7 +425,7 @@ class Darknet(nn.Module):
             yolo_layer = out[yolo_idx]
             reid_feat_out.append(yolo_layer)
 
-        # 3 yolo output layers and 3 feature layers
+        # 3(or 2) yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
         # return out[69], out[79], out[-3], out[-1]
 
@@ -451,7 +451,7 @@ class Darknet(nn.Module):
             # yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
 
             for yolo_i, yolo_out in enumerate(x):
-                yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), 0, dtype=torch.long)
+                yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
                 if yolo_i == 0:
                     yolo_inds = yolo_inds_i
                 else:
@@ -521,7 +521,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-        if i > 80:
+        if i > 158:
             break
 
         if mdef['type'] == 'convolutional':
