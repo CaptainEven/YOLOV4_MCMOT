@@ -276,6 +276,9 @@ def track_videos_vid(opt):
     frame_dir = opt.save_img_dir + '/frame'
     if not os.path.isdir(frame_dir):
         os.makedirs(frame_dir)
+    else:
+        shutil.rmtree(frame_dir)
+        os.makedirs(frame_dir)
 
     # class name to class id and class id to class name
     names = load_classes(opt.names)
@@ -456,7 +459,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         # output type
@@ -484,7 +487,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
-        self.parser.add_argument('--track-buffer', type=int, default=60, help='tracking buffer frames')
+        self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')

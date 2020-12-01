@@ -153,14 +153,14 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'yolo':
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
-            if any(x in cfg for x in ['yolov4-tiny', 'mobile', 'Mobile', 'enet']):  # stride order reversed
+            if any(x in cfg for x in ['yolov4-tiny', 'mobile', 'Mobile', 'enet', 'Enet']):  # stride order reversed
                 stride = [32, 16, 8]
 
             layers = mdef['from'] if 'from' in mdef else []
             modules = YOLOLayer(anchors=mdef['anchors'][mdef['mask']],  # anchor list
                                 nc=mdef['classes'],  # number of classes
                                 img_size=img_size,  # (416, 416)
-                                yolo_index=yolo_index,  # 0, 1, 2...
+                                yolo_idx=yolo_index,  # 0, 1, 2...
                                 layers=layers,  # output layers
                                 stride=stride[yolo_index])
 
@@ -190,19 +190,19 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
 
 class YOLOLayer(nn.Module):
-    def __init__(self, anchors, nc, img_size, yolo_index, layers, stride):
+    def __init__(self, anchors, nc, img_size, yolo_idx, layers, stride):
         """
         :param anchors:
         :param nc:
         :param img_size:
-        :param yolo_index:
+        :param yolo_idx:
         :param layers:
         :param stride:
         """
         super(YOLOLayer, self).__init__()
 
         self.anchors = torch.Tensor(anchors)
-        self.index = yolo_index  # index of this layer in layers
+        self.index = yolo_idx  # index of this layer in layers
         self.layers = layers  # model output layer indices
         self.stride = stride  # layer stride
         self.nl = len(layers)  # number of output layers (3)
@@ -426,7 +426,8 @@ class Darknet(nn.Module):
             reid_feat_out.append(yolo_layer)
 
         # 3 yolo output layers and 3 feature layers
-        # return out[36], out[43], out[50], out[-5], out[-3], out[-1]
+        # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
+        # return out[69], out[79], out[-3], out[-1]
 
         # ----- Output mode
         if self.training:  # train
