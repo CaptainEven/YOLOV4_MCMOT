@@ -5,9 +5,9 @@ import time
 import shutil
 import re
 import cv2
+import pickle
 import numpy as np
 from collections import defaultdict
-
 
 classes = [
     'car',  # 0
@@ -135,13 +135,14 @@ def gen_labels_for_seq(dark_txt_path, seq_label_dir, classes, one_plus=True):
     return id_set_dict
 
 
-
 """
 将DarkLabel的标注格式: frame# n_obj [id, x1, y1, x2, y2, label]
 转化为MCMOT的输入格式:
 1. 每张图对应一个txt的label文件
 2. 每行代表一个检测目标: cls_id, track_id, center_x, center_y, bbox_w, bbox_h(每个目标6列)
 """
+
+
 def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=None):
     """
     :param data_root:
@@ -154,7 +155,7 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
         print('[Err]: invalid data root')
         return
 
-    img_root = data_root + '/images'
+    img_root = data_root + '/JPEGImages'
     if not os.path.isdir(img_root):
         print('[Err]: invalid image root')
 
@@ -234,8 +235,10 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
 
     # 序列化max_id_dict到磁盘
     if not dict_path is None:
+        max_id_dict = {cls2id[k]:v for k, v in start_id_dict.items()}
         with open(dict_path, 'wb') as f:
-            np.save(dict_path, start_id_dict)
+            np.savez(dict_path, max_id_dict=max_id_dict)
+            # pickle.dump(dict_path, f, pickle.HIGHEST_PROTOCOL)
 
     print('{:s} dumped.'.format(dict_path))
 
@@ -243,5 +246,5 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
 if __name__ == '__main__':
     dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
                            one_plus=True,
-                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npy',
+                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
                            viz_root=None)

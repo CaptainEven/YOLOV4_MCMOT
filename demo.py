@@ -467,7 +467,9 @@ class DemoRunner(object):
         # -----
 
         # output FPS interval
-        self.parser.add_argument('--interval', type=int, default=1,
+        self.parser.add_argument('--interval',
+                                 type=int,
+                                 default=1,
                                  help='The interval frame of tracking, default no interval.')
 
         # standard output FPS
@@ -476,6 +478,7 @@ class DemoRunner(object):
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
 
         # ---------- Set net input image width and height
+        self.parser.add_argument('--img-size', type=int, default=768, help='Image size')
         self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
         self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
 

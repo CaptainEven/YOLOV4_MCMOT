@@ -299,7 +299,7 @@ class YOLOLayer(nn.Module):
 
 
 class Darknet(nn.Module):
-    # YOLOv3 object detection model
+    # YOLOv3/v4 object detection model
     def __init__(self,
                  cfg,
                  img_size=(416, 416),
@@ -330,6 +330,7 @@ class Darknet(nn.Module):
             self.max_id_dict = max_id_dict
             self.emb_dim = emb_dim  # dimension of embedding feature vector
             self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
+
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
                 self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers

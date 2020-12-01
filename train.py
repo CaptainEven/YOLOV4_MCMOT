@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import test  # import test.py to get mAP after each epoch
 
+import pickle
 import numpy as np
 
 from models import *
@@ -49,7 +50,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        }
 
 # automatically generate the max_ids_dict
-max_ids_dict = {
+max_id_dict = {
     0: 341,  # car
     1: 103,  # bicycle
     2: 104,  # person
@@ -57,7 +58,7 @@ max_ids_dict = {
     4: 48    # tricycle
 }
 
-# max_ids_dict = {
+# max_id_dict = {
 #     0: 330,
 #     1: 102,
 #     2: 104,
@@ -66,10 +67,11 @@ max_ids_dict = {
 # }  # previous version
 
 # read from .npy(max_id_dict.npy file)
-max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npy'
+max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
 if os.path.isfile(max_id_dict_file_path):
-    max_ids_dict = np.load(max_id_dict_file_path, allow_pickle=True)
-print(max_ids_dict)
+    load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
+max_id_dict = load_dict['max_id_dict'][()]
+# print(max_id_dict)
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -142,20 +144,22 @@ def train():
 
     # Initialize model
     if opt.task == 'pure_detect':
-        model = Darknet(cfg,
+        model = Darknet(cfg=cfg,
                         img_size=img_size,
                         verbose=False,
-                        max_id_dict=max_ids_dict,  # after dataset's statistics
+                        max_id_dict=max_id_dict,  # after dataset's statistics
                         emb_dim=128,
                         mode=opt.task).to(device)
     else:
-        model = Darknet(cfg,
+        max_id_dict = dataset.max_ids_dict
+        model = Darknet(cfg=cfg,
                         img_size=img_size,
                         verbose=False,
-                        max_id_dict=dataset.max_ids_dict,  # using priori knowledge
+                        max_id_dict=max_id_dict,  # using priori knowledge
                         emb_dim=128,
                         mode=opt.task).to(device)
     # print(model)
+    print(max_id_dict)
 
     # Optimizer definition and model parameters registration
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
@@ -222,13 +226,13 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
-    # # freeze weights of some previous layers(for yolo detection only)
-    # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-    #     if layer_i < 90:
-    #         for param in child.parameters():
-    #             param.requires_grad = False
-    #     else:
-    #         print('Layer ', name, ' requires grad.')
+    # freeze weights of some previous layers(for yolo detection only)
+    for layer_i, (name, child) in enumerate(model.module_list.named_children()):
+        if layer_i < 80:
+            for param in child.parameters():
+                param.requires_grad = False
+        else:
+            print('Layer ', name, ' requires grad.')
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -634,9 +638,12 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=32)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
-    parser.add_argument('--img-size', nargs='+', type=int, default=[384, 832, 768],
+    parser.add_argument('--img-size',
+                        nargs='+',
+                        type=int,
+                        default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
@@ -659,7 +666,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last.pt',
+                        default='./weights/track_last.pt',
                         help='initial weights path')
     # ----------
 

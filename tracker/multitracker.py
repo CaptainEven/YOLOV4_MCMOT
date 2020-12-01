@@ -374,24 +374,37 @@ class Track(BaseTrack):
 
 
 # Multi-class JDETracker
-from train import max_ids_dict
+from train import max_id_dict
 class MCJDETracker(object):
     def __init__(self, opt):
         self.opt = opt
 
         # ---------- Init model
         # max_ids_dict = {
-        #     0: 330,
-        #     1: 102,
-        #     2: 104,
-        #     3: 312,
-        #     4: 53
-        # }  # cls_id -> track id number for training
+        #     0: 341,  # car
+        #     1: 103,  # bicycle
+        #     2: 104,  # person
+        #     3: 329,  # cyclist
+        #     4: 48  # tricycle
+        # }
 
+        # read from .npy(max_id_dict.npy file)
+        max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
+        if os.path.isfile(max_id_dict_file_path):
+            load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
+        max_id_dict = load_dict['max_id_dict'][()]
+        print(max_id_dict)
+
+        # set device
         device = opt.device
 
         # model in track mode(do detection and reid feature vector extraction)
-        self.model = Darknet(opt.cfg, opt.net_w, False, max_ids_dict, 128, 'track').to(device)
+        self.model = Darknet(cfg=opt.cfg,
+                             img_size=opt.img_size,
+                             verbose=False,
+                             max_id_dict=max_id_dict,
+                             emb_dim=128,
+                             mode='track').to(device)
         # print(self.model)
 
         # Load checkpoint
