@@ -452,7 +452,7 @@ class Darknet(nn.Module):
                     else:
                         x = layer.forward(x)
 
-            # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
+            # run module directly, i.e. mtype = 'upsample', 'maxpool', 'batchnorm2d' etc.
             else:
                 x = module(x)
 

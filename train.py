@@ -50,6 +50,7 @@ hyp = {'giou': 3.54,  # g_iou loss_funcs gain
        }
 
 # automatically generate the max_ids_dict
+global max_id_dict
 max_id_dict = {
     0: 341,  # car
     1: 103,  # bicycle
@@ -71,7 +72,7 @@ max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
 if os.path.isfile(max_id_dict_file_path):
     load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
 max_id_dict = load_dict['max_id_dict'][()]
-# print(max_id_dict)
+print(max_id_dict)
 
 # Overwrite hyp with hyp*.txt (optional)
 f = glob.glob('hyp*.txt')
@@ -86,6 +87,8 @@ if hyp['fl_gamma']:
 
 
 def train():
+    global max_id_dict
+
     print('Task mode: {}'.format(opt.task))
 
     last = wdir + opt.task + '_last.pt'
@@ -655,7 +658,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--data',
                         type=str,
-                        default='data/mcmot.data',
+                        default='data/mcmot_det.data',
                         help='*.data path')
 
     # ---------- weights and cfg file
@@ -687,7 +690,7 @@ if __name__ == '__main__':
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
     parser.add_argument('--task',
                         type=str,
-                        default='track',
+                        default='pure_detect',
                         help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')

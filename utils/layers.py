@@ -69,7 +69,7 @@ class ScaleChannels(nn.Module):
 
         assert x.shape[1] == layer.shape[1]
 
-        # Do Scaling
+        # Do Scaling: applying broadcasting here
         x = x * layer
 
         return x

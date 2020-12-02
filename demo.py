@@ -431,7 +431,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4_enet_b0_3l_last.weights',
+                                 default='weights/track_last.pt',
                                  help='weights path')
         # ----------
 
@@ -459,7 +459,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         # output type
