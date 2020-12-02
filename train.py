@@ -226,13 +226,13 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
-    # freeze weights of some previous layers(for yolo detection only)
-    for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-        if layer_i < 80:
-            for param in child.parameters():
-                param.requires_grad = False
-        else:
-            print('Layer ', name, ' requires grad.')
+    # # freeze weights of some previous layers(for yolo detection only)
+    # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
+    #     if layer_i < 80:
+    #         for param in child.parameters():
+    #             param.requires_grad = False
+    #     else:
+    #         print('Layer ', name, ' requires grad.')
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -268,7 +268,7 @@ def train():
     batch_size = min(batch_size, len(dataset))
 
     nw = 0  # for debugging
-    if not opt.is_debug:
+    if not opt.isdebug:
         nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
 
     data_loader = torch.utils.data.DataLoader(dataset,
@@ -638,7 +638,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
@@ -661,12 +661,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_mobilev2_2l.cfg',
+                        default='cfg/yolov4_enet_b0_3l.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4_mobilenetv2_2l_track_last.pt',
+                        default='./weights/yolov4_enet_b0_3l_last.weights',
                         help='initial weights path')
     # ----------
 
@@ -675,7 +675,7 @@ if __name__ == '__main__':
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='6',
+                        default='0',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -693,7 +693,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--is-debug', type=bool, default=True, help='whether in debug mode or not')
+    parser.add_argument('--isdebug', type=bool, default=False, help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

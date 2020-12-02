@@ -553,7 +553,7 @@ class MCJDETracker(object):
             for det, yolo_id in zip(dets, dets_yolo_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
-                print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
+                # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
                 # get reid map for this bbox(corresponding yolo idx)
                 reid_feat_map = reid_feat_out[yolo_id]
