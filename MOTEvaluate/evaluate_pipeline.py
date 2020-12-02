@@ -25,8 +25,12 @@ def evaluate_test_set(test_root):
     # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
     # demo.opt.weights = ROOT + '/weights/' + 'v4_tiny3l_no_upsample_track_last.pt'
 
-    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2_2l.cfg'
+    # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2_2l.cfg'
+    # demo.opt.weights = ROOT + '/weights/' + 'track_last.pt'
+
+    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_enet_b0_3l.cfg'
     demo.opt.weights = ROOT + '/weights/' + 'track_last.pt'
+
     if not os.path.isfile(demo.opt.cfg):
         print('[Err]: invalid cfg file.')
         return

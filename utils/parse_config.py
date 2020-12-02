@@ -1,9 +1,14 @@
-import os
+# encoding=utf-8
 
+import os
 import numpy as np
 
 
 def parse_model_cfg(path):
+    """
+    :param path:
+    :return:
+    """
     # Parse the yolo *.cfg file and return module definitions path may be 'cfg/yolov3.cfg', 'yolov3.cfg', or 'yolov3'
     if not path.endswith('.cfg'):  # add .cfg suffix if omitted
         path += '.cfg'
@@ -26,7 +31,7 @@ def parse_model_cfg(path):
             key, val = line.split("=")
             key = key.rstrip()
 
-            if key == 'anchors':  # return nparray
+            if key == 'anchors':  # return np-array
                 mdefs[-1][key] = np.array([float(x) for x in val.split(',')]).reshape((-1, 2))  # np anchors
             elif (key in ['from', 'layers', 'mask']) or (key == 'size' and ',' in val):  # return array
                 mdefs[-1][key] = [int(x) for x in val.split(',')]
