@@ -28,19 +28,22 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             k = mdef['size']  # kernel size
             stride = mdef['stride'] if 'stride' in mdef else (mdef['stride_y'], mdef['stride_x'])
             if isinstance(k, int):  # single-size conv
-                modules.add_module('Conv2d', nn.Conv2d(in_channels=output_filters[-1],
-                                                       out_channels=filters,
-                                                       kernel_size=k,
-                                                       stride=stride,
-                                                       padding=k // 2 if mdef['pad'] else 0,
-                                                       groups=mdef['groups'] if 'groups' in mdef else 1,
-                                                       bias=not bn))
+                modules.add_module('Conv2d',
+                                   nn.Conv2d(in_channels=output_filters[-1],
+                                             out_channels=filters,
+                                             kernel_size=k,
+                                             stride=stride,
+                                             padding=k // 2 if 'pad' in mdef else 0,
+                                             groups=mdef['groups'] if 'groups' in mdef else 1,
+                                             bias=not bn))
+
             else:  # multiple-size conv
-                modules.add_module('MixConv2d', MixConv2d(in_ch=output_filters[-1],
-                                                          out_ch=filters,
-                                                          k=k,
-                                                          stride=stride,
-                                                          bias=not bn))
+                modules.add_module('MixConv2d',
+                                   MixConv2d(in_ch=output_filters[-1],
+                                             out_ch=filters,
+                                             k=k,
+                                             stride=stride,
+                                             bias=not bn))
 
             if bn:
                 modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
@@ -51,6 +54,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
             elif mdef['activation'] == 'relu':
                 modules.add_module('activation', nn.ReLU(inplace=True))
+            elif mdef['activation'] == 'logistic':  # Add logistic activation support
+                modules.add_module('activation', nn.Sigmoid())
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -109,6 +114,22 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             else:
                 modules = maxpool
 
+        # Add support for global average pooling layer
+        elif mdef['type'] == 'avgpool':
+            modules = GlobalAvgPool()
+
+        # Add support for dropout layer
+        elif mdef['type'] == 'dropout':
+            prob = mdef['probability']
+            modules = Dropout(prob=prob)
+
+        # Add support for scale channels
+        elif mdef['type'] == 'scale_channels':
+            layers = mdef['from']
+            filters = output_filters[-1]  #
+            routs.extend([i + l if l < 0 else l for l in layers])
+            modules = ScaleChannels(layers=layers)
+
         elif mdef['type'] == 'upsample':
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
@@ -116,7 +137,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             else:
                 modules = nn.Upsample(scale_factor=mdef['stride'])
 
-        # Add GroupRoute support
+        # Add support for group route
         elif mdef['type'] == 'route':  # nn.Sequential() placeholder for 'route' layer
             # layers = mdef['layers']
             # filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
@@ -145,7 +166,13 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             layers = mdef['from']
             filters = output_filters[-1]
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef)
+
+            # modules = WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef)
+            modules.add_module('WeightedFeatureFusion', WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef))
+
+            # ----- add activation layer after a shortcut layer
+            if mdef['activation'] == 'leaky':
+                modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
 
         elif mdef['type'] == 'reorg3d':  # yolov3-spp-pan-scale
             pass
@@ -178,9 +205,10 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         else:
             print('Warning: Unrecognized Layer Type: ' + mdef['type'])
 
-        # Register module list and number of output filters
+        # ---------- Register module list and number of output filters
         module_list.append(modules)
         output_filters.append(filters)
+        # ----------
 
     routs_binary = [False] * (i + 1)
     for i in routs:
@@ -378,7 +406,7 @@ class Darknet(nn.Module):
 
     def forward_once(self, x, augment=False, verbose=False):
         img_size = x.shape[-2:]  # height, width
-        yolo_out, out, reid_feat_out = [], [], []  # 3 yolo laers correspond to 3 reid feature map layers
+        yolo_out, out, reid_feat_out = [], [], []  # 3(or 2) yolo laers correspond to 3(or 2) reid feature map layers
         if verbose:
             print('0', x.shape)
             str = ''
@@ -392,26 +420,69 @@ class Darknet(nn.Module):
                            torch_utils.scale_img(x, s[1]),  # scale
                            ), 0)
 
+        # ---------- traverse the network
+        use_output_layers = ['WeightedFeatureFusion',
+                             'FeatureConcat',
+                             'FeatureConcat_l',
+                             'RouteGroup',
+                             'ScaleChannels']
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
-            if name in ['WeightedFeatureFusion', 'FeatureConcat', 'FeatureConcat_l', 'RouteGroup']:  # sum, concat
+            if name in use_output_layers:  # sum, concat
                 if verbose:
                     l = [i - 1] + module.layers  # layers
                     sh = [list(x.shape)] + [list(out[i].shape) for i in module.layers]  # shapes
                     str = ' >> ' + ' + '.join(['layer %g %s' % x for x in zip(l, sh)])
-                x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
-            elif name == 'YOLOLayer':  # x是当前层的输出, out是当前已经经过层的输出
+
+                x = module.forward(x, out)
+
+            elif name == 'YOLOLayer':  # x: current layer, out: previous layers output
                 yolo_out.append(module.forward(x, out))
+
             elif name == 'ModuleList':  # last 5 layers of FC: reid classifiers
                 continue
-            else:  # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
+
+            # We need to process a shortcut layer combined with a activation layer
+            # followed by a activation layer
+            elif name == 'Sequential':
+                for layer in module:
+                    layer_name = layer.__class__.__name__
+                    if layer_name in use_output_layers:
+                        x = layer.forward(x, out)
+                    else:
+                        x = layer.forward(x)
+
+            # run module directly, i.e. mtype = 'convolutional', 'upsample', 'maxpool', 'batchnorm2d' etc.
+            else:
                 x = module(x)
 
+            # ----------- record previous output layers
             out.append(x if self.routs[i] else [])
+            # out.append(x)  # for debugging...
 
             if verbose:
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
+        # ----------
+
+        # # ----------for debugging...
+        # net_out_path = '/mnt/diskb/even/net_out.txt'
+        # with open(net_out_path, 'w', encoding='utf-8') as f:
+        #     for i, layer in enumerate(out):
+        #         f.write('Layer {:d}, shape: {:d}×{:d}×{:d}×{:d}\n'
+        #                 .format(i, layer.shape[0], layer.shape[1], layer.shape[2], layer.shape[3]))
+        #
+        #         if layer.numel() < 64:
+        #             tmp = layer.view(1, -1).squeeze()
+        #         else:
+        #             tmp = layer[0, 0, 0, :64]
+        #         for j, k in enumerate(tmp):
+        #             if j != 0 and j % 8 == 0:
+        #                 f.write('\n')
+        #             f.write('{:.6f} '.format(k.item()))
+        #
+        #         f.write('\n\n\n')
+        # # ----------
 
         # Get 3 or 2 feature map layers for reid feature vector extraction
         # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
@@ -419,7 +490,7 @@ class Darknet(nn.Module):
         # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
         # @even: Get feature maps(corresponding to yolo layers)
-        yolo_inds = [-1 - i*2 for i in range(len(self.yolo_layer_inds))]
+        yolo_inds = [-1 - i * 2 for i in range(len(self.yolo_layer_inds))]
         yolo_inds.sort()
         for yolo_idx in yolo_inds:
             yolo_layer = out[yolo_idx]
@@ -427,7 +498,7 @@ class Darknet(nn.Module):
 
         # 3(or 2) yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
-        # return out[69], out[79], out[-3], out[-1]
+        # return out[69], out[79], out[-3], out[-1]  # for yolov4-enet-b0-3l
 
         # ----- Output mode
         if self.training:  # train
@@ -554,6 +625,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
                     conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
                 except Exception as e:
                     print(e)
+
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
 

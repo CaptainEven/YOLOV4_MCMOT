@@ -237,7 +237,7 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
     if not dict_path is None:
         max_id_dict = {cls2id[k]:v for k, v in start_id_dict.items()}
         with open(dict_path, 'wb') as f:
-            np.savez(dict_path, max_id_dict=max_id_dict)
+            np.savez(dict_path, max_id_dict=max_id_dict)  # set key 'max_id_dict'
             # pickle.dump(dict_path, f, pickle.HIGHEST_PROTOCOL)
 
     print('{:s} dumped.'.format(dict_path))

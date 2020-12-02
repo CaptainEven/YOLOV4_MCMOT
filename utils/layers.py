@@ -1,5 +1,6 @@
-import torch.nn.functional as F
+# encoding=utf-8
 
+import torch.nn.functional as F
 from utils.utils import *
 
 try:
@@ -50,6 +51,47 @@ class RouteGroup(nn.Module):
         else:
             out = torch.chunk(outputs[self.layers[0]], self.groups, dim=1)
             return out[self.group_id]
+
+
+class ScaleChannels(nn.Module):
+    def __init__(self, layers):
+        super(ScaleChannels, self).__init__()
+        self.layers = layers
+
+        # assert len(self.layers) == 1
+
+    def forward(self, x, outputs):
+        # Scalar is current input: x
+        # H×W = 1×1
+        # assert x.shape[2] == 1 and x.shape[3] == 1
+
+        layer = outputs[self.layers[0]]
+
+        assert x.shape[1] == layer.shape[1]
+
+        # Do Scaling
+        x = x * layer
+
+        return x
+            
+
+# Dropout layer
+class Dropout(nn.Module):
+    def __init__(self, prob):
+        super(Dropout, self).__init__()
+        self.prob = float(prob)
+
+    def forward(self, x):
+        return F.dropout(x, p=self.prob)
+
+
+# To do global average pooling
+class GlobalAvgPool(nn.Module):
+    def __init__(self):
+        super(GlobalAvgPool, self).__init__()
+
+    def forward(self, x):
+        return F.adaptive_avg_pool2d(x, (1, 1))  # set output size (1, 1)
 
 
 class FeatureConcat(nn.Module):

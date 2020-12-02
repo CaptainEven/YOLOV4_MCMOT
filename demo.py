@@ -426,12 +426,12 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_mobilev2_2l.cfg',
+                                 default='cfg/yolov4_enet_b0_3l.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4_mobilenetv2_2l_track_last.pt',
+                                 default='weights/yolov4_enet_b0_3l_last.weights',
                                  help='weights path')
         # ----------
 
@@ -459,7 +459,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         # output type
