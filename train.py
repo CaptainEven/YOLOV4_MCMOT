@@ -67,7 +67,7 @@ max_id_dict = {
 #     4: 53
 # }  # previous version
 
-# read from .npy(max_id_dict.npy file)
+# max_id_dict read from .npy(max_id_dict.npy file)
 max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
 if os.path.isfile(max_id_dict_file_path):
     load_dict = np.load(max_id_dict_file_path, allow_pickle=True)

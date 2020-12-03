@@ -168,7 +168,10 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             routs.extend([i + l if l < 0 else l for l in layers])
 
             # modules = WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef)
-            modules.add_module('WeightedFeatureFusion', WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef))
+
+            # ----- to merge a shortcut layer and an activation layer to one layer
+            modules.add_module('WeightedFeatureFusion',
+                               WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef))
 
             # ----- add activation layer after a shortcut layer
             if mdef['activation'] == 'leaky':
@@ -420,9 +423,9 @@ class Darknet(nn.Module):
                            torch_utils.scale_img(x, s[1]),  # scale
                            ), 0)
 
-        # ---------- traverse the network
-        use_output_layers = ['WeightedFeatureFusion',
-                             'FeatureConcat',
+        # ---------- traverse the network(by traversing the module_list)
+        use_output_layers = ['WeightedFeatureFusion',  # Shortcut(add)
+                             'FeatureConcat',  # Route(concatenate)
                              'FeatureConcat_l',
                              'RouteGroup',
                              'ScaleChannels']

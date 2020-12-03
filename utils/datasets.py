@@ -633,7 +633,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         # Define labels
         self.label_files = [x.replace('JPEGImages', 'labels').replace(os.path.splitext(x)[-1], '.txt')
                             for x in self.img_files]
-        print(self.label_files[0])
+        # print(self.label_files[0])
 
         # Rectangular Training  https://github.com/ultralytics/yolov3/issues/232
         if self.rect:
@@ -695,7 +695,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 self.labels[i] = l
                 nf += 1  # file found
 
-                # Create subdataset (a smaller dataset)
+                # Create sub dataset (a smaller dataset)
                 if create_datasubset and ns < 1E4:
                     if ns == 0:
                         create_folder(path='./datasubset')
