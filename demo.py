@@ -431,7 +431,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_last.pt',
+                                 default='weights/pure_detect_last.pt',
                                  help='weights path')
         # ----------
 
@@ -459,7 +459,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         # output type

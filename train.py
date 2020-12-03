@@ -669,7 +669,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4_enet_b0_3l_last.weights',
+                        default='./weights/pure_detect_last.pt',
                         help='initial weights path')
     # ----------
 
