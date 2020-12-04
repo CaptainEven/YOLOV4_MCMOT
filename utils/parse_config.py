@@ -21,6 +21,7 @@ def parse_model_cfg(path):
     lines = [x for x in lines if x and not x.startswith('#')]
     lines = [x.rstrip().lstrip() for x in lines]  # get rid of fringe whitespaces
     mdefs = []  # module definitions
+
     for line in lines:
         if line.startswith('['):  # This marks the start of a new block
             mdefs.append({})

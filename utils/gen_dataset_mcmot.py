@@ -878,6 +878,8 @@ def build_test_set(test_txt_f, dataset_root, f_list_out_root):
 
 
 from tqdm import tqdm
+
+
 def gen_mcmot_data(img_root, out_f_path):
     """
 
@@ -902,7 +904,6 @@ def gen_mcmot_data(img_root, out_f_path):
                     continue
 
                 w_h.write(img_path + '\n')
-
 
 
 def cp_to_dst(mcmot_det_train, src_path_prefix, dst_path_prefix=''):
@@ -938,6 +939,62 @@ def cp_to_dst(mcmot_det_train, src_path_prefix, dst_path_prefix=''):
                     print('{:s} copied to {:s}.'.format(src_img_f_path, dst_dir))
 
 
+def gen_anno_dir_and_cp_file(mcmot_det_train, src_path_prefix, dst_path_prefix):
+    """
+    :param mcmot_det_train:
+    :param src_path_prefix:
+    :param dst_path_prefix:
+    :return:
+    """
+    if not os.path.isfile(mcmot_det_train):
+        print('[Err]: invalid file.')
+        return
+
+    dst_anno_root = dst_path_prefix + '/Annotations'
+    if not os.path.isdir(dst_anno_root):
+        os.makedirs(dst_anno_root)
+
+    with open(mcmot_det_train, 'r', encoding='utf-8') as r_h:
+        lines = r_h.readlines()
+        lines = [line.strip() for line in lines]
+
+        for line in lines:
+            if os.path.isfile(line):
+                # print('{:s} exists.'.format(line))
+                # continue
+
+                # print(line)
+
+                src_img_path = line.replace(dst_path_prefix, src_path_prefix)
+
+                items = src_img_path.split('/')
+                items[-2], items[-3] = items[-3], items[-2]
+                src_img_path = '/'.join(items)
+
+                # print(src_img_path)
+
+                src_anno_path = src_img_path.replace('JPEGImages', 'Annotations').replace('.jpg', '.xml')
+                if not os.path.isfile(src_anno_path):
+                    print('[Warning]: {:s} do not exists.'.format(src_anno_path))
+                    continue
+                else:
+                    # print(src_anno_path)
+
+                    # dst anno dir
+                    dst_anno_dir = dst_anno_root + '/' + items[-3]
+                    if not os.path.isdir(dst_anno_dir):
+                        os.makedirs(dst_anno_dir)
+
+                    # dst anno file path
+                    dst_anno_path = dst_anno_dir + '/' + items[-1].replace('.jpg', '.xml')
+
+                    # copy anno file
+                    if not os.path.isfile(dst_anno_path):
+                        shutil.copy(src_anno_path, dst_anno_dir)
+                        print('{:s} copied to {:s}.'.format(src_anno_path, dst_anno_dir))
+                    else:
+                        print('{:s} exists.'.format(dst_anno_path))
+
 
 if __name__ == "__main__":
     # gen_one_voc_train_dir()
@@ -962,5 +1019,9 @@ if __name__ == "__main__":
     #           src_path_prefix='/mnt/diskb/maqiao/multiClass/',
     #           dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
 
-    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+    gen_anno_dir_and_cp_file(mcmot_det_train='/mnt/diskb/even/YOLOV4/data/mcmot_det.train',  # mcmot_det.train
+                             src_path_prefix='/mnt/diskb/maqiao/multiClass/',
+                             dst_path_prefix='/mnt/diskb/even/dataset/MCMOT_DET/')
+
+    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')

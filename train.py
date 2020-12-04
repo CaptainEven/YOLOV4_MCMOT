@@ -56,7 +56,7 @@ max_id_dict = {
     1: 103,  # bicycle
     2: 104,  # person
     3: 329,  # cyclist
-    4: 48    # tricycle
+    4: 48  # tricycle
 }
 
 # max_id_dict = {
@@ -493,7 +493,7 @@ def train():
                 if not torch.isfinite(loss):
                     for i in range(loss_items.shape[0]):
                         loss_items[i] = torch.zeros((1, 1), device=device)
-                    print('[Warning] infinite loss_funcs', loss_items)  #  ending training
+                    print('[Warning] infinite loss_funcs', loss_items)  # ending training
                     return results
 
                 # Backward
@@ -658,7 +658,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--data',
                         type=str,
-                        default='data/mcmot_det.data',
+                        default='data/mcmot.data',
                         help='*.data path')
 
     # ---------- weights and cfg file
@@ -678,7 +678,7 @@ if __name__ == '__main__':
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='0',
+                        default='2',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -690,13 +690,16 @@ if __name__ == '__main__':
     # track means the dataset contains both detection and ID info, use both for training. (i.e. detect & reid)
     parser.add_argument('--task',
                         type=str,
-                        default='pure_detect',
+                        default='track',
                         help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
 
     # use debug mode to enforce the parameter of worker number to be 0
-    parser.add_argument('--isdebug', type=bool, default=False, help='whether in debug mode or not')
+    parser.add_argument('--isdebug',
+                        type=bool,
+                        default=False,
+                        help='whether in debug mode or not')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
