@@ -42,14 +42,23 @@ def run_detection(opt):
     print('Net input size: {:d}×{:d}.'.format(opt.net_w, opt.net_h))
 
     # Set dataset and device
-    if os.path.isfile(opt.source):
-        print('Source test txt: {:s}.'.format(opt.source))
-        with open(opt.source, 'r', encoding='utf-8') as r_h:
-            paths = [x.strip() for x in r_h.readlines()]
-            print('Total {:d} image files.'.format(len(paths)))
-            dataset = LoadImages(path=paths, net_w=opt.net_w, net_h=opt.net_h)
-    else:
-        dataset = LoadImages(opt.source, net_w=opt.net_w, net_h=opt.net_h)
+    if opt.input_type == 'videos':
+        out_fps = int(float(opt.outFPS) / float(opt.interval) + 0.5)
+        data_type = 'mot'
+        video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
+        video_path_list.sort()
+
+        # # tracking each input video
+        # for video_i, video_path in enumerate(video_path_list):
+    elif opt.input_type == 'txts':
+        if os.path.isfile(opt.source):
+            print('Source test txt: {:s}.'.format(opt.source))
+            with open(opt.source, 'r', encoding='utf-8') as r_h:
+                paths = [x.strip() for x in r_h.readlines()]
+                print('Total {:d} image files.'.format(len(paths)))
+                dataset = LoadImages(path=paths, net_w=opt.net_w, net_h=opt.net_h)
+        else:
+            dataset = LoadImages(opt.source, net_w=opt.net_w, net_h=opt.net_h)
 
     if os.path.isdir(opt.output_txt_dir):
         shutil.rmtree(opt.output_txt_dir)
@@ -82,54 +91,128 @@ def run_detection(opt):
     # Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
-        img = torch.from_numpy(img).to(opt.device)
-        img = img.float()  # uint8 to fp32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
+    if opt.input_type == 'txts':
+        for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
+            img = torch.from_numpy(img).to(opt.device)
+            img = img.float()  # uint8 to fp32
+            img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
+            if img.ndimension() == 3:
+                img = img.unsqueeze(0)
 
-        t1 = torch_utils.time_synchronized()
+            t1 = torch_utils.time_synchronized()
 
-        # ---------- update detection result of this frame
-        dets = tracker.update_detection(img, img0)
-        # ----------
+            # ---------- update detection result of this frame
+            dets = tracker.update_detection(img, img0)
+            # ----------
 
-        t2 = torch_utils.time_synchronized()
-        print('%sdone, time (%.3fs)' % (path, t2 - t1))
+            t2 = torch_utils.time_synchronized()
+            print('%sdone, time (%.3fs)' % (path, t2 - t1))
 
-        if opt.show_image:
-            online_im = vis.plot_detects(img=img0,
-                                         dets=dets,
-                                         num_classes=opt.num_classes,
-                                         frame_id=fr_id,
-                                         id2cls=id2cls)
+            if opt.show_image:
+                online_im = vis.plot_detects(img=img0,
+                                             dets=dets,
+                                             num_classes=opt.num_classes,
+                                             frame_id=fr_id,
+                                             id2cls=id2cls)
 
-        if opt.save_img_dir is not None:
-            # save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
-            save_img_path = frame_dir + '/' + os.path.split(path)[-1]
-            cv2.imwrite(save_img_path, online_im)
+            if opt.save_img_dir is not None:
+                # save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                save_img_path = frame_dir + '/' + os.path.split(path)[-1]
+                cv2.imwrite(save_img_path, online_im)
 
-        # output results as .txt file
-        if dets is None:
-            print('\n[Warning]: non objects detected in {}, frame id {:d}\n' \
-                  .format(os.path.split(path), fr_id))
-            dets_list = []
-        else:
-            dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
+            # output results as .txt file
+            if dets is None:
+                print('\n[Warning]: non objects detected in {}, frame id {:d}\n' \
+                      .format(os.path.split(path), fr_id))
+                dets_list = []
+            else:
+                dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
 
-        # output label(txt) to
-        out_img_name = os.path.split(path)[-1]
-        out_f_name = out_img_name.replace('.jpg', '.txt')
-        out_f_path = opt.output_txt_dir + '/' + out_f_name
-        with open(out_f_path, 'w', encoding='utf-8') as w_h:
-            w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')  # write the first row
-            for det in dets_list:
-                w_h.write('%d %f %f %f %f %f\n' % (det[0], det[1], det[2], det[3], det[4], det[5]))
-        print('{} written'.format(out_f_path))
+            # output label(txt) to
+            out_img_name = os.path.split(path)[-1]
+            out_f_name = out_img_name.replace('.jpg', '.txt')
+            out_f_path = opt.output_txt_dir + '/' + out_f_name
+            with open(out_f_path, 'w', encoding='utf-8') as w_h:
+                w_h.write('class prob x y w h total=' + str(len(dets_list)) + '\n')  # write the first row
+                for det in dets_list:
+                    w_h.write('%d %f %f %f %f %f\n' % (det[0], det[1], det[2], det[3], det[4], det[5]))
+            print('{} written'.format(out_f_path))
 
-    print('Total {:d} images tested.'.format(fr_id + 1))
+        print('Total {:d} images tested.'.format(fr_id + 1))
+
+    elif opt.input_type == 'videos':
+        # tracking each input video
+        for video_i, video_path in enumerate(video_path_list):
+            if video_i > 0:
+                tracker.reset()
+
+            # set dataset
+            dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
+
+            # set txt results path
+            src_name = os.path.split(video_path)[-1]
+            name, suffix = src_name.split('.')
+
+            # set sampled frame count
+            fr_cnt = 0
+
+            # reset(clear) frame directory: write opt.save_img_dir
+            shutil.rmtree(frame_dir)
+            os.makedirs(frame_dir)
+
+            # iterate tracking results of each frame
+            for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
+                # ----- img pre-processing
+                img = torch.from_numpy(img).to(opt.device)
+                img = img.float()  # uint8 to fp32
+                img /= 255.0  # 0 - 255 to 0.0 - 1.0
+                if img.ndimension() == 3:
+                    img = img.unsqueeze(0)
+
+                # ----- update tracking result of this frame
+                if opt.interval == 1:
+
+                    # ---------- update detection result of this frame
+                    dets = tracker.update_detection(img, img0)
+                    # ----------
+
+                    if opt.show_image:
+                        online_im = vis.plot_detects(img=img0,
+                                                     dets=dets,
+                                                     num_classes=opt.num_classes,
+                                                     frame_id=fr_id,
+                                                     id2cls=id2cls)
+
+                    if opt.save_img_dir is not None:
+                        save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                        cv2.imwrite(save_path, online_im)
+                else:  # interval > 1
+                    if fr_id % opt.interval == 0:  # skip some frames
+
+                        # ---------- update detection result of this frame
+                        dets = tracker.update_detection(img, img0)
+                        # ----------
+
+                        if opt.show_image:
+                            online_im = vis.plot_detects(img=img0,
+                                                         dets=dets,
+                                                         num_classes=opt.num_classes,
+                                                         frame_id=fr_cnt,
+                                                         id2cls=id2cls)
+
+                        if opt.save_img_dir is not None:
+                            save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
+                            cv2.imwrite(save_path, online_im)
+
+                        # update sampled frame count
+                        fr_cnt += 1
+
+            # output tracking result as video: read and write opt.save_img_dir
+            result_video_path = opt.save_img_dir + '/' + name + '_detect' + '_fps' + str(out_fps) + '.' + suffix
+            cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
+                .format(out_fps, frame_dir, result_video_path)
+            os.system(cmd_str)
 
 
 def track_videos_txt(opt):
@@ -291,7 +374,7 @@ def track_videos_vid(opt):
     # Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    out_fps = int(opt.outFPS / opt.interval)
+    out_fps = int(float(opt.outFPS) / float(opt.interval) + 0.5)
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
     video_path_list.sort()
@@ -304,13 +387,9 @@ def track_videos_vid(opt):
         # set dataset
         dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
 
-        # set txt results path
+        # get video name
         src_name = os.path.split(video_path)[-1]
         name, suffix = src_name.split('.')
-        result_f_name = opt.save_img_dir + '/' + name + '_results_fps{:d}.txt'.format(out_fps)
-
-        # set dict to store tracking results for txt output
-        results_dict = defaultdict(list)
 
         # set sampled frame count
         fr_cnt = 0
@@ -462,6 +541,11 @@ class DemoRunner(object):
                                  default='track',
                                  help='task mode: track or detect')
 
+        self.parser.add_argument('--input-type',
+                                 type=str,
+                                 default='videos',
+                                 help='videos or txts')
+
         # output type
         self.parser.add_argument('--output-type',
                                  type=str,
@@ -472,11 +556,14 @@ class DemoRunner(object):
         # output FPS interval
         self.parser.add_argument('--interval',
                                  type=int,
-                                 default=1,
+                                 default=4,
                                  help='The interval frame of tracking, default no interval.')
 
         # standard output FPS
-        self.parser.add_argument('--outFPS', type=int, default=12, help='The FPS of output video.')
+        self.parser.add_argument('--outFPS',
+                                 type=int,
+                                 default=25,
+                                 help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
 
@@ -487,7 +574,10 @@ class DemoRunner(object):
 
         self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
 
-        self.parser.add_argument('--track-buffer', type=int, default=30, help='tracking buffer frames')
+        self.parser.add_argument('--track-buffer',
+                                 type=int,
+                                 default=90,
+                                 help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
@@ -510,7 +600,6 @@ class DemoRunner(object):
     def run(self):
         if self.opt.task == 'track':
             print('Run tracking...')
-
             if self.opt.output_type == 'txts':
                 track_videos_txt(self.opt)
             elif self.opt.output_type == 'videos':
@@ -519,7 +608,6 @@ class DemoRunner(object):
                 print('[Err]: un-recognized output mode.')
         elif self.opt.task == 'detect':
             print('Run detection...')
-
             run_detection(self.opt)
         else:
             print("[Err]: un-recognized task mode, neither 'track' or 'detect'")

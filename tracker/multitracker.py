@@ -41,7 +41,11 @@ class MCTrack(MCBaseTrack):
 
         self.smooth_feat = None
         self.update_features(temp_feat)
-        self.features = deque([], maxlen=buff_size)  # 指定了限制长度
+
+        # buffered features
+        self.features = deque([], maxlen=buff_size)
+
+        # fusion factor
         self.alpha = 0.9
 
     def update_features(self, feat):
@@ -387,6 +391,13 @@ class MCJDETracker(object):
         #     3: 329,  # cyclist
         #     4: 48  # tricycle
         # }
+        # max_id_dict = {
+        #     0: 330,
+        #     1: 102,
+        #     2: 104,
+        #     3: 312,
+        #     4: 53
+        # }  # previous version
 
         # read from .npy(max_id_dict.npy file)
         max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
@@ -645,7 +656,7 @@ class MCJDETracker(object):
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_tracks, cls_detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.5
             for i_tracked, i_det in matches:  # process matched tracks
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
@@ -664,7 +675,7 @@ class MCJDETracker(object):
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
             dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)  # iou matching
-            matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+            matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
             for i_tracked, i_det in matches:
                 unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])

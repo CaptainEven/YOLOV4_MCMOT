@@ -53,6 +53,7 @@ class RouteGroup(nn.Module):
             return out[self.group_id]
 
 
+# scaled_channels layer
 class ScaleChannels(nn.Module):
     def __init__(self, layers):
         super(ScaleChannels, self).__init__()
@@ -67,13 +68,13 @@ class ScaleChannels(nn.Module):
 
         layer = outputs[self.layers[0]]
 
-        assert x.shape[1] == layer.shape[1]
+        # assert x.shape[1] == layer.shape[1]
 
         # Do Scaling: applying broadcasting here
         x = x * layer
 
         return x
-            
+
 
 # Dropout layer
 class Dropout(nn.Module):

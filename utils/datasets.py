@@ -613,6 +613,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         n = len(self.img_files)
         assert n > 0, 'No images found in %s. See %s' % (path, help_url)
+
         bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
         nb = bi[-1] + 1  # number of batches
 
@@ -633,7 +634,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         # Define labels
         self.label_files = [x.replace('JPEGImages', 'labels').replace(os.path.splitext(x)[-1], '.txt')
                             for x in self.img_files]
-        print(self.label_files[0])
+        # print(self.label_files[0])
 
         # Rectangular Training  https://github.com/ultralytics/yolov3/issues/232
         if self.rect:
@@ -668,11 +669,13 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
             self.batch_shapes = np.ceil(np.array(shapes) * img_size / 64.).astype(np.int) * 64
 
-        # Cache labels
+        # ---------- Cache labels: pure negative image sample(only contain background)
+        # by caching
         self.imgs = [None] * n
         self.labels = [np.zeros((0, 5), dtype=np.float32)] * n
+
         extract_bounding_boxes = False
-        create_datasubset = False
+        create_data_subset = False
         pbar = tqdm(self.label_files, desc='Caching labels')
         nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
         for i, file in enumerate(pbar):
@@ -683,7 +686,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 nm += 1  # print('missing labels for image %s' % self.img_files[i])  # file missing
                 continue
 
-            if l.shape[0]:  # 该图片标注的目标个数
+            if l.shape[0]:  # objects number of this label
                 assert l.shape[1] == 5, '> 5 label columns: %s' % file
                 assert (l >= 0).all(), 'negative labels: %s' % file
                 assert (l[:, 1:] <= 1).all(), 'non-normalized or out of bounds coordinate labels: %s' % file
@@ -692,11 +695,13 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     nd += 1  # print('WARNING: duplicate rows in %s' % self.label_files[i])  # duplicate rows
                 if single_cls:
                     l[:, 0] = 0  # force dataset into single-class mode: turn mc to sc
+
+                # Filling the label
                 self.labels[i] = l
                 nf += 1  # file found
 
-                # Create subdataset (a smaller dataset)
-                if create_datasubset and ns < 1E4:
+                # Create sub dataset (a smaller dataset)
+                if create_data_subset and ns < 1E4:
                     if ns == 0:
                         create_folder(path='./datasubset')
                         os.makedirs('./datasubset/images')
@@ -729,8 +734,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 ne += 1  # print('empty labels for image %s' % self.img_files[i])  # file empty
                 # os.system("rm '%s' '%s'" % (self.img_files[i], self.label_files[i]))  # remove
 
-            pbar.desc = 'Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)' % (
-                nf, nm, ne, nd, n)
+            pbar.desc = 'Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)' \
+                        % (nf, nm, ne, nd, n)
         assert nf > 0, 'No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
@@ -777,10 +782,11 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             img, (h0, w0), (h, w) = load_image(self, index)
 
             # ---------- Letterbox
-            # final letterboxed shape
+            # final letter-boxed shape
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size
 
             # ----- letter box
+            # or pad_resize_ratio(this methods keeps consistency with dark-net)
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
 
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
