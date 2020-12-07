@@ -28,37 +28,38 @@ best = wdir + 'best.pt'
 results_file = 'results.txt'
 
 # Hyper-parameters
-hyp = {'giou': 3.54,  # g_iou loss_funcs gain
-       'cls': 37.4,  # cls loss_funcs gain
-       'cls_pw': 1.0,  # cls BCELoss positive_weight
-       'obj': 64.3,  # obj loss_funcs gain (*=img_size/320 if img_size != 320)
-       'reid': 0.1,  # reid loss_funcs weight
-       'obj_pw': 1.0,  # obj BCELoss positive_weight
-       'iou_t': 0.20,  # iou training threshold
-       'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
-       'lrf': 0.0003,  # final learning rate (with cos scheduler)
-       'momentum': 0.937,  # SGD momentum
-       'weight_decay': 0.000484,  # optimizer weight decay
-       'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
-       'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
-       'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
-       'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
-       'degrees': 1.98 * 0,  # image rotation (+/- deg)
-       'translate': 0.05 * 0,  # image translation (+/- fraction)
-       'scale': 0.5,  # image scale (+/- gain)
-       'shear': 0.641 * 0  # image shear (+/- deg)
-       }
+hyp = {
+    'giou': 3.54,  # g_iou loss_funcs gain
+    'cls': 37.4,  # cls loss_funcs gain
+    'cls_pw': 1.0,  # cls BCELoss positive_weight
+    'obj': 64.3,  # obj loss_funcs gain (*=img_size/320 if img_size != 320)
+    'reid': 0.1,  # reid loss_funcs weight
+    'obj_pw': 1.0,  # obj BCELoss positive_weight
+    'iou_t': 0.20,  # iou training threshold
+    'lr0': 0.0002,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lrf': 0.0001,  # final learning rate (with cos scheduler)
+    'momentum': 0.937,  # SGD momentum
+    'weight_decay': 0.000484,  # optimizer weight decay
+    'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
+    'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
+    'hsv_s': 0.678,  # image HSV-Saturation augmentation (fraction)
+    'hsv_v': 0.36,  # image HSV-Value augmentation (fraction)
+    'degrees': 1.98 * 0,  # image rotation (+/- deg)
+    'translate': 0.05 * 0,  # image translation (+/- fraction)
+    'scale': 0.5,  # image scale (+/- gain)
+    'shear': 0.641 * 0  # image shear (+/- deg)
+}
 
 # automatically generate the max_ids_dict
 global max_id_dict
-max_id_dict = {
-    0: 341,  # car
-    1: 103,  # bicycle
-    2: 104,  # person
-    3: 329,  # cyclist
-    4: 48  # tricycle
-}
-
+# max_id_dict = {
+#     0: 341,  # car
+#     1: 103,  # bicycle
+#     2: 104,  # person
+#     3: 329,  # cyclist
+#     4: 48  # tricycle
+# }
+#
 # max_id_dict = {
 #     0: 330,
 #     1: 102,
@@ -67,7 +68,7 @@ max_id_dict = {
 #     4: 53
 # }  # previous version
 
-# max_id_dict read from .npy(max_id_dict.npy file)
+## max_id_dict read from .npy(max_id_dict.npy file)
 max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
 if os.path.isfile(max_id_dict_file_path):
     load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
@@ -231,7 +232,7 @@ def train():
 
     # # freeze weights of some previous layers(for yolo detection only)
     # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-    #     if layer_i < 80:
+    #     if layer_i < 158:
     #         for param in child.parameters():
     #             param.requires_grad = False
     #     else:
@@ -669,7 +670,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/pure_detect_last.pt',
+                        default='./weights/track_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -678,7 +679,7 @@ if __name__ == '__main__':
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='2',
+                        default='7',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')

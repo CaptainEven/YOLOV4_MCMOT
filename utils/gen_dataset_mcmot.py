@@ -48,11 +48,11 @@ classes_c6 = ['car',
               "non_interest_zones"]
 
 classes_c5 = ['car',  # 0
-              "bicycle",  # 1
-              "person",  # 2
-              "cyclist",  # 3
-              "tricycle",  # 4
-              "non_interest_zone"]  # 5
+              'bicycle',  # 1
+              'person',  # 2
+              'cyclist',  # 3
+              'tricycle',  # 4
+              'non_interest_zone']  # 5
 
 # classes = classes_c6
 classes = classes_c5  # 选择5类目标检测
