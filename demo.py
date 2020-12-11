@@ -23,6 +23,7 @@ def format_output(dets, w, h):
         return None
 
     out_list = []
+
     for det in dets:
         x1, y1, x2, y2, score, cls_id = det
         center_x = (x1 + x2) * 0.5 / float(w)
@@ -30,6 +31,7 @@ def format_output(dets, w, h):
         bbox_w = (x2 - x1) / float(w)
         bbox_h = (y2 - y1) / float(h)
         out_list.append([int(cls_id), score, center_x, center_y, bbox_w, bbox_h])
+
     return out_list
 
 
@@ -50,7 +52,7 @@ def run_detection(opt):
 
         # # tracking each input video
         # for video_i, video_path in enumerate(video_path_list):
-    elif opt.input_type == 'txts':
+    elif opt.input_type == 'txt':
         if os.path.isfile(opt.source):
             print('Source test txt: {:s}.'.format(opt.source))
             with open(opt.source, 'r', encoding='utf-8') as r_h:
@@ -91,7 +93,7 @@ def run_detection(opt):
     # Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    if opt.input_type == 'txts':
+    if opt.input_type == 'txt':
         for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
             img = torch.from_numpy(img).to(opt.device)
             img = img.float()  # uint8 to fp32
@@ -129,7 +131,7 @@ def run_detection(opt):
             else:
                 dets_list = format_output(dets, w=img0.shape[1], h=img0.shape[0])
 
-            # output label(txt) to
+            # output label(txt) to disk
             out_img_name = os.path.split(path)[-1]
             out_f_name = out_img_name.replace('.jpg', '.txt')
             out_f_path = opt.output_txt_dir + '/' + out_f_name
@@ -505,7 +507,7 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_enet_b0_3l.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
@@ -521,7 +523,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test1.txt',  # test1.txt or c5_test or test2.txt
+                                 default='./data/test2.txt',  # test1.txt or c5_test or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -544,7 +546,7 @@ class DemoRunner(object):
         self.parser.add_argument('--input-type',
                                  type=str,
                                  default='videos',
-                                 help='videos or txts')
+                                 help='videos or txt')
 
         # output type
         self.parser.add_argument('--output-type',
@@ -556,13 +558,13 @@ class DemoRunner(object):
         # output FPS interval
         self.parser.add_argument('--interval',
                                  type=int,
-                                 default=4,
+                                 default=1,
                                  help='The interval frame of tracking, default no interval.')
 
         # standard output FPS
         self.parser.add_argument('--outFPS',
                                  type=int,
-                                 default=25,
+                                 default=12,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
@@ -572,11 +574,14 @@ class DemoRunner(object):
         self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
         self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
 
-        self.parser.add_argument('--num-classes', type=int, default=5, help='Number of object classes.')
+        self.parser.add_argument('--num-classes',
+                                 type=int,
+                                 default=5,
+                                 help='Number of object classes.')
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=90,
+                                 default=30,
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45

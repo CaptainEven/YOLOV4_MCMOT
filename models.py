@@ -198,7 +198,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             try:
                 j = layers[yolo_index] if 'from' in mdef else -1
                 bias_ = module_list[j][0].bias  # shape(255,)
-                bias = bias_[:modules.no * modules.na].view(modules.na, -1)  # shape(3,85)
+                bias = bias_[:modules.no * modules.na].view(modules.na, -1)  # shape(3, 85)
                 bias[:, 4] += -4.5  # obj
                 bias[:, 5:] += math.log(0.6 / (modules.nc - 0.99))  # cls (sigmoid(p) = 1/nc)
                 module_list[j][0].bias = torch.nn.Parameter(bias_, requires_grad=bias_.requires_grad)
@@ -468,10 +468,13 @@ class Darknet(nn.Module):
                 str = ''
         # ----------
 
-        # # ----------for debugging...
-        # net_out_path = '/mnt/diskb/even/net_out.txt'
+        # ----------for debugging...
+        # net_out_path = '/mnt/diskb/even/net_out_pt.txt'
         # with open(net_out_path, 'w', encoding='utf-8') as f:
         #     for i, layer in enumerate(out):
+        #         # if i != 36 and i != 43 and i != 50:
+        #         #     continue
+        #
         #         f.write('Layer {:d}, shape: {:d}×{:d}×{:d}×{:d}\n'
         #                 .format(i, layer.shape[0], layer.shape[1], layer.shape[2], layer.shape[3]))
         #
@@ -501,7 +504,8 @@ class Darknet(nn.Module):
 
         # 3(or 2) yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
-        # return out[69], out[79], out[-3], out[-1]  # for yolov4-enet-b0-3l
+        # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
+        # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
 
         # ----- Output mode
         if self.training:  # train
@@ -519,11 +523,6 @@ class Darknet(nn.Module):
             x, p = zip(*yolo_out)  # inference output, training output
 
             # ----- record anchor inds
-            # yolo_0_inds = torch.full((x[0].size(0), x[0].size(1), 1), 0, dtype=torch.long)
-            # yolo_1_inds = torch.full((x[1].size(0), x[1].size(1), 1), 1, dtype=torch.long)
-            # yolo_2_inds = torch.full((x[2].size(0), x[2].size(1), 1), 2, dtype=torch.long)
-            # yolo_inds = torch.cat((yolo_0_inds, yolo_1_inds, yolo_2_inds), 1)
-
             for yolo_i, yolo_out in enumerate(x):
                 yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
                 if yolo_i == 0:
@@ -594,9 +593,10 @@ def load_darknet_weights(self, weights, cutoff=-1):
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
     ptr = 0
-    for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-        if i > 158:
-            break
+    # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+    for i, (mdef, module) in enumerate(zip(self.module_defs, self.module_list)):
+        # if i > 51:
+        #     break
 
         if mdef['type'] == 'convolutional':
             conv = module[0]
@@ -650,6 +650,8 @@ def save_weights(self, path='model.weights', cutoff=-1):
 
             # Iterate through layers
             for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
+                # for i, (mdef, module) in enumerate(zip(self.module.module_defs, self.module.module_list)):
+
                 if mdef['type'] == 'convolutional':
                     conv_layer = module[0]
                     # If batch norm, load bn first
@@ -669,7 +671,8 @@ def save_weights(self, path='model.weights', cutoff=-1):
             self.seen.tofile(f)  # (int64) number of images seen during training
 
             # Iterate through layers
-            for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            for i, (mdef, module) in enumerate(zip(self.module_defs, self.module_list)):
                 if mdef['type'] == 'convolutional':
                     conv_layer = module[0]
                     # If batch norm, load bn first
@@ -702,11 +705,13 @@ def convert(cfg='cfg/yolov4-pacsp.cfg', weights='weights/yolov4-pacsp.weights'):
     elif weights.endswith('.weights'):  # darknet format
         _ = load_darknet_weights(model, weights)
 
-        chkpt = {'epoch': -1,
-                 'best_fitness': None,
-                 'training_results': None,
-                 'model': model.state_dict(),
-                 'optimizer': None}
+        chkpt = {
+            'epoch': -1,
+            'best_fitness': None,
+            'training_results': None,
+            'model': model.state_dict(),
+            'optimizer': None
+        }
 
         torch.save(chkpt, 'converted.pt')
         print("Success: converted '%s' to 'converted.pt'" % weights)
