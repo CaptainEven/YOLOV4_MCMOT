@@ -242,8 +242,37 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
     print('{:s} dumped.'.format(dict_path))
 
 
+def gen_mcmot_data(img_root, out_f_path):
+    """
+
+    :param img_root:
+    :return:
+    """
+    if not os.path.isdir(img_root):
+        print('[Err]: ')
+        return
+
+    dir_names = [img_root + '/' + x for x in os.listdir(img_root) if os.path.isdir(img_root + '/' + x)]
+
+    with open(out_f_path, 'w', encoding='utf-8') as w_h:
+        for dir in tqdm(dir_names):
+            for img_name in os.listdir(dir):
+                if not img_name.endswith('.jpg'):
+                    continue
+
+                img_path = dir + '/' + img_name
+                if not os.path.isfile(img_path):
+                    print('[Warning]: invalid image file.')
+                    continue
+
+                w_h.write(img_path + '\n')
+
+
 if __name__ == '__main__':
     dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
                            one_plus=True,
                            dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
                            viz_root=None)
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')

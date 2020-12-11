@@ -670,7 +670,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/track_last.pt',
+                        default='./weights/track_last.weights',
                         help='initial weights path')
     # ----------
 
