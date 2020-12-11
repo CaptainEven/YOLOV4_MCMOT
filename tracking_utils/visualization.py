@@ -3,7 +3,6 @@
 import numpy as np
 import cv2
 
-
 # cls_color_dict = {
 #     'car': [180, 105, 255],  # hot pink
 #     'bicycle': [219, 112, 147],  # MediumPurple
@@ -11,6 +10,8 @@ import cv2
 #     'cyclist': [181, 228, 255],
 #     'tricycle': [211, 85, 186]
 # }
+
+# np.random.seed(0)
 
 
 def tlwhs_to_tlbrs(tlwhs):
@@ -23,7 +24,8 @@ def tlwhs_to_tlbrs(tlwhs):
 
 
 def get_color(idx):
-    idx = idx * 3
+    idx *= 3
+    # idx += np.random.randint(50, 255)
     color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
     return color
 

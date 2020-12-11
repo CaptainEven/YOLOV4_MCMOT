@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0002,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.0001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -68,7 +68,7 @@ global max_id_dict
 #     4: 53
 # }  # previous version
 
-## max_id_dict read from .npy(max_id_dict.npy file)
+# ----- max_id_dict read from .npy(max_id_dict.npy file)
 max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
 if os.path.isfile(max_id_dict_file_path):
     load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
@@ -226,17 +226,17 @@ def train():
         start_epoch = chkpt['epoch'] + 1
         del chkpt
 
-    # load darknet format weights
+    # load dark-net format weights
     elif len(weights) > 0:
         load_darknet_weights(model, weights)
 
-    # # freeze weights of some previous layers(for yolo detection only)
-    # for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-    #     if layer_i < 158:
-    #         for param in child.parameters():
-    #             param.requires_grad = False
-    #     else:
-    #         print('Layer ', name, ' requires grad.')
+    # freeze weights of some previous layers(for yolo detection only)
+    for layer_i, (name, child) in enumerate(model.module_list.named_children()):
+        if layer_i < 51:
+            for param in child.parameters():
+                param.requires_grad = False
+        else:
+            print('Layer ', name, ' requires grad.')
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -248,7 +248,7 @@ def train():
     scheduler.last_epoch = start_epoch - 1  # see link below
     # https://discuss.pytorch.org/t/a-problem-occured-when-resuming-an-optimizer/28822
 
-    # Plot lr schedule
+    ## Plot lr schedule
     # y = []
     # for _ in range(epochs):
     #     scheduler.step()
@@ -314,7 +314,7 @@ def train():
     model.gr = 1.0  # g_iou loss_funcs ratio (obj_loss = 1.0 or g_iou)
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
 
-    # Model EMA: expotional moving average
+    # Model EMA: exponential moving average
     ema = torch_utils.ModelEMA(model)
 
     # Start training
@@ -327,7 +327,7 @@ def train():
     t0 = time.time()
 
     print('Image sizes %g - %g train, %g test' % (imgsz_min, imgsz_max, imgsz_test))
-    print('Using %g dataloader workers' % nw)
+    print('Using %g data_loader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
 
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
@@ -369,7 +369,7 @@ def train():
                 if ni <= n_burn * 2:
                     model.gr = np.interp(ni, [0, n_burn * 2],
                                          [0.0, 1.0])  # giou loss_funcs ratio (obj_loss = 1.0 or giou)
-                    if ni == n_burn:  # burnin complete
+                    if ni == n_burn:  # burn_in complete
                         print_model_biases(model)
 
                     for j, x in enumerate(optimizer.param_groups):
@@ -665,7 +665,7 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_enet_b0_3l.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
@@ -679,7 +679,7 @@ if __name__ == '__main__':
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='7',
+                        default='6',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -699,7 +699,7 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--isdebug',
                         type=bool,
-                        default=False,
+                        default=True,
                         help='whether in debug mode or not')
 
     opt = parser.parse_args()
@@ -707,7 +707,10 @@ if __name__ == '__main__':
     check_git_status()
     print(opt)
 
+    # ----- Set image size for training and testing
     opt.img_size.extend([opt.img_size[-1]] * (3 - len(opt.img_size)))  # extend to 3 sizes (min, max, test)
+
+    # ----- Set device
     device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
     if device.type == 'cpu':
         mixed_precision = False

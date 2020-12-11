@@ -379,6 +379,8 @@ class Track(BaseTrack):
 
 # Multi-class JDETracker
 from train import max_id_dict
+
+
 class MCJDETracker(object):
     def __init__(self, opt):
         self.opt = opt
@@ -399,11 +401,12 @@ class MCJDETracker(object):
         #     4: 53
         # }  # previous version
 
-        # read from .npy(max_id_dict.npy file)
+        ## read from .npy(max_id_dict.npy file)
         max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
         if os.path.isfile(max_id_dict_file_path):
             load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
         max_id_dict = load_dict['max_id_dict'][()]
+
         print(max_id_dict)
 
         # set device
@@ -426,6 +429,45 @@ class MCJDETracker(object):
                 print('Checkpoint of epoch {} loaded.\n'.format(ckpt['epoch']))
         else:  # darknet format
             load_darknet_weights(self.model, opt.weights)
+
+        # # ----- for debugging...
+        # w_f_out_path = '/mnt/diskb/even/w_pt.txt'
+        # with open(w_f_out_path, 'w', encoding='utf-8') as f:
+        #     for i, (name, child) in enumerate(self.model.module_list.named_children()):
+        #         for j, param in enumerate(child.parameters()):
+        #             if len(param.shape) == 4:
+        #                 f.write('Layer_{:s}_{:s}, shape: {:d}×{:d}×{:d}×{:d}\n'
+        #                         .format(name, str(j),
+        #                                 param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
+        #                 if param.numel() > 64:
+        #                     items = param.view(1, -1)[0, :64].squeeze()
+        #                 else:
+        #                     items = param.view(1, -1).squeeze()
+        #             elif len(param.shape) == 2:
+        #                 f.write('Layer_{:s}_{:s}, shape: {:d}×{:d}\n'
+        #                         .format(name, str(j), param.shape[0], param.shape[1]))
+        #                 if param.numel() > 64:
+        #                     items = param.view(1, -1)[0, :64].squeeze()
+        #                 else:
+        #                     items = param.view(1, -1).squeeze()
+        #             elif len(param.shape) == 1:
+        #                 f.write('Layer_{:s}_{:s}, shape: {:d}\n'
+        #                         .format(name, str(j), param.shape[0]))
+        #                 if param.numel() > 64:
+        #                     items = param.view(1, -1)[0, :64].squeeze()
+        #                 else:
+        #                     items = param.view(1, -1).squeeze()
+        #             else:
+        #                 print(param.shape)
+        #
+        #             # items = param.view(1, -1).squeeze()
+        #             for k, item in enumerate(items):
+        #                 if k != 0 and k % 8 == 0:
+        #                     f.write('\n')
+        #                 f.write('{:.6f} '.format(item))
+        #             f.write('\n\n')
+        #         f.write('\n\n\n')
+        # # -----
 
         # Put model to device and set eval mode
         self.model.to(device).eval()
@@ -564,6 +606,7 @@ class MCJDETracker(object):
             for det, yolo_id in zip(dets, dets_yolo_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
+                ## ----- show box size and yolo index
                 # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
                 # get reid map for this bbox(corresponding yolo idx)
@@ -656,7 +699,7 @@ class MCJDETracker(object):
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_tracks, cls_detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.5
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
             for i_tracked, i_det in matches:  # process matched tracks
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
@@ -692,7 +735,8 @@ class MCJDETracker(object):
 
                 # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_tracks_dict[cls_id].append(track)  # activated_tarcks_dict may contain track with 'is_activated' False
+                activated_tracks_dict[cls_id].append(
+                    track)  # activated_tarcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
             for track in self.lost_tracks_dict[cls_id]:
