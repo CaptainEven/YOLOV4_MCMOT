@@ -47,6 +47,9 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
             if bn:
                 modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
+
+                # @even: add BN to route too.
+                routs.append(i)
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
@@ -130,9 +133,9 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             layers = mdef['from']
             filters = output_filters[-1]  #
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = ScaleChannel(layers=layers)
+            modules = ScaleChannel(layers=layers)  # ScaleChannels
 
-        # Add support for SAM layer: point-wise
+        # Add support for SAM: point-wise attention module
         elif mdef['type'] == 'sam':  # nn.Sequential() placeholder for 'shortcut' layer
             layers = mdef['from']
             filters = output_filters[-1]
