@@ -118,7 +118,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
         # Add support for global average pooling layer
         elif mdef['type'] == 'avgpool':
-            modules = GlobalAvgPool()
+            modules = GAP()  # GlobalAvgPool()
 
         # Add support for dropout layer
         elif mdef['type'] == 'dropout':
@@ -130,7 +130,14 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             layers = mdef['from']
             filters = output_filters[-1]  #
             routs.extend([i + l if l < 0 else l for l in layers])
-            modules = ScaleChannels(layers=layers)
+            modules = ScaleChannel(layers=layers)
+
+        # Add support for SAM layer: point-wise
+        elif mdef['type'] == 'sam':  # nn.Sequential() placeholder for 'shortcut' layer
+            layers = mdef['from']
+            filters = output_filters[-1]
+            routs.extend([i + l if l < 0 else l for l in layers])
+            modules = ScaleSpatial(layers=layers)
 
         elif mdef['type'] == 'upsample':
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
@@ -325,14 +332,8 @@ class YOLOLayer(nn.Module):
             # gathered pred output: io: view [1, 3, 13, 13, 85] as [1, 507, 85]
             io = io.view(bs, -1, self.no)
 
-            # for debugging...
-            self.grid = self.grid.expand(-1, 3, -1, -1, -1)
-            out_grid = self.grid.reshape(bs, -1, 2)
-
             # return io, pred
-
-            # for debugging...
-            return io, pred, out_grid
+            return io, pred
 
 
 class Darknet(nn.Module):
@@ -467,47 +468,10 @@ class Darknet(nn.Module):
 
             # ----------- record previous output layers
             out.append(x if self.routs[i] else [])
-            # out.append(x)  # for debugging...
 
             if verbose:
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
-        # ----------
-
-        ## ----------for debugging...
-        # out_layers = [36, 43, 50, 53, 55, 57]
-        # net_out_path = '/mnt/diskb/even/net_out.txt'
-        # with open(net_out_path, 'w', encoding='utf-8') as f:
-        #     for i, layer in enumerate(out):
-        #         # if not i in out_layers:
-        #         #     continue
-        #
-        #         f.write('Layer {:d}, shape: {:d}×{:d}×{:d}×{:d}\n'
-        #                 .format(i, layer.shape[0], layer.shape[1], layer.shape[2], layer.shape[3]))
-        #
-        #         if layer.numel() < 64:
-        #             tmp = layer.view(1, -1).squeeze()
-        #         else:
-        #             tmp = layer[0, 0, 0, :64]
-        #         for j, k in enumerate(tmp):
-        #             if j != 0 and j % 8 == 0:
-        #                 f.write('\n')
-        #             f.write('{:.6f} '.format(k.item()))
-        #
-        #         f.write('\n\n\n')
-
-        # with open(net_out_path, 'w', encoding='utf-8') as f:  # H×w×c
-        #     for i, layer in enumerate(out):
-        #         if not i in out_layers:
-        #             continue
-        #
-        #         N, C, H, W = layer.size()
-        #         f.write('{:d} {:d} {:d}\n'.format(C, H, W))
-        #         for h in range(H):
-        #             for w in range(W):
-        #                 for c in range(C):
-        #                     f.write('{:6f}\n'.format(layer[0, c, h, w]))
-        #                 f.write('\n')
         # ----------
 
         # Get 3 or 2 feature map layers for reid feature vector extraction
@@ -540,10 +504,7 @@ class Darknet(nn.Module):
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # inference or test
-            # x, p = zip(*yolo_out)  # inference output, training output
-
-            # for debugging...
-            x, p, grids = zip(*yolo_out)
+            x, p = zip(*yolo_out)  # inference output, training output
 
             # ----- record anchor inds
             for yolo_i, yolo_out in enumerate(x):
@@ -564,10 +525,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                # return x, p, reid_feat_out, yolo_inds
-
-                # for debugging...
-                return x, p, reid_feat_out, yolo_inds, grids
+                return x, p, reid_feat_out, yolo_inds
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None

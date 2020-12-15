@@ -151,10 +151,10 @@ def map_resize_back(dets, net_w, net_h, orig_w, orig_h):
     :param orig_h:   eg: 1080
     :return:
     """
-    dets[:, 0] = dets[:, 0] / net_w * orig_w   # x1
-    dets[:, 2] = dets[:, 2] / net_w * orig_w   # x2
-    dets[:, 1] = dets[:, 1] / net_h * orig_h   # y1
-    dets[:, 3] = dets[:, 3] / net_h * orig_h   # y2
+    dets[:, 0] = dets[:, 0] / net_w * orig_w  # x1
+    dets[:, 2] = dets[:, 2] / net_w * orig_w  # x2
+    dets[:, 1] = dets[:, 1] / net_h * orig_h  # y1
+    dets[:, 3] = dets[:, 3] / net_h * orig_h  # y2
 
     # clamp
     clip_coords(dets[:, :4], (orig_h, orig_w))
@@ -172,6 +172,7 @@ def map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h):
     :param orig_h:
     :return:
     """
+
     def get_padding():
         """
         :return:
@@ -196,10 +197,10 @@ def map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h):
     top, bottom, left, right, new_shape = get_padding()
     new_w, new_h = new_shape
 
-    dets[:, 0] = (dets[:, 0] - left) / new_w * orig_w   # x1
-    dets[:, 2] = (dets[:, 2] - left) / new_w * orig_w   # x2
-    dets[:, 1] = (dets[:, 1] - top)  / new_h * orig_h   # y1
-    dets[:, 3] = (dets[:, 3] - top)  / new_h * orig_h   # y2
+    dets[:, 0] = (dets[:, 0] - left) / new_w * orig_w  # x1
+    dets[:, 2] = (dets[:, 2] - left) / new_w * orig_w  # x2
+    dets[:, 1] = (dets[:, 1] - top) / new_h * orig_h  # y1
+    dets[:, 3] = (dets[:, 3] - top) / new_h * orig_h  # y2
 
     # clamp
     clip_coords(dets[:, :4], (orig_h, orig_w))
@@ -515,7 +516,8 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
-            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(t_obj.dtype)  # g_iou ratio taken into account
+            t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
+                t_obj.dtype)  # g_iou ratio taken into account
 
             if model.nc > 1:  # cls loss_funcs (only if multiple classes)
                 t = torch.full_like(pred_s[:, 5:], cn)  # targets: nb × num_classes
@@ -958,6 +960,115 @@ def build_targets(preds, targets, model):
     return t_cls, t_box, indices, av
 
 
+def non_max_suppression_debug(predictions,
+                              yolo_inds,
+                              grids,
+                              conf_thres=0.1,
+                              iou_thres=0.6,
+                              merge=False,
+                              classes=None,
+                              agnostic=False):
+    """Performs Non-Maximum Suppression (NMS) on inference results
+
+    Returns:
+         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
+    """
+    if predictions.dtype is torch.float16:
+        predictions = predictions.float()  # to FP32
+
+    nc = predictions[0].shape[1] - 5  # number of classes
+    xc = predictions[..., 4] > conf_thres  # candidates
+
+    # Settings
+    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    max_det = 300  # maximum number of detections per image
+    time_limit = 10.0  # seconds to quit after
+    redundant = True  # require redundant detections
+    multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
+
+    # t = time.time()
+    output = [None] * predictions.shape[0]
+    output_yolo_inds = [None] * predictions.shape[0]
+    out_girds = [None] * predictions.shape[0]
+
+    for xi, x in enumerate(predictions):  # xi: image index in the batch, image inference
+        # Apply constraints
+        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        x = x[xc[xi]]  # confidence
+        yolo_inds = yolo_inds[xi][xc[xi]]
+        grids = grids[xi][xc[xi]]
+
+        # If none remain process next image
+        if not x.shape[0]:
+            continue
+
+        # Compute conf
+        x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf(目标概率*前景概率)
+
+        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
+        box = xywh2xyxy(x[:, :4])
+
+        # Detections matrix nx6 (xyxy, conf, cls)
+        if multi_label:
+            i, j = (x[:, 5:] > conf_thres).nonzero().t()
+
+            boxes = box[i]
+            cls_scores = x[i, j + 5, None]
+            cls_inds = j[:, None].float()
+
+            yolo_inds = yolo_inds[i]
+            grids = grids[i]
+
+            # x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            x = torch.cat((boxes, cls_scores, cls_inds), 1)  # box(4), cls_score(1), cls_id(1): n×6
+
+        else:  # best class only
+            conf, j = x[:, 5:].max(1, keepdim=True)
+            x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+
+        # Filter by class
+        if classes:
+            x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
+
+        # Apply finite constraint
+        # if not torch.isfinite(x).all():
+        #     x = x[torch.isfinite(x).all(1)]
+
+        # If none remain process next image
+        n = x.shape[0]  # number of boxes
+        if not n:
+            continue
+
+        # Sort by confidence
+        # x = x[x[:, 4].argsort(descending=True)]
+
+        # Batched NMS
+        c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
+        boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+        i = torchvision.ops.boxes.nms(boxes, scores, iou_thres)
+        if i.shape[0] > max_det:  # limit detections
+            i = i[:max_det]
+        if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
+            try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+                iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                weights = iou * scores[None]  # box weights
+                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+                if redundant:
+                    i = i[iou.sum(1) > 1]  # require redundancy
+            except:  # possible CUDA error https://github.com/ultralytics/yolov3/issues/1139
+                print(x, i, x.shape, i.shape)
+                pass
+
+        output[xi] = x[i]
+        # if (time.time() - t) > time_limit:
+        #    break  # time limit exceeded
+
+        output_yolo_inds[xi] = yolo_inds[i]
+        out_girds[xi] = grids[i]
+
+    return output, output_yolo_inds, out_girds
+
+
 def non_max_suppression_with_yolo_inds(predictions,
                                        yolo_inds,
                                        conf_thres=0.1,
@@ -1206,7 +1317,8 @@ def coco_class_count(path='../coco/labels/train2014/'):
         print(i, len(files))
 
 
-def coco_only_people(path='../coco/labels/train2017/'):  # from evaluate_utils.evaluate_utils import *; coco_only_people()
+def coco_only_people(
+        path='../coco/labels/train2017/'):  # from evaluate_utils.evaluate_utils import *; coco_only_people()
     # Find images with only people
     files = sorted(glob.glob('%s/*.*' % path))
     for i, file in enumerate(files):
@@ -1222,7 +1334,8 @@ def select_best_evolve(path='evolve*.txt'):  # from evaluate_utils.evaluate_util
         print(file, x[fitness(x).argmax()])
 
 
-def crop_images_random(path='../images/', scale=0.50):  # from evaluate_utils.evaluate_utils import *; crop_images_random()
+def crop_images_random(path='../images/',
+                       scale=0.50):  # from evaluate_utils.evaluate_utils import *; crop_images_random()
     # crops images into random squares up to scale fraction
     # WARNING: overwrites images!
     for file in tqdm(sorted(glob.glob('%s/*.*' % path))):

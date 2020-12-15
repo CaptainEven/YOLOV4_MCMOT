@@ -430,45 +430,6 @@ class MCJDETracker(object):
         else:  # darknet format
             load_darknet_weights(self.model, opt.weights)
 
-        # # ----- for debugging...
-        # w_f_out_path = '/mnt/diskb/even/w_pt.txt'
-        # with open(w_f_out_path, 'w', encoding='utf-8') as f:
-        #     for i, (name, child) in enumerate(self.model.module_list.named_children()):
-        #         for j, param in enumerate(child.parameters()):
-        #             if len(param.shape) == 4:
-        #                 f.write('Layer_{:s}_{:s}, shape: {:d}×{:d}×{:d}×{:d}\n'
-        #                         .format(name, str(j),
-        #                                 param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
-        #                 if param.numel() > 64:
-        #                     items = param.view(1, -1)[0, :64].squeeze()
-        #                 else:
-        #                     items = param.view(1, -1).squeeze()
-        #             elif len(param.shape) == 2:
-        #                 f.write('Layer_{:s}_{:s}, shape: {:d}×{:d}\n'
-        #                         .format(name, str(j), param.shape[0], param.shape[1]))
-        #                 if param.numel() > 64:
-        #                     items = param.view(1, -1)[0, :64].squeeze()
-        #                 else:
-        #                     items = param.view(1, -1).squeeze()
-        #             elif len(param.shape) == 1:
-        #                 f.write('Layer_{:s}_{:s}, shape: {:d}\n'
-        #                         .format(name, str(j), param.shape[0]))
-        #                 if param.numel() > 64:
-        #                     items = param.view(1, -1)[0, :64].squeeze()
-        #                 else:
-        #                     items = param.view(1, -1).squeeze()
-        #             else:
-        #                 print(param.shape)
-        #
-        #             # items = param.view(1, -1).squeeze()
-        #             for k, item in enumerate(items):
-        #                 if k != 0 and k % 8 == 0:
-        #                     f.write('\n')
-        #                 f.write('{:.6f} '.format(item))
-        #             f.write('\n\n')
-        #         f.write('\n\n\n')
-        # # -----
-
         # Put model to device and set eval mode
         self.model.to(device).eval()
         # ----------
@@ -478,7 +439,7 @@ class MCJDETracker(object):
 
         # Define tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
-        self.lost_tracks_dict = defaultdict(list)     # value type: list[Track]
+        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
         self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
 
         # init frame index
@@ -581,17 +542,13 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
-            # for debugging...
-            pred, pred_orig, reid_feat_out, yolo_ids, grids = self.model.forward(img, augment=self.opt.augment)
-
-            # pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
-
+            pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # L2 normalize feature map
             reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
-            # apply NMS
+            # ----- apply NMS
             pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(pred,
                                                                      yolo_ids,
                                                                      self.opt.conf_thres,
@@ -645,7 +602,6 @@ class MCJDETracker(object):
 
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
-                # tmp = reid_feat_map[0, :, 30, 19]
 
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
@@ -661,11 +617,7 @@ class MCJDETracker(object):
                 dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         # Process each object class
-
-        # # for debugging...
-        # bbox_feat_out_path = '/mnt/diskb/even/bbox_feat_out.txt'
-        # f = open(bbox_feat_out_path, 'w', encoding='utf-8')
-
+        grid_whs = [[24, 14], [48, 28], [96, 56]]
         for cls_id in range(self.opt.num_classes):
             cls_inds = torch.where(dets[:, -1] == cls_id)
             cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)
@@ -673,21 +625,6 @@ class MCJDETracker(object):
 
             cls_dets = cls_dets.detach().cpu().numpy()
             cls_id_feature = np.array(cls_id_feature)
-
-            # # for debugging...
-            # f.write('Class {:d}, obj number: {:d}\n'.format(cls_id, cls_dets.shape[0]))
-            # for k in range(cls_dets.shape[0]):
-            #     det = cls_dets[k]
-            #     feat = cls_id_feature[k]
-            #
-            #     x1, y1, x2, y2, score, cls_id = det
-            #     f.write('{:.3f} {:.3f} {:.3f} {:.3f}\n'.format(x1, y1, x2, y2))
-            #
-            #     for l, item in enumerate(feat):  # 128
-            #         if l != 0 and l % 8 == 0:
-            #             f.write('\n')
-            #         f.write('{:.6f} '.format(item))
-            #     f.write('\n\n')
 
             if len(cls_dets) > 0:
                 '''Detections, tlbrs: top left bottom right score'''
@@ -812,11 +749,6 @@ class MCJDETracker(object):
             # logger.debug('Removed: {}'.format(
             #     [track.track_id for track in removed_tracks_dict[cls_id]]))
 
-        #     # for debugging...
-        #     f.write('\n\n')
-        #
-        # # for debugging...
-        # f.close()
         return output_tracks_dict
 
 

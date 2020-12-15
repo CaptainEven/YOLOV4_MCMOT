@@ -53,7 +53,28 @@ class RouteGroup(nn.Module):
             return out[self.group_id]
 
 
-# scaled_channels layer
+# SAM layer
+class ScaleSpatial(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+    def __init__(self, layers):
+        super(ScaleSpatial, self).__init__()
+        self.layers = layers  # layer indices
+
+    def forward(self, x, outputs):
+        a = outputs[self.layers[0]]
+        return x * a
+
+
+class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+    def __init__(self, layers):
+        super(ScaleChannel, self).__init__()
+        self.layers = layers  # layer indices
+
+    def forward(self, x, outputs):
+        a = outputs[self.layers[0]]
+        return x.expand_as(a) * a
+
+
+# scaled_channels layer: my implemention
 class ScaleChannels(nn.Module):
     def __init__(self, layers):
         super(ScaleChannels, self).__init__()
@@ -86,13 +107,22 @@ class Dropout(nn.Module):
         return F.dropout(x, p=self.prob)
 
 
-# To do global average pooling
+# To do global average pooling: my implemention
 class GlobalAvgPool(nn.Module):
     def __init__(self):
         super(GlobalAvgPool, self).__init__()
 
     def forward(self, x):
         return F.adaptive_avg_pool2d(x, (1, 1))  # set output size (1, 1)
+
+
+class GAP(nn.Module):
+    def __init__(self, dimension=1):
+        super(GAP, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+
+    def forward(self, x):
+        return self.avg_pool(x)
 
 
 class FeatureConcat(nn.Module):

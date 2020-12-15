@@ -99,10 +99,6 @@ def run_detection(opt):
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
-            # # for debugging...
-            # out_path = '/mnt/diskb/even/input.bin'
-            # img.cpu().numpy().tofile(out_path)
-
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
@@ -517,7 +513,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_tmp.weights',
+                                 default='weights/track_last_20_1215.weights',
                                  help='weights path')
         # ----------
 
