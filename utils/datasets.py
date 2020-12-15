@@ -45,12 +45,17 @@ def exif_size(img):
 
 
 class LoadImages:  # for inference
-    def __init__(self, path, net_w=416, net_h=416):
+    def __init__(self, path, img_proc_method, net_w=416, net_h=416):
         """
         :param path:
+        :param img_proc_method:
         :param net_w:
         :param net_h:
         """
+        # ----- image pre-processing method
+        self.img_proc_method = img_proc_method
+        print('Image pre-processing method: {:s}'.format(self.img_proc_method))
+
         if type(path) == list:
             self.files = path
 
@@ -131,7 +136,10 @@ class LoadImages:  # for inference
 
         # Pad and resize
         # img = letterbox(img0, new_shape=self.img_size)[0]  # to make sure mod by 64
-        img = pad_resize_ratio(img0, self.net_w, self.net_h)
+        if self.img_proc_method == 'letterbox':
+            img = pad_resize_ratio(img0, self.net_w, self.net_h)
+        elif self.img_proc_method == 'resize':
+            img = cv2.resize(img0, (self.net_w, self.net_h), cv2.INTER_LINEAR)
 
         # Convert: BGR to RGB and HWC to CHW
         img = img[:, :, ::-1].transpose(2, 0, 1)
@@ -1066,11 +1074,13 @@ def pad_resize_ratio(img, net_w, net_h):
         top = round(pad - 0.1)
         bottom = round(pad + 0.1)
 
-    img_resize = cv2.resize(img, (new_w, new_h), cv2.INTER_LINEAR)
+    # img_resize = cv2.resize(img, (new_w, new_h), cv2.INTER_LINEAR)
+    img_resize = cv2.resize(img, (net_w, net_h), cv2.INTER_LINEAR)
 
     # add border
     img_out = cv2.copyMakeBorder(img_resize, top, bottom, left, right, cv2.BORDER_CONSTANT, value=127)
-    return img_out
+    # return img_out
+    return img_resize
 
 
 def pad_resize_img_square(img, square_size):

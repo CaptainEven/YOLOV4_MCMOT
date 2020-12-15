@@ -140,6 +140,28 @@ def xywh2xyxy(x):
 #         x1, y1, x2, y2 = box.T
 #         return np.stack(((x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1)).T
 
+# coordinate transformation: convert back to original image coordinate
+# for resizing pre-processing
+def map_resize_back(dets, net_w, net_h, orig_w, orig_h):
+    """
+    :param dets:
+    :param net_w:    eg: 768
+    :param net_h:    eg: 448
+    :param orig_w:   eg: 1920
+    :param orig_h:   eg: 1080
+    :return:
+    """
+    dets[:, 0] = dets[:, 0] / net_w * orig_w   # x1
+    dets[:, 2] = dets[:, 2] / net_w * orig_w   # x2
+    dets[:, 1] = dets[:, 1] / net_h * orig_h   # y1
+    dets[:, 3] = dets[:, 3] / net_h * orig_h   # y2
+
+    # clamp
+    clip_coords(dets[:, :4], (orig_h, orig_w))
+
+    return dets
+
+
 # 坐标系转换
 def map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h):
     """
@@ -205,11 +227,18 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
 
 
 def clip_coords(boxes, img_shape):
+    """
+    :param boxes:
+    :param img_shape: h, w
+    :return:
+    """
     # Clip bounding xyxy bounding boxes to image shape (height, width)
-    boxes[:, 0].clamp_(0, img_shape[1])  # x1
-    boxes[:, 1].clamp_(0, img_shape[0])  # y1
-    boxes[:, 2].clamp_(0, img_shape[1])  # x2
-    boxes[:, 3].clamp_(0, img_shape[0])  # y2
+    h, w = img_shape
+
+    boxes[:, 0].clamp_(0, w)  # x1
+    boxes[:, 1].clamp_(0, h)  # y1
+    boxes[:, 2].clamp_(0, w)  # x2
+    boxes[:, 3].clamp_(0, h)  # y2
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls):

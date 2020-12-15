@@ -58,9 +58,9 @@ def run_detection(opt):
             with open(opt.source, 'r', encoding='utf-8') as r_h:
                 paths = [x.strip() for x in r_h.readlines()]
                 print('Total {:d} image files.'.format(len(paths)))
-                dataset = LoadImages(path=paths, net_w=opt.net_w, net_h=opt.net_h)
+                dataset = LoadImages(paths, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
         else:
-            dataset = LoadImages(opt.source, net_w=opt.net_w, net_h=opt.net_h)
+            dataset = LoadImages(opt.source, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
 
     if os.path.isdir(opt.output_txt_dir):
         shutil.rmtree(opt.output_txt_dir)
@@ -98,6 +98,10 @@ def run_detection(opt):
             img = torch.from_numpy(img).to(opt.device)
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
+
+            # # for debugging...
+            # out_path = '/mnt/diskb/even/input.bin'
+            # img.cpu().numpy().tofile(out_path)
 
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
@@ -150,7 +154,7 @@ def run_detection(opt):
                 tracker.reset()
 
             # set dataset
-            dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
+            dataset = LoadImages(video_path, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
 
             # set txt results path
             src_name = os.path.split(video_path)[-1]
@@ -169,6 +173,7 @@ def run_detection(opt):
                 img = torch.from_numpy(img).to(opt.device)
                 img = img.float()  # uint8 to fp32
                 img /= 255.0  # 0 - 255 to 0.0 - 1.0
+
                 if img.ndimension() == 3:
                     img = img.unsqueeze(0)
 
@@ -262,7 +267,7 @@ def track_videos_txt(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, net_w=opt.net_w)
+        dataset = LoadImages(video_path, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
 
         # set txt results path
         src_name = os.path.split(video_path)[-1]
@@ -387,7 +392,7 @@ def track_videos_vid(opt):
             tracker.reset()
 
         # set dataset
-        dataset = LoadImages(video_path, net_w=opt.net_w, net_h=opt.net_h)
+        dataset = LoadImages(video_path, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
 
         # get video name
         src_name = os.path.split(video_path)[-1]
@@ -512,7 +517,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_last.pt',
+                                 default='weights/track_tmp.weights',
                                  help='weights path')
         # ----------
 
@@ -587,6 +592,14 @@ class DemoRunner(object):
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
         self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
         self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+        # ----------
+
+        # ---------- Input image Pre-processing method
+        self.parser.add_argument('--img-proc-method',
+                                 type=str,
+                                 default='resize',
+                                 help='Image pre-processing method(letterbox, resize)')
+
         # ----------
 
         self.parser.add_argument('--fourcc', type=str, default='mp4v',

@@ -91,6 +91,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                 modules.add_module('activation', nn.LeakyReLU(0.1, inplace=True))
             elif mdef['activation'] == 'relu':
                 modules.add_module('activation', nn.ReLU(inplace=True))
+            elif mdef['activation'] == 'logistic':  # Add logistic activation support
+                modules.add_module('activation', nn.Sigmoid())
             elif mdef['activation'] == 'swish':
                 modules.add_module('activation', Swish())
             elif mdef['activation'] == 'mish':
@@ -314,7 +316,7 @@ class YOLOLayer(nn.Module):
         else:  # inference
             io = pred.clone()  # inference output
 
-            # process pred to io
+            # ---------- process pred to io
             io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
             io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh  # wh YOLO method
             io[..., :4] *= self.stride  # map from YOLO layer's scale to net input's scale
@@ -323,10 +325,14 @@ class YOLOLayer(nn.Module):
             # gathered pred output: io: view [1, 3, 13, 13, 85] as [1, 507, 85]
             io = io.view(bs, -1, self.no)
 
-            # yolo inds
-            # yolo_inds = torch.full((io.size(0), io.size(1), 1), self.index, dtype=torch.long)
+            # for debugging...
+            self.grid = self.grid.expand(-1, 3, -1, -1, -1)
+            out_grid = self.grid.reshape(bs, -1, 2)
 
-            return io, pred  # , yolo_inds
+            # return io, pred
+
+            # for debugging...
+            return io, pred, out_grid
 
 
 class Darknet(nn.Module):
@@ -468,11 +474,12 @@ class Darknet(nn.Module):
                 str = ''
         # ----------
 
-        # ----------for debugging...
-        # net_out_path = '/mnt/diskb/even/net_out_pt.txt'
+        ## ----------for debugging...
+        # out_layers = [36, 43, 50, 53, 55, 57]
+        # net_out_path = '/mnt/diskb/even/net_out.txt'
         # with open(net_out_path, 'w', encoding='utf-8') as f:
         #     for i, layer in enumerate(out):
-        #         # if i != 36 and i != 43 and i != 50:
+        #         # if not i in out_layers:
         #         #     continue
         #
         #         f.write('Layer {:d}, shape: {:d}×{:d}×{:d}×{:d}\n'
@@ -488,7 +495,20 @@ class Darknet(nn.Module):
         #             f.write('{:.6f} '.format(k.item()))
         #
         #         f.write('\n\n\n')
-        # # ----------
+
+        # with open(net_out_path, 'w', encoding='utf-8') as f:  # H×w×c
+        #     for i, layer in enumerate(out):
+        #         if not i in out_layers:
+        #             continue
+        #
+        #         N, C, H, W = layer.size()
+        #         f.write('{:d} {:d} {:d}\n'.format(C, H, W))
+        #         for h in range(H):
+        #             for w in range(W):
+        #                 for c in range(C):
+        #                     f.write('{:6f}\n'.format(layer[0, c, h, w]))
+        #                 f.write('\n')
+        # ----------
 
         # Get 3 or 2 feature map layers for reid feature vector extraction
         # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
@@ -520,7 +540,10 @@ class Darknet(nn.Module):
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # inference or test
-            x, p = zip(*yolo_out)  # inference output, training output
+            # x, p = zip(*yolo_out)  # inference output, training output
+
+            # for debugging...
+            x, p, grids = zip(*yolo_out)
 
             # ----- record anchor inds
             for yolo_i, yolo_out in enumerate(x):
@@ -541,7 +564,10 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_out, yolo_inds
+                # return x, p, reid_feat_out, yolo_inds
+
+                # for debugging...
+                return x, p, reid_feat_out, yolo_inds, grids
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None
@@ -649,8 +675,8 @@ def save_weights(self, path='model.weights', cutoff=-1):
             self.module.seen.tofile(f)  # (int64) number of images seen during training
 
             # Iterate through layers
-            for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
-                # for i, (mdef, module) in enumerate(zip(self.module.module_defs, self.module.module_list)):
+            # for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
+            for i, (mdef, module) in enumerate(zip(self.module.module_defs, self.module.module_list)):
 
                 if mdef['type'] == 'convolutional':
                     conv_layer = module[0]

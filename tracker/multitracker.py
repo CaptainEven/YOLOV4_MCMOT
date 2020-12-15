@@ -473,9 +473,12 @@ class MCJDETracker(object):
         self.model.to(device).eval()
         # ----------
 
+        # ----- Image pre-processing method
+        self.img_proc_method = opt.img_proc_method
+
         # Define tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
-        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.lost_tracks_dict = defaultdict(list)     # value type: list[Track]
         self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
 
         # init frame index
@@ -539,7 +542,11 @@ class MCJDETracker(object):
 
             # ----- Rescale boxes from img_size to img0 size(from net input size to original size)
             # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
-            dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+            # dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+            if self.opt.img_proc_method == 'resize':
+                dets = map_resize_back(dets, net_w, net_h, orig_w, orig_h)
+            elif self.opt.img_proc_method == 'letterbox':
+                dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         return dets
 
@@ -574,7 +581,11 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
+            # for debugging...
+            pred, pred_orig, reid_feat_out, yolo_ids, grids = self.model.forward(img, augment=self.opt.augment)
+
+            # pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
+
             pred = pred.float()
 
             # L2 normalize feature map
@@ -634,22 +645,49 @@ class MCJDETracker(object):
 
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+                # tmp = reid_feat_map[0, :, 30, 19]
+
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
                 id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
             # Rescale boxes from img_size to img0 size(from net input size to original size)
             # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
-            dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+            # dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+
+            if self.opt.img_proc_method == 'resize':
+                dets = map_resize_back(dets, net_w, net_h, orig_w, orig_h)
+            elif self.opt.img_proc_method == 'letterbox':
+                dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         # Process each object class
+
+        # # for debugging...
+        # bbox_feat_out_path = '/mnt/diskb/even/bbox_feat_out.txt'
+        # f = open(bbox_feat_out_path, 'w', encoding='utf-8')
+
         for cls_id in range(self.opt.num_classes):
             cls_inds = torch.where(dets[:, -1] == cls_id)
-            cls_dets = dets[cls_inds]  # n_objs × 6
+            cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)
             cls_id_feature = id_vects_dict[cls_id]  # n_objs × 128
 
             cls_dets = cls_dets.detach().cpu().numpy()
             cls_id_feature = np.array(cls_id_feature)
+
+            # # for debugging...
+            # f.write('Class {:d}, obj number: {:d}\n'.format(cls_id, cls_dets.shape[0]))
+            # for k in range(cls_dets.shape[0]):
+            #     det = cls_dets[k]
+            #     feat = cls_id_feature[k]
+            #
+            #     x1, y1, x2, y2, score, cls_id = det
+            #     f.write('{:.3f} {:.3f} {:.3f} {:.3f}\n'.format(x1, y1, x2, y2))
+            #
+            #     for l, item in enumerate(feat):  # 128
+            #         if l != 0 and l % 8 == 0:
+            #             f.write('\n')
+            #         f.write('{:.6f} '.format(item))
+            #     f.write('\n\n')
 
             if len(cls_dets) > 0:
                 '''Detections, tlbrs: top left bottom right score'''
@@ -774,6 +812,11 @@ class MCJDETracker(object):
             # logger.debug('Removed: {}'.format(
             #     [track.track_id for track in removed_tracks_dict[cls_id]]))
 
+        #     # for debugging...
+        #     f.write('\n\n')
+        #
+        # # for debugging...
+        # f.close()
         return output_tracks_dict
 
 
