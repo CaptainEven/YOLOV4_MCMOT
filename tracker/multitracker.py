@@ -617,7 +617,6 @@ class MCJDETracker(object):
                 dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
         # Process each object class
-        grid_whs = [[24, 14], [48, 28], [96, 56]]
         for cls_id in range(self.opt.num_classes):
             cls_inds = torch.where(dets[:, -1] == cls_id)
             cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)

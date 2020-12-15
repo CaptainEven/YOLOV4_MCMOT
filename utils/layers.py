@@ -53,15 +53,15 @@ class RouteGroup(nn.Module):
             return out[self.group_id]
 
 
-# SAM layer
-class ScaleSpatial(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+# SAM layer: ScaleSpatial
+class SAM(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
     def __init__(self, layers):
-        super(ScaleSpatial, self).__init__()
+        super(SAM, self).__init__()
         self.layers = layers  # layer indices
 
-    def forward(self, x, outputs):
-        a = outputs[self.layers[0]]
-        return x * a
+    def forward(self, x, outputs):    # using x as point-wise spacial attention[0, 1]
+        a = outputs[self.layers[0]]   # using a as input feature
+        return x * a  # point-wise multiplication
 
 
 class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070

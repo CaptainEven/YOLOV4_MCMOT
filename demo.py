@@ -513,7 +513,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_last_20_1215.weights',
+                                 default='weights/track_last.weights',
                                  help='weights path')
         # ----------
 
