@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.0001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -228,7 +228,7 @@ def train():
 
     # load dark-net format weights
     elif len(weights) > 0:
-        load_darknet_weights(model, weights)
+        load_darknet_weights(model, weights, opt.cutoff)
 
     # freeze weights of some previous layers(for yolo detection only)
     for layer_i, (name, child) in enumerate(model.module_list.named_children()):
@@ -527,7 +527,7 @@ def train():
                         # tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Save model
-                if ni != 0 and ni % 300 == 0:  # save checkpoint every 100 batches
+                if ni != 0 and ni % 100 == 0:  # save checkpoint every 100 batches
                     save = (not opt.nosave) or (not opt.evolve)
                     if save:
                         chkpt = {'epoch': epoch,
@@ -642,7 +642,7 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=150)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
     parser.add_argument('--batch-size', type=int, default=32)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
@@ -671,7 +671,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/track_last_20_1215.weights',
+                        default='./weights/track_last_20_1215_ep20.pt',
                         help='initial weights path')
     # ----------
 
@@ -695,12 +695,18 @@ if __name__ == '__main__':
                         default='track',
                         help='pure_detect, detect or track mode.')
 
-    parser.add_argument('--auto-weight', type=bool, default=False, help='Whether use auto weight tuning')
+    parser.add_argument('--auto-weight', type=bool, default=False, help='whether use auto weight tuning')
+
+    # ----- Set weight loading cutoff
+    parser.add_argument('--cutoff',
+                        type=int,
+                        default=0,  # 0
+                        help='cutoff layer index(index start from 0)')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,
+                        default=1,
                         help='whether in debug mode or not')
 
     opt = parser.parse_args()

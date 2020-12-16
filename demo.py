@@ -45,7 +45,7 @@ def run_detection(opt):
 
     # Set dataset and device
     if opt.input_type == 'videos':
-        out_fps = int(float(opt.outFPS) / float(opt.interval) + 0.5)
+        out_fps = int(float(opt.fps) / float(opt.interval) + 0.5)
         data_type = 'mot'
         video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
         video_path_list.sort()
@@ -250,7 +250,7 @@ def track_videos_txt(opt):
     # tracker = JDETracker(opt)  # Joint detection and embedding
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    out_fps = int(opt.outFPS / opt.interval)
+    out_fps = int(opt.fps / opt.interval)
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
     video_path_list.sort()
@@ -377,7 +377,7 @@ def track_videos_vid(opt):
     # Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    out_fps = int(float(opt.outFPS) / float(opt.interval) + 0.5)
+    out_fps = int(float(opt.fps) / float(opt.interval))
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
     video_path_list.sort()
@@ -478,9 +478,11 @@ def track_videos_vid(opt):
                     fr_cnt += 1
 
         # output tracking result as video: read and write opt.save_img_dir
+        print('Zip to mp4 in fps: {:d}'.format(out_fps))
         result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
         cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
             .format(out_fps, frame_dir, result_video_path)
+        print(cmd_str)
         os.system(cmd_str)
 
 
@@ -508,7 +510,7 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_no_us_sam.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
@@ -563,9 +565,9 @@ class DemoRunner(object):
                                  help='The interval frame of tracking, default no interval.')
 
         # standard output FPS
-        self.parser.add_argument('--outFPS',
+        self.parser.add_argument('--fps',
                                  type=int,
-                                 default=12,
+                                 default=6,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder

@@ -28,7 +28,7 @@ def evaluate_test_set(test_root):
     # demo.opt.cfg = ROOT + '/cfg/' + 'yolov4_mobilev2_2l.cfg'
     # demo.opt.weights = ROOT + '/weights/' + 'track_last.pt'
 
-    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_upsample.cfg'
+    demo.opt.cfg = ROOT + '/cfg/' + 'yolov4-tiny-3l_no_group_id_no_us_sam.cfg'
     demo.opt.weights = ROOT + '/weights/' + 'track_last.weights'
 
     if not os.path.isfile(demo.opt.cfg):

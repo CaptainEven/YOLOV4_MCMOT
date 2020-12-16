@@ -140,6 +140,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             layers = mdef['from']
             filters = output_filters[-1]
             routs.extend([i + l if l < 0 else l for l in layers])
+            routs.extend([i])  # using sam as feature vector output
             modules = SAM(layers=layers)
 
         elif mdef['type'] == 'upsample':
@@ -181,7 +182,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
 
             # modules = WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef)
 
-            # ----- to merge a shortcut layer and an activation layer to one layer
+            # ----- to combine a shortcut layer and an activation layer to one layer
             modules.add_module('WeightedFeatureFusion',
                                WeightedFeatureFusion(layers=layers, weight='weights_type' in mdef))
 
@@ -438,7 +439,8 @@ class Darknet(nn.Module):
                              'FeatureConcat',  # Route(concatenate)
                              'FeatureConcat_l',
                              'RouteGroup',
-                             'ScaleChannels']
+                             'ScaleChannels',
+                             'SAM']
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
             if name in use_output_layers:  # sum, concat
@@ -471,25 +473,30 @@ class Darknet(nn.Module):
 
             # ----------- record previous output layers
             out.append(x if self.routs[i] else [])
+            # out.append(x)  # for debugging...
 
             if verbose:
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
                 str = ''
         # ----------
 
-        # Get 3 or 2 feature map layers for reid feature vector extraction
+        # Get 3 or 2 feature map layers for reid feature vector extraction: original edition
         # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
         # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
         # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
-        # @even: Get feature maps(corresponding to yolo layers)
-        yolo_inds = [-1 - i * 2 for i in range(len(self.yolo_layer_inds))]
-        yolo_inds.sort()
-        for yolo_idx in yolo_inds:
-            yolo_layer = out[yolo_idx]
-            reid_feat_out.append(yolo_layer)
+        # # @even: Get feature maps(corresponding to yolo layers): original edition
+        # yolo_inds = [-1 - i * 2 for i in range(len(self.yolo_layer_inds))]
+        # yolo_inds.sort()
+        # for yolo_idx in yolo_inds:
+        #     yolo_layer = out[yolo_idx]
+        #     reid_feat_out.append(yolo_layer)
 
-        # 3(or 2) yolo output layers and 3 feature layers
+        reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
+        reid_feat_out.append(out[-5])  # the 2nd YOLO scale sam feature map
+        reid_feat_out.append(out[-1])  # the 3rd YOLO scale sam feature map
+
+        # for converting... 3(or 2) yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
         # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
         # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
@@ -562,7 +569,7 @@ def get_yolo_layers(model):
     return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == 'YOLOLayer']  # [89, 101, 113]
 
 
-def load_darknet_weights(self, weights, cutoff=-1):
+def load_darknet_weights(self, weights, cutoff=0):
     # Parses and loads the weights stored in 'weights'
 
     # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
@@ -582,8 +589,8 @@ def load_darknet_weights(self, weights, cutoff=-1):
     ptr = 0
     # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
     for i, (mdef, module) in enumerate(zip(self.module_defs, self.module_list)):
-        # if i > 51:
-        #     break
+        if cutoff != 0 and i > cutoff:
+            break
 
         if mdef['type'] == 'convolutional':
             conv = module[0]
