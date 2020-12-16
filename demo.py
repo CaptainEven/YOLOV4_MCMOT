@@ -515,7 +515,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/track_last.weights',
+                                 default='weights/yolov4_tiny3l_sam_arc_track_last.pt',
                                  help='weights path')
         # ----------
 

@@ -230,7 +230,7 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
-    # freeze weights of some previous layers(for yolo detection only)
+    ## freeze weights of some previous layers(for yolo detection only)
     for layer_i, (name, child) in enumerate(model.module_list.named_children()):
         if layer_i < 51:
             for param in child.parameters():
@@ -543,7 +543,7 @@ def train():
                         del chkpt
 
                         # Save .weights file
-                        wei_f_path = w_dir + opt.task + '_last.weights'
+                        wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
                         save_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
@@ -676,7 +676,7 @@ if __name__ == '__main__':
     # ----------
 
     parser.add_argument('--name',
-                        default='yolov4-tiny-3l',
+                        default='yolov4_tiny3l_sam',
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
