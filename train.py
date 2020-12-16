@@ -22,9 +22,9 @@ except:
     print('Apex recommended for faster mixed precision training: https://github.com/NVIDIA/apex')
     mixed_precision = False  # not installed
 
-wdir = 'weights' + os.sep  # weights dir
-last = wdir + 'last.pt'
-best = wdir + 'best.pt'
+w_dir = 'weights' + os.sep  # weights dir
+last = w_dir + 'last.pt'
+best = w_dir + 'best.pt'
 results_file = 'results.txt'
 
 # Hyper-parameters
@@ -92,7 +92,7 @@ def train():
 
     print('Task mode: {}'.format(opt.task))
 
-    last = wdir + opt.task + '_last.pt'
+    last = w_dir + opt.name + '_' + opt.task + '_last.pt'
 
     cfg = opt.cfg
     data = opt.data
@@ -444,7 +444,7 @@ def train():
                         del chkpt
 
                         # Save .weights file
-                        wei_f_path = wdir + opt.task + '_last.weights'
+                        wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
                         save_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
@@ -543,7 +543,7 @@ def train():
                         del chkpt
 
                         # Save .weights file
-                        wei_f_path = wdir + opt.task + '_last.weights'
+                        wei_f_path = w_dir + opt.task + '_last.weights'
                         save_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
@@ -624,8 +624,8 @@ def train():
     n = opt.name
     if len(n):
         n = '_' + n if not n.isnumeric() else n
-        fresults, flast, fbest = 'results%s.txt' % n, wdir + 'last%s.pt' % n, wdir + 'best%s.pt' % n
-        for f1, f2 in zip([wdir + 'last.pt', wdir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
+        fresults, flast, fbest = 'results%s.txt' % n, w_dir + 'last%s.pt' % n, w_dir + 'best%s.pt' % n
+        for f1, f2 in zip([w_dir + 'last.pt', w_dir + 'best.pt', 'results.txt'], [flast, fbest, fresults]):
             if os.path.exists(f1):
                 os.rename(f1, f2)  # rename
                 ispt = f2.endswith('.pt')  # is *.pt
@@ -666,12 +666,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_no_upsample.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_no_us_sam.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/track_last_20_1215_ep20.pt',
+                        default='./weights/yolov4_tiny3l_sam_arc_track_last.pt',
                         help='initial weights path')
     # ----------
 
