@@ -2,6 +2,7 @@
 
 import torch.nn.functional as F
 from utils.utils import *
+from torch.nn import Parameter
 
 try:
     from mish_cuda import MishCuda as Mish
@@ -9,6 +10,84 @@ except:
     class Mish(nn.Module):  # https://github.com/digantamisra98/Mish
         def forward(self, x):
             return x * F.softplus(x).tanh()
+
+
+# Arc loss
+class ArcMargin(nn.Module):
+    r"""
+    Implement of large margin arc distance: :
+        Args:
+            in_features: size of each input sample
+            out_features: size of each output sample
+            s: norm of input feature
+            m: margin
+
+            cos(theta + m)
+        """
+
+    def __init__(self,
+                 in_features,
+                 out_features,
+                 device,
+                 s=30.0,
+                 m=0.50,
+                 easy_margin=False):
+        """
+        ArcMargin
+        :type in_features: int
+        :type out_features: int
+        :param in_features:
+        :param out_features:
+        :param s:
+        :param m:
+        :param easy_margin:
+        """
+        super(ArcMargin, self).__init__()
+
+        self.device = device
+        self.in_dim = in_features
+        self.out_dim = out_features
+        print('=> in dim: %d, out dim: %d' % (self.in_dim, self.out_dim))
+
+        self.s = s
+        self.m = m
+
+        # 根据输入输出dim确定初始化权重
+        self.weight = Parameter(torch.FloatTensor(self.out_dim, self.in_dim))
+        nn.init.xavier_uniform_(self.weight)
+
+        self.easy_margin = easy_margin
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+    def forward(self, input, label):
+        # --------------------------- cos(theta) & phi(theta) ---------------------------
+        # L2 normalize and calculate cosine
+        cosine = F.linear(F.normalize(input, p=2), F.normalize(self.weight, p=2))
+
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+
+        # phi: cos(θ+m)
+        phi = cosine * self.cos_m - sine * self.sin_m
+        if self.easy_margin:
+            phi = torch.where(cosine > 0, phi, cosine)
+        else:
+            phi = torch.where(cosine > self.th, phi, cosine - self.mm)
+
+        # --------------------------- convert label to one-hot ---------------------------
+        # one_hot = torch.zeros(cosine.size(), requires_grad=True, device='cuda')
+        one_hot = torch.zeros(cosine.size(), device=self.device)  # device='cuda'
+        one_hot.scatter_(1, label.view(-1, 1).long(), 1)
+
+        # -------------torch.where(out_i = {x_i if condition_i else y_i) -------------
+        # you can use torch.where if your torch.__version__ >= 0.4
+        output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
+        output *= self.s
+        # print(output)
+
+        return output
 
 
 def make_divisible(v, divisor):
@@ -59,8 +138,8 @@ class SAM(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/
         super(SAM, self).__init__()
         self.layers = layers  # layer indices
 
-    def forward(self, x, outputs):    # using x as point-wise spacial attention[0, 1]
-        a = outputs[self.layers[0]]   # using a as input feature
+    def forward(self, x, outputs):  # using x as point-wise spacial attention[0, 1]
+        a = outputs[self.layers[0]]  # using a as input feature
         return x * a  # point-wise multiplication
 
 

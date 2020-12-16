@@ -573,7 +573,12 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
                     # L2 normalize the feature vector
                     id_vects = F.normalize(id_vects, dim=1)
 
-                    fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    # # normal FC layer as classifier
+                    # fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    # l_reid += CE_reid(fc_preds, tr_ids[inds])
+
+                    # arc margin FC layer as classifier
+                    fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
 
             # Append targets to text file
