@@ -510,12 +510,12 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_no_us_sam.cfg',
+                                 default='cfg/yolov4-tiny-3l-one-feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/sam_track_last_201216_ep40.weights',
+                                 default='weights/yolov4-tiny-3l_last.weights',
                                  help='weights path')
         # ----------
 
@@ -543,7 +543,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
@@ -599,6 +599,11 @@ class DemoRunner(object):
                                  help='Image pre-processing method(letterbox, resize)')
 
         # ----------
+
+        self.parser.add_argument('--cutoff',
+                                 type=int,
+                                 default=44,  # 0
+                                 help='cutoff layer index(index start from 0)')
 
         self.parser.add_argument('--fourcc', type=str, default='mp4v',
                                  help='output video codec (verify ffmpeg support)')

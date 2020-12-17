@@ -232,7 +232,7 @@ def train():
 
     ## freeze weights of some previous layers(for yolo detection only)
     for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-        if layer_i < 51:
+        if layer_i < 51:  # cutoff layer
             for param in child.parameters():
                 param.requires_grad = False
         else:
@@ -666,18 +666,14 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_tiny3l_one_feat.cfg',
+                        default='cfg/yolov4-tiny-3l-one-feat.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4_tiny3l_one_layer_track_last.weights',
+                        default='./weights/yolov4-tiny-3l_last.weights',
                         help='initial weights path')
     # ----------
-
-    parser.add_argument('--name',
-                        default='yolov4_tiny3l_one_layer',
-                        help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
                         default='3',
@@ -700,14 +696,18 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=0,  # 0
+                        default=44,  # 0
                         help='cutoff layer index(index start from 0)')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,
+                        default=44,
                         help='whether in debug mode or not')
+
+    parser.add_argument('--name',
+                        default='yolov4_tiny3l_one_feat',
+                        help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights

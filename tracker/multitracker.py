@@ -428,7 +428,7 @@ class MCJDETracker(object):
                              verbose=False,
                              max_id_dict=max_id_dict,
                              emb_dim=128,
-                             mode='track').to(device)
+                             mode=opt.task).to(device)
         # print(self.model)
 
         # Load checkpoint
@@ -438,7 +438,7 @@ class MCJDETracker(object):
             if 'epoch' in ckpt.keys():
                 print('Checkpoint of epoch {} loaded.\n'.format(ckpt['epoch']))
         else:  # darknet format
-            load_darknet_weights(self.model, opt.weights)
+            load_darknet_weights(self.model, opt.weights, int(opt.cutoff))
 
         # Put model to device and set eval mode
         self.model.to(device).eval()
@@ -492,7 +492,7 @@ class MCJDETracker(object):
         orig_h, orig_w, _ = img0.shape  # H×W×C
 
         with torch.no_grad():
-            pred, pred_orig, _, _ = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
             # apply NMS
@@ -592,8 +592,8 @@ class MCJDETracker(object):
                 # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
                 # get reid map for this bbox(corresponding yolo idx)
-                reid_feat_map = reid_feat_out[yolo_id]
-                # reid_feat_map = reid_feat_out[0]  # for one layer feature map
+                # reid_feat_map = reid_feat_out[yolo_id]
+                reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
                 # L2 normalize the feature map
                 reid_feat_map = F.normalize(reid_feat_map, dim=1)

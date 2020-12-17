@@ -360,6 +360,7 @@ class Darknet(nn.Module):
         super(Darknet, self).__init__()
 
         self.mode = mode
+        print('Darknet mode: ', self.mode)
 
         # ---------- parsing cfg file
         self.module_defs = parse_model_cfg(cfg)
@@ -495,8 +496,8 @@ class Darknet(nn.Module):
         #     yolo_layer = out[yolo_idx]
         #     reid_feat_out.append(yolo_layer)
 
-        reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
-        reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
+        # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
+        # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
         reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
         # reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
@@ -576,7 +577,9 @@ def get_yolo_layers(model):
     return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == 'YOLOLayer']  # [89, 101, 113]
 
 
-def load_darknet_weights(self, weights, cutoff=0):
+def load_darknet_weights(model, weights, cutoff=0):
+    print('Cutoff: ', cutoff)
+
     # Parses and loads the weights stored in 'weights'
 
     # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
@@ -589,17 +592,19 @@ def load_darknet_weights(self, weights, cutoff=0):
     # Read weights file
     with open(weights, 'rb') as f:
         # Read Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
-        self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
-        self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
+        model.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
+        model.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
     ptr = 0
     # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-    for i, (mdef, module) in enumerate(zip(self.module_defs, self.module_list)):
+    for i, (mdef, module) in enumerate(zip(model.module_defs, model.module_list)):
         if cutoff != 0 and i > cutoff:
             break
+        # if i > 44:
+        #     break
 
-        if mdef['type'] == 'convolutional':
+        if mdef['type'] == 'convolutional' or mdef['type'] == 'deconvolutional':  # how to load 'deconvolutional' layer
             conv = module[0]
             if mdef['batch_normalize']:
                 # Load BN bias, weights, running mean and running variance
@@ -607,8 +612,11 @@ def load_darknet_weights(self, weights, cutoff=0):
                 nb = bn.bias.numel()  # number of biases
 
                 # Bias
-                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
-                ptr += nb
+                try:
+                    bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                    ptr += nb
+                except Exception as e:
+                    print(e)
 
                 # Weight
                 bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
