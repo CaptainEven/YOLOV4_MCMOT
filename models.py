@@ -375,10 +375,10 @@ class Darknet(nn.Module):
 
             for cls_id, nID in self.max_id_dict.items():
                 # choice 1: use normal FC layers as classifiers
-                # self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
+                self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
 
                 # choice 2: use arc margin FC layer as classifier
-                self.id_classifiers.append(ArcMargin(self.emb_dim, nID, device='cuda:0', m=0.2))
+                # self.id_classifiers.append(ArcMargin(self.emb_dim, nID, device='cuda:0', m=0.2))
 
             # add reid classifiers(nn.ModuleList) to self.module_list to be registered
             self.module_list.append(self.id_classifiers)
@@ -495,9 +495,13 @@ class Darknet(nn.Module):
         #     yolo_layer = out[yolo_idx]
         #     reid_feat_out.append(yolo_layer)
 
-        reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
-        reid_feat_out.append(out[-5])  # the 2nd YOLO scale sam feature map
-        reid_feat_out.append(out[-1])  # the 3rd YOLO scale sam feature map
+        reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
+        reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
+        reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
+
+        # reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
+        # reid_feat_out.append(out[-5])  # the 2nd YOLO scale sam feature map
+        # reid_feat_out.append(out[-1])  # the 3rd YOLO scale sam feature map
 
         # for converting... 3(or 2) yolo output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l

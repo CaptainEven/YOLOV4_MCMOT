@@ -1,5 +1,9 @@
 from collections import deque
 
+# for debugging..
+import math
+from scipy.spatial.distance import cdist
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -12,6 +16,12 @@ from tracking_utils.log import logger
 
 from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
+
+
+def cos(array1, array2):
+    norm1 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), array1))))
+    norm2 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), array2))))
+    return sum([array1[i] * array2[i] for i in range(0, len(array1))]) / (norm1 * norm2)
 
 
 # TODO: Multi-class Track class
@@ -571,6 +581,10 @@ class MCJDETracker(object):
             # Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
+
+            # # for debugging...
+            # id_vect_list = []
+
             for det, yolo_id in zip(dets, dets_yolo_ids):
                 x1, y1, x2, y2, conf, cls_id = det
 
@@ -579,12 +593,13 @@ class MCJDETracker(object):
 
                 # get reid map for this bbox(corresponding yolo idx)
                 reid_feat_map = reid_feat_out[yolo_id]
+                # reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
                 # L2 normalize the feature map
                 reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
-                assert b == 1  # make sure batch size is 1
+                # assert b == 1  # make sure batch size is 1
 
                 # map center point from net scale to feature map scale(1/4 of net input size)
                 center_x = (x1 + x2) * 0.5
@@ -603,6 +618,9 @@ class MCJDETracker(object):
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
 
+                # # for debugging...
+                # id_vect_list.append(id_feat_vect)
+
                 id_feat_vect = id_feat_vect.squeeze()
                 id_feat_vect = id_feat_vect.cpu().numpy()
                 id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
@@ -615,6 +633,106 @@ class MCJDETracker(object):
                 dets = map_resize_back(dets, net_w, net_h, orig_w, orig_h)
             elif self.opt.img_proc_method == 'letterbox':
                 dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+
+        # # for debugging...
+        # debug_f_path = '/mnt/diskb/even/debug_{:d}.txt'.format(self.frame_id)
+        # f = open(debug_f_path, 'w', encoding='utf-8')
+        # dets = dets[dets[:, 5] == 0]
+        # for k, det in enumerate(dets):
+        #     x1, y1, x2, y2, score, cls_id = det.detach().cpu().numpy()
+        #     feat = list(id_vect_list[k].detach().cpu().numpy())
+        #     f.write('{:d} {:.3f} {:d} {:d} {:d} {:d} [{:.5f} {:.5f} {:.5f} {:.5f} {:.5f}]\n'
+        #             .format(int(cls_id), score, int(x1), int(y1), int(x2 - x1), int(y2 - y1),
+        #                     feat[0], feat[1], feat[2], feat[3], feat[4]))
+        #
+        # if self.frame_id != 1:  # compute sim matrix
+        #     if len(self.last_dets) != len(dets):
+        #         print('[Warning]: not equal!')
+        #
+        #         # 写匹配矩阵
+        #         f.write('\n\n')
+        #         for k in range(len(self.last_dets)):
+        #             f.write(' {:d} '.format(k))
+        #         f.write('\n')
+        #
+        #         for i in range(len(dets)):
+        #             feat_cur = id_vect_list[i]
+        #             x1_cur, y1_cur, x2_cur, y2_cur = det.detach().cpu().numpy()[:4]
+        #             x_cur = (x1_cur + x2_cur) * 0.5
+        #             y_cur = (y1_cur + y2_cur) * 0.5
+        #
+        #             for j in range(len(self.last_dets)):
+        #                 pre_det = self.last_dets[j]
+        #                 feat_pre = self.last_feat_list[j]
+        #
+        #                 x1_pre, y1_pre, x2_pre, y2_pre = pre_det.detach().cpu().numpy()[:4]
+        #                 x_pre = (x1_pre + x2_pre) * 0.5
+        #                 y_pre = (y1_pre + y2_pre) * 0.5
+        #
+        #                 dist = math.sqrt((x_cur - x_pre) * (x_cur - x_pre)
+        #                                  + (y_cur - y_pre) * (y_cur - y_pre))
+        #                 sim = cos(feat_cur, feat_pre)
+        #
+        #                 f.write('{:.3f}:{:.3f} '.format(dist, sim))
+        #             f.write('\n')
+        #     else:
+        #         # 寻找id映射
+        #         id_mapping = []  # pre -> cur
+        #         for i, pre_det in enumerate(self.last_dets):
+        #             x1_pre, y1_pre, x2_pre, y2_pre = pre_det.detach().cpu().numpy()[:4]
+        #             x_pre = (x1_pre + x2_pre) * 0.5
+        #             y_pre = (y1_pre + y2_pre) * 0.5
+        #
+        #             # find best match
+        #             min_dist = 100000.0
+        #             match_id = -1
+        #             for j, det in enumerate(dets):
+        #                 x1_cur, y1_cur, x2_cur, y2_cur = det.detach().cpu().numpy()[:4]
+        #                 x_cur = (x1_cur + x2_cur) * 0.5
+        #                 y_cur = (y1_cur + y2_cur) * 0.5
+        #
+        #                 dist = math.sqrt((x_cur - x_pre) * (x_cur - x_pre)
+        #                                  + (y_cur - y_pre) * (y_cur - y_pre))
+        #
+        #                 if dist < min_dist:
+        #                     min_dist = dist
+        #                     match_id = j
+        #
+        #             id_mapping.append(match_id)
+        #
+        #         # 写匹配矩阵
+        #         f.write('\n\n')
+        #         for k in range(len(self.last_dets)):
+        #             f.write(' {:d} '.format(k))
+        #         f.write('\n')
+        #
+        #         for i in range(len(dets)):
+        #             # f.write('{:d} '.format(i))
+        #
+        #             det_id = id_mapping[i]  # pre -> cur
+        #             det = dets[det_id]
+        #             feat_cur = id_vect_list[det_id]
+        #             x1_cur, y1_cur, x2_cur, y2_cur = det.detach().cpu().numpy()[:4]
+        #             x_cur = (x1_cur + x2_cur) * 0.5
+        #             y_cur = (y1_cur + y2_cur) * 0.5
+        #
+        #             for j in range(len(self.last_dets)):
+        #                 pre_det = self.last_dets[j]
+        #                 feat_pre = self.last_feat_list[j]
+        #
+        #                 x1_pre, y1_pre, x2_pre, y2_pre = pre_det.detach().cpu().numpy()[:4]
+        #                 x_pre = (x1_pre + x2_pre) * 0.5
+        #                 y_pre = (y1_pre + y2_pre) * 0.5
+        #
+        #                 dist = math.sqrt((x_cur - x_pre) * (x_cur - x_pre)
+        #                                  + (y_cur - y_pre) * (y_cur - y_pre))
+        #                 sim = cos(feat_cur, feat_pre)
+        #
+        #                 if det_id == j and dist < 30 and sim < 0.0:
+        #                     print('frame {:d}, {:.3f}, {:.3f}'.format(self.frame_id, dist, sim))
+        #
+        #             #     f.write('{:.3f}:{:.3f} '.format(dist, sim))
+        #             # f.write('\n')
 
         # Process each object class
         for cls_id in range(self.opt.num_classes):
@@ -747,6 +865,13 @@ class MCJDETracker(object):
             #     [track.track_id for track in lost_tracks_dict[cls_id]]))
             # logger.debug('Removed: {}'.format(
             #     [track.track_id for track in removed_tracks_dict[cls_id]]))
+
+        # # for debugging...
+        # self.last_dets = dets
+        # self.last_feat_list = id_vect_list
+        # f.close()
+        # print('{:s} written.'.format(debug_f_path))
+        # # print('Frame {:d} done.'.format(self.frame_id))
 
         return output_tracks_dict
 

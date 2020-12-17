@@ -484,7 +484,7 @@ def train():
                 pred, reid_feat_out = model.forward(imgs)
 
                 # Loss
-                loss, loss_items = compute_loss_no_upsample(pred, reid_feat_out, targets, track_ids, model)
+                loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model)
 
                 if opt.auto_weight:
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
@@ -666,21 +666,21 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_no_us_sam.cfg',
+                        default='cfg/yolov4_tiny3l_one_feat.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4_tiny3l_sam_arc_track_last.pt',
+                        default='./weights/yolov4_tiny3l_one_layer_track_last.weights',
                         help='initial weights path')
     # ----------
 
     parser.add_argument('--name',
-                        default='yolov4_tiny3l_sam',
+                        default='yolov4_tiny3l_one_layer',
                         help='renames results.txt to results_name.txt if supplied')
 
     parser.add_argument('--device',
-                        default='7',
+                        default='3',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -706,7 +706,7 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=1,
+                        default=0,
                         help='whether in debug mode or not')
 
     opt = parser.parse_args()

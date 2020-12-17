@@ -515,7 +515,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4_tiny3l_sam_arc_track_last.pt',
+                                 default='weights/sam_track_last_201216_ep40.weights',
                                  help='weights path')
         # ----------
 
@@ -543,7 +543,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
@@ -567,7 +567,7 @@ class DemoRunner(object):
         # standard output FPS
         self.parser.add_argument('--fps',
                                  type=int,
-                                 default=6,
+                                 default=12,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
