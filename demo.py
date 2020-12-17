@@ -515,7 +515,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
                                  help='weights path')
         # ----------
 
@@ -543,7 +543,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
@@ -602,8 +602,8 @@ class DemoRunner(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=44,  # 0
-                                 help='cutoff layer index(index start from 0)')
+                                 default=0,  # 0 or 44
+                                 help='cutoff layer index, 0 means all layers loaded.')
 
         self.parser.add_argument('--fourcc', type=str, default='mp4v',
                                  help='output video codec (verify ffmpeg support)')

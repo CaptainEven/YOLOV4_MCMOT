@@ -632,11 +632,7 @@ def load_darknet_weights(model, weights, cutoff=0):
             else:
                 # Load conv. bias
                 nb = conv.bias.numel()
-
-                try:
-                    conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
-                except Exception as e:
-                    print(e)
+                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
 
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
@@ -661,7 +657,7 @@ def save_weights(self, path='model.weights', cutoff=-1):
             # for i, (mdef, module) in enumerate(zip(self.module.module_defs[:cutoff], self.module.module_list[:cutoff])):
             for i, (mdef, module) in enumerate(zip(self.module.module_defs, self.module.module_list)):
 
-                if mdef['type'] == 'convolutional':
+                if mdef['type'] == 'convolutional' or mdef['type'] == 'deconvolutional':
                     conv_layer = module[0]
                     # If batch norm, load bn first
                     if mdef['batch_normalize']:
@@ -682,7 +678,7 @@ def save_weights(self, path='model.weights', cutoff=-1):
             # Iterate through layers
             # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
             for i, (mdef, module) in enumerate(zip(self.module_defs, self.module_list)):
-                if mdef['type'] == 'convolutional':
+                if mdef['type'] == 'convolutional' or mdef['type'] == 'deconvolutional':
                     conv_layer = module[0]
                     # If batch norm, load bn first
                     if mdef['batch_normalize']:

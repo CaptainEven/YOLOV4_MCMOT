@@ -232,7 +232,7 @@ def train():
 
     ## freeze weights of some previous layers(for yolo detection only)
     for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-        if layer_i < 51:  # cutoff layer
+        if layer_i < 44:  # cutoff layer
             for param in child.parameters():
                 param.requires_grad = False
         else:
@@ -671,12 +671,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_last.weights',
+                        default='./weights/v4_tiny3l_one_feat_track_last.pt',
                         help='initial weights path')
     # ----------
 
     parser.add_argument('--device',
-                        default='3',
+                        default='2',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -696,17 +696,17 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=44,  # 0
+                        default=0,  # 0
                         help='cutoff layer index(index start from 0)')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=44,
+                        default=0,
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='yolov4_tiny3l_one_feat',
+                        default='v4_tiny3l_one_feat',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()
