@@ -123,7 +123,7 @@ class FeatureMatcher(object):
 
     def load_gt(self):
         """
-
+        Convert to x1, y1, x2, y2, tr_id, cls_id format
         :return:
         """
 
@@ -149,7 +149,7 @@ class FeatureMatcher(object):
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
                 pred = pred.float()
 
-                # ----- get dets
+                # ----- get dets: in x1, y1, x2, y2, score, cls_id format
                 # apply NMS
                 pred = non_max_suppression(predictions=pred,
                                            conf_thres=self.opt.conf,
