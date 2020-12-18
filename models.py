@@ -504,6 +504,7 @@ class Darknet(nn.Module):
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
         # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
         # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
+        # return out[29], out[36], out[43], out[-1]  # for one layer feature map
 
         # ----- Output mode
         if self.training:  # train

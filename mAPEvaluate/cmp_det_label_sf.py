@@ -71,7 +71,7 @@ def cmp_data(cmp_type, detect_objs, label_objs, thresh, iou_thresh, img):
     :param cmp_type:
     :param detect_objs:
     :param label_objs:
-    :param thresh:
+    :param thresh:  score thresh
     :param iou_thresh:
     :param img:
     :return:
@@ -87,6 +87,7 @@ def cmp_data(cmp_type, detect_objs, label_objs, thresh, iou_thresh, img):
             continue
 
         label_num += 1
+
         box_gt = [l_obj[1], l_obj[2], l_obj[3], l_obj[4]]  # center_x, center_y, bbox_w, bbox_h
         rect_gt = box_to_rect(box_gt, img.shape[1], img.shape[0])  # x1, y1, x2, y2 (in pixel)
         rect_det = []

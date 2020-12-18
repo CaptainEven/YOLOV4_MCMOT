@@ -65,7 +65,7 @@ def plot_detects(img,
     for obj_i, obj in enumerate(dets):
         # left, top, right, down, score, cls_id
         x1, y1, x2, y2, score, cls_id = obj
-        cls_id = int(cls_id.detach().cpu())
+        cls_id = int(cls_id)
         cls_name = id2cls[int(cls_id)]
         box_int = tuple(map(int, (x1, y1, x2, y2)))
         # cls_color = cls_color_dict[cls_name]
@@ -73,8 +73,8 @@ def plot_detects(img,
 
         # draw bbox for each object
         cv2.rectangle(img,
-                      box_int[0:2],
-                      box_int[2:4],
+                      box_int[0:2],  # (x1, y1)
+                      box_int[2:4],  # (x2, y2)
                       color=cls_color,
                       thickness=line_thickness)
 

@@ -2,7 +2,11 @@
 
 import os
 import argparse
+from collections import defaultdict
 from models import *
+from utils.utils import map_resize_back, map_to_orig_coords
+from tracking_utils import visualization as vis
+from mAPEvaluate.cmp_det_label_sf import box_iou
 from demo import FindFreeGPU
 from utils.datasets import LoadImages
 
@@ -16,7 +20,7 @@ class FeatureMatcher(object):
                                  default='data/mcmot.names',
                                  help='*.names path')
 
-        # ----- cfg and weights file
+        # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
                                  default='cfg/yolov4-tiny-3l-one-feat.cfg',
@@ -26,12 +30,13 @@ class FeatureMatcher(object):
                                  type=str,
                                  default='weights/v4_tiny3l_one_feat_track_last.weights',
                                  help='weights path')
+        # ----------
         # -----
 
         # input file/folder, 0 for webcam
         self.parser.add_argument('--video',
                                  type=str,
-                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate/val_12.mp4',
+                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate/val_0.mp4',
                                  help='')  # 'data/samples/videos/'
 
         # task mode
@@ -74,6 +79,14 @@ class FeatureMatcher(object):
         # ----------
 
         self.opt = self.parser.parse_args()
+
+        # class name to class id and class id to class name
+        names = load_classes(self.opt.names)
+        self.id2cls = defaultdict(str)
+        self.cls2id = defaultdict(int)
+        for cls_id, cls_name in enumerate(names):
+            self.id2cls[cls_id] = cls_name
+            self.cls2id[cls_name] = cls_id
 
         # video GT
         self.darklabel_txt_path = self.opt.video[:-4] + '_gt.txt'
@@ -120,19 +133,109 @@ class FeatureMatcher(object):
         # set dataset
         self.dataset = LoadImages(self.opt.video, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
-
-    def load_gt(self):
+    def load_gt(self, W, H, one_plus=True):
         """
-        Convert to x1, y1, x2, y2, tr_id, cls_id format
+        Convert to x1, y1, x2, y2, tr_id(start from 1), cls_id format
+        :param W: image width
+        :param H: image height
         :return:
         """
+        # each frame contains a list
+        self.objs_gt = []
 
-    def get_tp(self):  # Get true positive
+        with open(self.darklabel_txt_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+            # traverse each frame
+            fr_idx = 0
+            for fr_i, line in enumerate(lines):
+                line = line.strip().split(',')
+                fr_id = int(line[0])
+                n_objs = int(line[1])
+
+                # traverse each object of the frame
+                fr_objs = []
+                for cur in range(2, len(line), 6):
+                    # read object class id
+                    class_type = line[cur + 5].strip()
+                    class_id = self.cls2id[class_type]  # class type => class id
+
+                    # read track id
+                    if one_plus:
+                        track_id = int(line[cur]) + 1  # track_id从1开始统计
+                    else:
+                        track_id = int(line[cur])
+
+                    # read bbox
+                    x1, y1 = int(line[cur + 1]), int(line[cur + 2])
+                    x2, y2 = int(line[cur + 3]), int(line[cur + 4])
+
+                    # clip bbox
+                    x1 = x1 if x1 >= 0 else 0
+                    x1 = x1 if x1 < W else W - 1
+                    y1 = y1 if y1 >= 0 else 0
+                    y1 = y1 if y1 < H else H - 1
+                    x2 = x2 if x2 >= 0 else 0
+                    x2 = x2 if x2 < W else W - 1
+                    y2 = y2 if y2 >= 0 else 0
+                    y2 = y2 if y2 < H else H - 1
+
+                    fr_objs.append([x1, y1, x2, y2, track_id, class_id])
+
+                self.objs_gt.append(fr_objs)
+
+    def get_tp(self, fr_id, dets, cls_id=0):  # Get true positive
         """
+        Compute true positives for the current frame and specified object class
+        :param fr_id:
+        :param dets:
+        :param cls_id:
         :return:
         """
+        assert len(self.objs_gt) == self.dataset.nframes
+        # print('Compute true positives for frame {:d}...'.format(fr_id))
 
-    def run(self):
+        # get GT objs of current frame for specified object class
+        fr_objs_gt = self.objs_gt[fr_id]
+        objs_gt = [obj for obj in fr_objs_gt if obj[-1] == cls_id]
+        # print(objs_gt)
+
+        # get predicted objs of current frame for specified object class
+        objs_pred = [det for det in dets if det[-1] == cls_id]
+        # print(objs_pred)
+
+        # compute TPs
+        pred_match_flag = [False for n in range(len(objs_pred))]
+        correct = 0
+        TPs = []
+        for i, obj_gt in enumerate(objs_gt):  # each gt obj
+            best_iou = 0
+            best_pred_id = -1
+            for j, obj_pred in enumerate(objs_pred):  # each pred obj
+                box_gt = obj_gt[:4]
+                box_pred = obj_pred[:4]
+                b_iou = box_iou(box_gt, box_pred)  # compute iou
+                if obj_pred[4] > self.opt.conf and b_iou > best_iou:  # meet the conf thresh
+                    best_pred_id = j
+                    best_iou = b_iou
+
+            # meet the iou thresh and not matched yet
+            if best_iou > self.opt.iou and not pred_match_flag[best_pred_id]:
+                correct += 1
+                pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
+                TPs.append(box_pred)
+
+        return TPs
+
+    def run(self, viz_dir=None):
+        # create viz dir
+        if viz_dir != None:
+            if not os.path.isdir(viz_dir):
+                os.makedirs(viz_dir)
+
+        # read net input width and height
+        net_h, net_w = self.opt.net_h, self.opt.net_w
+
         # iterate tracking results of each frame
         for fr_id, (path, img, img0, vid_cap) in enumerate(self.dataset):
             img = torch.from_numpy(img).to(self.opt.device)
@@ -141,9 +244,8 @@ class FeatureMatcher(object):
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
-            # get image size
-            net_h, net_w = img.shape[2:]
-            orig_h, orig_w, _ = img0.shape  # H×W×C
+            # get current frames's image size
+            img_h, img_w = img0.shape[:2]  # H×W×C
 
             with torch.no_grad():
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
@@ -162,14 +264,36 @@ class FeatureMatcher(object):
                     print('[Warning]: no objects detected.')
                     return None
 
-                # load GT
+                if self.opt.img_proc_method == 'resize':
+                    dets = map_resize_back(dets, net_w, net_h, img_w, img_h)
+                elif self.opt.img_proc_method == 'letterbox':
+                    dets = map_to_orig_coords(dets, net_w, net_h, img_w, img_h)
 
-                # compute TPs for current frame
+                dets = dets.detach().cpu().numpy()
 
-                # to storage each detected obj's feature vector
-                reid_feat_list = []
+            # --- viz dets
+            if viz_dir != None:
+                img_plot = vis.plot_detects(img0, dets, len(self.cls2id), fr_id, self.id2cls)
+                det_img_path = viz_dir + '/' + str(fr_id) + '_det' + '.jpg'
+                cv2.imwrite(det_img_path, img_plot)
+
+            # load GT
+            self.load_gt(img_w, img_h)
+
+            # --- viz GTs
+            if viz_dir != None:
+                objs_gt = np.array(self.objs_gt[fr_id])
+                objs_gt[:, 4] = 1.0
+                img_plot = vis.plot_detects(img0, objs_gt, len(self.cls2id), fr_id, self.id2cls)
+                det_img_path = viz_dir + '/' + str(fr_id) + '_gt' + '.jpg'
+                cv2.imwrite(det_img_path, img_plot)
+
+            # compute TPs for current frame
+            TPs = self.get_tp(fr_id, dets, cls_id=0)  # only for car(cls_id == 0)
+            print('{:d} true positive cars.'.format(len(TPs)))
+
 
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run()
+    matcher.run(viz_dir=None)  # '/mnt/diskc/even/viz'

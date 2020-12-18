@@ -217,7 +217,9 @@ def batch_analysis(weights_list_file,
                     print("load image error&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
                     continue
 
+                # ---------- comparing
                 cmp_res = cdl.cmp_data(obj_type, det, label, thresh, iou_thresh, img)
+                # ----------
 
                 cmp_res.update({'image_name': image_name})
                 total_corr += cmp_res['correct']

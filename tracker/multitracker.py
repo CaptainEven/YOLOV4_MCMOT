@@ -449,8 +449,11 @@ class MCJDETracker(object):
         self.model.to(device).eval()
         # ----------
 
-        # ----- Image pre-processing method
+        # ----- image pre-processing method
         self.img_proc_method = opt.img_proc_method
+
+        # ----- read net input width and height
+        self.net_h, self.net_w = self.opt.net_h, self.opt.net_w
 
         # Define tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
@@ -524,6 +527,8 @@ class MCJDETracker(object):
             elif self.opt.img_proc_method == 'letterbox':
                 dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
+            dets = dets.detach().cpu().numpy()
+
         return dets
 
     def update_tracking(self, img, img0):
@@ -542,7 +547,6 @@ class MCJDETracker(object):
         # -----
 
         # Get image size
-        net_h, net_w = img.shape[2:]
         orig_h, orig_w, _ = img0.shape  # H×W×C
 
         # record tracking states of the current frame
@@ -626,9 +630,9 @@ class MCJDETracker(object):
             # dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
 
             if self.opt.img_proc_method == 'resize':
-                dets = map_resize_back(dets, net_w, net_h, orig_w, orig_h)
+                dets = map_resize_back(dets, self.net_w, self.net_h, orig_w, orig_h)
             elif self.opt.img_proc_method == 'letterbox':
-                dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+                dets = map_to_orig_coords(dets, self.net_w, self.net_h, orig_w, orig_h)
 
         # # for debugging...
         # debug_f_path = '/mnt/diskb/even/debug_{:d}.txt'.format(self.frame_id)
