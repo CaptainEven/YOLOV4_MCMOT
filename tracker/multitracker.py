@@ -412,24 +412,28 @@ class MCJDETracker(object):
         #     4: 53
         # }  # previous version
 
-        ## read from .npy(max_id_dict.npy file)
-        max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
-        if os.path.isfile(max_id_dict_file_path):
-            load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
-        max_id_dict = load_dict['max_id_dict'][()]
-
-        print(max_id_dict)
-
         # set device
         device = opt.device
 
         # model in track mode(do detection and reid feature vector extraction)
-        self.model = Darknet(cfg=opt.cfg,
-                             img_size=opt.img_size,
-                             verbose=False,
-                             max_id_dict=max_id_dict,
-                             emb_dim=128,
-                             mode=opt.task).to(device)
+        if self.opt.task == 'track':
+            ## read from .npy(max_id_dict.npy file)
+            max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
+            if os.path.isfile(max_id_dict_file_path):
+                load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
+            max_id_dict = load_dict['max_id_dict'][()]
+            print(max_id_dict)
+
+            self.model = Darknet(cfg=opt.cfg,
+                                 img_size=opt.img_size,
+                                 verbose=False,
+                                 max_id_dict=max_id_dict,
+                                 emb_dim=128,
+                                 mode=opt.task).to(device)
+        elif self.opt.task == 'detect':
+            self.model = Darknet(cfg=opt.cfg,
+                                 img_size=opt.img_size,
+                                 mode='detect').to(device)
         # print(self.model)
 
         # Load checkpoint
@@ -565,21 +569,22 @@ class MCJDETracker(object):
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-
-            # t2 = torch_utils.time_synchronized()
-            # print('run time (%.3fs)' % (t2 - t1))
-
-            # get reid feature for each object class
             if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
 
-            # Get reid feature vector for each detection
+            # t2 = torch_utils.time_synchronized()
+            # print('run time (%.3fs)' % (t2 - t1))
+
+            # ----- Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
 
             # get reid map
             reid_feat_map = reid_feat_out[0]  # for one layer feature map
+
+            # L2 normalize the feature map
+            reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
             # # for debugging...
             # id_vect_list = []
@@ -588,9 +593,7 @@ class MCJDETracker(object):
                 # up-zip det
                 x1, y1, x2, y2, conf, cls_id = det
 
-                # L2 normalize the feature map
-                reid_feat_map = F.normalize(reid_feat_map, dim=1)
-
+                # get feature map's size
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 # assert b == 1  # make sure batch size is 1
 
@@ -726,7 +729,6 @@ class MCJDETracker(object):
         #
         #             #     f.write('{:.3f}:{:.3f} '.format(dist, sim))
         #             # f.write('\n')
-
 
         ## ---------- Process each object class
         for cls_id in range(self.opt.num_classes):
@@ -1019,8 +1021,6 @@ class JDETracker(object):
                 x1, y1, x2, y2, conf, cls_id = det
 
                 # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
-
-
 
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 assert b == 1  # make sure batch size is 1

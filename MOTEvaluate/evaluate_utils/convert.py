@@ -122,6 +122,11 @@ def convert_darklabel_2_mot16(darklabel_txt_path,
 
 def convert_seqs(seq_root, interval=1, default_fps=12, one_plus=True):
     """
+    :param seq_root:
+    :param interval:
+    :param default_fps:
+    :param one_plus:
+    :return:
     """
     if not os.path.isdir(seq_root):
         print('[Err]: invalid seq root.')

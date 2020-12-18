@@ -526,7 +526,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test2.txt',  # test1.txt or c5_test or test2.txt
+                                 default='./data/test1.txt',  # test1.txt or c5_test or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -543,12 +543,12 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='track',
+                                 default='detect',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
                                  type=str,
-                                 default='videos',
+                                 default='txt',
                                  help='videos or txt')
 
         # output type

@@ -154,7 +154,7 @@ def batch_analysis(weights_list_file,
         # print('xxxxxxxxxxx', 'FPS, ', len(image_list) / time_all)
         # # dn.free_net(net)
 
-        # compare label and detection result
+        # compare label and detection result for each object class
         for i, obj_type in enumerate(object_type):
 
             # if obj_type != 'fr':
