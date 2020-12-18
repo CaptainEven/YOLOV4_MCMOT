@@ -2,7 +2,7 @@ from collections import deque
 
 # for debugging..
 import math
-from scipy.spatial.distance import cdist
+# from scipy.spatial.distance import cdist
 
 import numpy as np
 import torch
@@ -727,7 +727,8 @@ class MCJDETracker(object):
         #             #     f.write('{:.3f}:{:.3f} '.format(dist, sim))
         #             # f.write('\n')
 
-        # Process each object class
+
+        ## ---------- Process each object class
         for cls_id in range(self.opt.num_classes):
             cls_inds = torch.where(dets[:, -1] == cls_id)
             cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)

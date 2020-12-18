@@ -96,5 +96,8 @@ class FeatureMatcher(object):
         else:  # darknet format
             load_darknet_weights(self.model, opt.weights, int(opt.cutoff))
 
+        # set dataset
+        self.dataset = LoadImages(video_path, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
+
     def run(self):
         pass
