@@ -13,6 +13,7 @@ from tracker import matching
 from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.utils import *
 from tracking_utils.log import logger
+from utils.utils import non_max_suppression
 
 from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
@@ -552,29 +553,24 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_out, yolo_ids = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
             pred = pred.float()
 
-            # L2 normalize feature map
-            reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
-
             # ----- apply NMS
-            pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(pred,
-                                                                     yolo_ids,
-                                                                     self.opt.conf_thres,
-                                                                     self.opt.iou_thres,
-                                                                     merge=False,
-                                                                     classes=self.opt.classes,
-                                                                     agnostic=self.opt.agnostic_nms)
+            pred = non_max_suppression(predictions=pred,
+                                       conf_thres=self.opt.conf_thres,
+                                       iou_thres=self.opt.iou_thres,
+                                       merge=False,
+                                       classes=self.opt.classes,
+                                       agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
 
             # t2 = torch_utils.time_synchronized()
             # print('run time (%.3fs)' % (t2 - t1))
 
             # get reid feature for each object class
-            if dets is None or dets_yolo_ids is None:
+            if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
 
@@ -582,18 +578,15 @@ class MCJDETracker(object):
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
 
+            # get reid map
+            reid_feat_map = reid_feat_out[0]  # for one layer feature map
+
             # # for debugging...
             # id_vect_list = []
 
-            for det, yolo_id in zip(dets, dets_yolo_ids):
+            for det in dets:
+                # up-zip det
                 x1, y1, x2, y2, conf, cls_id = det
-
-                ## ----- show box size and yolo index
-                # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
-
-                # get reid map for this bbox(corresponding yolo idx)
-                # reid_feat_map = reid_feat_out[yolo_id]
-                reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
                 # L2 normalize the feature map
                 reid_feat_map = F.normalize(reid_feat_map, dim=1)
@@ -997,16 +990,14 @@ class JDETracker(object):
             reid_feat_out[0] = F.normalize(reid_feat_out[0], dim=1)
 
             # apply NMS
-            pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(pred,
-                                                                     yolo_ids,
-                                                                     self.opt.conf_thres,
-                                                                     self.opt.iou_thres,
-                                                                     merge=False,
-                                                                     classes=self.opt.classes,
-                                                                     agnostic=self.opt.agnostic_nms)
+            pred = non_max_suppression(pred,
+                                       self.opt.conf_thres,
+                                       self.opt.iou_thres,
+                                       merge=False,
+                                       classes=self.opt.classes,
+                                       agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_ids[0].squeeze()
 
             # t2 = torch_utils.time_synchronized()
             # print('run time (%.3fs)' % (t2 - t1))
@@ -1019,13 +1010,16 @@ class JDETracker(object):
             # Get reid feature vector for each detection
             b, c, h, w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
-            for det, yolo_id in zip(dets, dets_yolo_ids):
+
+            # get reid map
+            reid_feat_map = reid_feat_out[0]
+
+            for det in dets:
                 x1, y1, x2, y2, conf, cls_id = det
 
                 # print('box area {:.3f}, yolo {:d}'.format((y2-y1) * (x2-x1), int(yolo_id)))
 
-                # get reid map for this bbox(corresponding yolo idx)
-                reid_feat_map = reid_feat_out[yolo_id]
+
 
                 b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
                 assert b == 1  # make sure batch size is 1

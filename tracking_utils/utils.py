@@ -367,41 +367,41 @@ def pooling_nms(heatmap, kernel=1):
     return keep * heatmap
 
 
-def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.2):
-    """
-    Removes detections with lower object confidence score than 'conf_thres'
-    Non-Maximum Suppression to further filter detections.
-    Returns detections with shape:
-        (x1, y1, x2, y2, object_conf, class_score, class_pred)
-    """
-
-    output = [None for _ in range(len(prediction))]
-    for image_i, pred in enumerate(prediction):
-        # Filter out confidence scores below threshold
-        # Get score and class with highest confidence
-
-        v = pred[:, 4] > conf_thres  # non_zero inds
-        v = v.nonzero().squeeze()
-        if len(v.shape) == 0:
-            v = v.unsqueeze(0)
-
-        pred = pred[v]
-
-        # If none are remaining => process next image
-        nP = pred.shape[0]
-        if not nP:
-            continue
-
-        # From (center x, center y, width, height) to (x1, y1, x2, y2)
-        pred[:, :4] = xywh2xyxy(pred[:, :4])
-        nms_indices = nms(pred[:, :4], pred[:, 4], nms_thres)  # (x1, y1, x2, y2), score, iou_th
-        det_max = pred[nms_indices]
-
-        if len(det_max) > 0:
-            # Add max detections to outputs
-            output[image_i] = det_max if output[image_i] is None else torch.cat((output[image_i], det_max))
-
-    return output
+# def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.2):
+#     """
+#     Removes detections with lower object confidence score than 'conf_thres'
+#     Non-Maximum Suppression to further filter detections.
+#     Returns detections with shape:
+#         (x1, y1, x2, y2, object_conf, class_score, class_pred)
+#     """
+#
+#     output = [None for _ in range(len(prediction))]
+#     for image_i, pred in enumerate(prediction):
+#         # Filter out confidence scores below threshold
+#         # Get score and class with highest confidence
+#
+#         v = pred[:, 4] > conf_thres  # non_zero inds
+#         v = v.nonzero().squeeze()
+#         if len(v.shape) == 0:
+#             v = v.unsqueeze(0)
+#
+#         pred = pred[v]
+#
+#         # If none are remaining => process next image
+#         nP = pred.shape[0]
+#         if not nP:
+#             continue
+#
+#         # From (center x, center y, width, height) to (x1, y1, x2, y2)
+#         pred[:, :4] = xywh2xyxy(pred[:, :4])
+#         nms_indices = nms(pred[:, :4], pred[:, 4], nms_thres)  # (x1, y1, x2, y2), score, iou_th
+#         det_max = pred[nms_indices]
+#
+#         if len(det_max) > 0:
+#             # Add max detections to outputs
+#             output[image_i] = det_max if output[image_i] is None else torch.cat((output[image_i], det_max))
+#
+#     return output
 
 
 def return_torch_unique_index(u, uv):

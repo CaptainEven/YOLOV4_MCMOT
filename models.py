@@ -485,10 +485,6 @@ class Darknet(nn.Module):
         # ----------
 
         # Get 3 or 2 feature map layers for reid feature vector extraction: original edition
-        # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
-        # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
-        # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
-
         # # @even: Get feature maps(corresponding to yolo layers): original edition
         # yolo_inds = [-1 - i * 2 for i in range(len(self.yolo_layer_inds))]
         # yolo_inds.sort()
@@ -524,13 +520,13 @@ class Darknet(nn.Module):
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
 
-            # ----- record anchor inds
-            for yolo_i, yolo_out in enumerate(x):
-                yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
-                if yolo_i == 0:
-                    yolo_inds = yolo_inds_i
-                else:
-                    yolo_inds = torch.cat((yolo_inds, yolo_inds_i), 1)
+            # # ----- record anchor inds
+            # for yolo_i, yolo_out in enumerate(x):
+            #     yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
+            #     if yolo_i == 0:
+            #         yolo_inds = yolo_inds_i
+            #     else:
+            #         yolo_inds = torch.cat((yolo_inds, yolo_inds_i), 1)
 
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
@@ -543,7 +539,7 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_out, yolo_inds
+                return x, p, reid_feat_out  # , yolo_inds
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None
