@@ -49,7 +49,7 @@ class FeatureMatcher(object):
         self.parser.add_argument('--img-size', type=int, default=768, help='Image size')
         self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
         self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
-
+        self.parser.add_argument('--augment', action='store_true', help='augmented inference')
         self.parser.add_argument('--num-classes',
                                  type=int,
                                  default=5,
@@ -114,15 +114,12 @@ class FeatureMatcher(object):
         else:  # dark-net format
             load_darknet_weights(self.model, self.opt.weights, int(self.opt.cutoff))
 
+        # Put model to device and set eval mode
+        self.model.to(device).eval()
+
         # set dataset
         self.dataset = LoadImages(self.opt.video, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
-
-    def load_dets(self):  #
-        """
-        x1, y1, x2, y2, conf, cls_id = det
-        :return:
-        """
 
     def load_gt(self):
         """
@@ -137,14 +134,14 @@ class FeatureMatcher(object):
 
     def run(self):
         # iterate tracking results of each frame
-        for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
+        for fr_id, (path, img, img0, vid_cap) in enumerate(self.dataset):
             img = torch.from_numpy(img).to(self.opt.device)
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
-            # Get image size
+            # get image size
             net_h, net_w = img.shape[2:]
             orig_h, orig_w, _ = img0.shape  # H×W×C
 
@@ -152,17 +149,20 @@ class FeatureMatcher(object):
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
                 pred = pred.float()
 
-                # ----- apply NMS
+                # ----- get dets
+                # apply NMS
                 pred = non_max_suppression(predictions=pred,
-                                           conf_thres=self.opt.conf_thres,
-                                           iou_thres=self.opt.iou_thres,
+                                           conf_thres=self.opt.conf,
+                                           iou_thres=self.opt.iou,
                                            merge=False,
-                                           classes=self.opt.classes,
-                                           agnostic=self.opt.agnostic_nms)
+                                           classes=None,
+                                           agnostic=False)
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
                     print('[Warning]: no objects detected.')
                     return None
+
+                # load GT
 
                 # compute TPs for current frame
 

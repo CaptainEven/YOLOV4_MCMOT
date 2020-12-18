@@ -583,7 +583,7 @@ class MCJDETracker(object):
             # get reid map
             reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
-            # L2 normalize the feature map
+            # L2 normalize the feature map(feature map scale(1/4 of net input size))
             reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
             # # for debugging...

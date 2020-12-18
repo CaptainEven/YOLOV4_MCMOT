@@ -543,12 +543,12 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
                                  type=str,
-                                 default='txt',
+                                 default='videos',
                                  help='videos or txt')
 
         # output type

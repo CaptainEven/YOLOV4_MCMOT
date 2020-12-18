@@ -136,7 +136,7 @@ def convert_seqs(seq_root, interval=1, default_fps=12, one_plus=True):
     for seq_name in seq_names:
         darklabel_txt_path = seq_root  + '/' + seq_name[:-4] + '_gt.txt'
 
-        # ---------- do pasing for a seq
+        # ---------- do parsing for a seq
         convert_darklabel_2_mot16(darklabel_txt_path,
                                   interval=interval,
                                   default_fps=default_fps,
