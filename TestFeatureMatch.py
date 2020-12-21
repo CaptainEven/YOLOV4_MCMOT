@@ -421,7 +421,8 @@ class FeatureMatcher(object):
             self.tpid_to_gttrid_last = tpid_to_gttrid
             self.reid_feat_map_last = reid_feat_map
 
-        print('Precision: {:.3f}%, mean cos sim: {:.3f}'.format(correct / total * 100.0, sim_sum / correct))
+        print('Precision: {:.3f}%, mean cos sim: {:.3f}'
+              .format(correct / total * 100.0, sim_sum / correct))
 
 
 if __name__ == '__main__':
