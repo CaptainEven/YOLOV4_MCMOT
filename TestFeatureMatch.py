@@ -290,6 +290,7 @@ class FeatureMatcher(object):
         # ---------- iterate tracking results of each frame
         total = 0
         correct = 0
+        sim_sum = 0.0
         for fr_id, (path, img, img0, vid_cap) in enumerate(self.dataset):
             img = torch.from_numpy(img).to(self.opt.device)
             img = img.float()  # uint8 to fp32
@@ -412,6 +413,7 @@ class FeatureMatcher(object):
                     # update correct
                     if gt_tr_id_pre == gt_tr_id_cur:
                         correct += 1
+                        sim_sum += best_sim
 
             # ---------- update
             self.TPs_pre = TPs
@@ -419,7 +421,7 @@ class FeatureMatcher(object):
             self.tpid_to_gttrid_last = tpid_to_gttrid
             self.reid_feat_map_last = reid_feat_map
 
-        print('Precision: {:.3f}*100.0%'.format(correct / total))
+        print('Precision: {:.3f}%, mean cos sim: {:.3f}'.format(correct / total * 100.0, sim_sum / correct))
 
 
 if __name__ == '__main__':
