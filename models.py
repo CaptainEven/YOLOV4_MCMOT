@@ -598,7 +598,7 @@ def load_darknet_weights(model, weights, cutoff=0):
     for i, (mdef, module) in enumerate(zip(model.module_defs, model.module_list)):
         if cutoff != 0 and i > cutoff:
             break
-        # if i > 44:
+        # if i > 56:
         #     break
 
         if mdef['type'] == 'convolutional' or mdef['type'] == 'deconvolutional':  # how to load 'deconvolutional' layer

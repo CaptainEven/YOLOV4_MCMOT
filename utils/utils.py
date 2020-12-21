@@ -578,7 +578,7 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
                     # fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                     # l_reid += CE_reid(fc_preds, tr_ids[inds])
 
-                    # # arc margin FC layer as classifier
+                    ## arc margin FC layer as classifier
                     fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
 
