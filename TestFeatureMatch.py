@@ -211,7 +211,7 @@ class FeatureMatcher(object):
         pred_match_flag = [False for n in range(len(objs_pred))]
         correct = 0
         TPs = []
-        pred_to_gt_mapping = defaultdict(int)
+        GT_tr_ids = []  # GT ids for each TP
         for i, obj_gt in enumerate(objs_gt):  # each gt obj
             best_iou = 0
             best_pred_id = -1
@@ -227,10 +227,11 @@ class FeatureMatcher(object):
             if best_iou > self.opt.iou and not pred_match_flag[best_pred_id]:
                 correct += 1
                 pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
-                TPs.append(obj_pred)
-                pred_to_gt_mapping[best_pred_id] = i
 
-        return TPs
+                TPs.append(objs_pred[best_pred_id])
+                GT_tr_ids.append(obj_gt[4])
+
+        return TPs, GT_tr_ids
 
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
@@ -279,6 +280,10 @@ class FeatureMatcher(object):
                     print('[Warning]: no objects detected.')
                     return None
 
+                # get reid feature map
+                reid_feat_map = reid_feat_out[0]
+                b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
+
                 if self.opt.img_proc_method == 'resize':
                     dets = map_resize_back(dets, net_w, net_h, img_w, img_h)
                 elif self.opt.img_proc_method == 'letterbox':
@@ -303,31 +308,47 @@ class FeatureMatcher(object):
                 det_img_path = viz_dir + '/' + str(fr_id) + '_gt' + '.jpg'
                 cv2.imwrite(det_img_path, img_plot)
 
-            # compute TPs for current frame
-            TPs = self.get_tp(fr_id, dets, cls_id=cls_id)  # only for car(cls_id == 0)
+            # ----- compute TPs for current frame
+            TPs, GT_tr_ids = self.get_tp(fr_id, dets, cls_id=cls_id)  # only for car(cls_id == 0)
             print('{:d} true positive cars.'.format(len(TPs)))
 
             # ---------- matching statistics
             if fr_id > 0:  # start from the second image
-                # ----- get gt_pre
-                self.gt_pre = self.objs_gt[fr_id - 1]
-                self.gt_pre = [obj for obj in self.gt_pre if obj[-1] == cls_id]
+                # ----- get GT for the last frame
+                objs_pre_gt = self.objs_gt[fr_id - 1]
+                self.gt_pre = [obj for obj in objs_pre_gt if obj[-1] == cls_id]
 
-                # ----- get intersection of pre and cur GT for specified object class
+                # ----- get intersection of pre and cur GT for the specified object class
                 # filtering
                 tr_ids_cur = [x[4] for x in self.gt_cur]
                 tr_ids_pre = [x[4] for x in self.gt_pre]
-                tr_ids_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
-                gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_common]
-                gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_common]
+                tr_ids_gt_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
+                gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_gt_common]
+                gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_gt_common]
                 self.gt_pre = gt_pre_tmp
                 self.gt_cur = gt_cur_tmp
 
+                # ----- get intersection between pre and cur TPs for the specified object class
+                tr_ids_tp_common = set(self.GT_tr_ids_pre) & set(GT_tr_ids)
+                TPs_pre_ids = [self.GT_tr_ids_pre.index(x) for x in self.GT_tr_ids_pre if x in tr_ids_tp_common]
+                TPs_cur_ids = [GT_tr_ids.index(x) for x in GT_tr_ids if x in tr_ids_tp_common]
+
+                TPs_pre = [self.TPs_pre[x] for x in TPs_pre_ids]
+                TPs_cur = [TPs[x] for x in TPs_cur_ids]
+
+                # ----- greedy matching...
+                print('Start matching...')
+                for i, det_cur in enumerate(TPs_cur):
+                    sim = -1
+                    for j, det_pre in enumerate(TPs_pre):
+                        pass
                 #
 
             # ---------- update
             self.TPs_pre = TPs
+            self.GT_tr_ids_pre = GT_tr_ids
 
+            self.reid_feat_map_last = reid_feat_map
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
