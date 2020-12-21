@@ -74,6 +74,12 @@ class FeatureMatcher(object):
                                  default=0,  # 0 or 44
                                  help='cutoff layer index, 0 means all layers loaded.')
 
+        # ----- Set ReID feature map output layer ids
+        self.parser.add_argument('--feat-out-ids',
+                                 type=str,
+                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 help='reid feature map output layer ids.')
+
         # -----
         self.parser.add_argument('--conf', type=float, default=0.2, help='object confidence threshold')
         self.parser.add_argument('--iou', type=float, default=0.45, help='IOU threshold for NMS')
@@ -116,6 +122,7 @@ class FeatureMatcher(object):
                              verbose=False,
                              max_id_dict=max_id_dict,
                              emb_dim=128,
+                             feat_out_ids=opt.feat_out_ids,
                              mode=self.opt.task).to(self.opt.device)
         # print(self.model)
 
