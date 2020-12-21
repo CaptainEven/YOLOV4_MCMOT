@@ -24,12 +24,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l-3-feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -77,13 +77,15 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         # -----
         self.parser.add_argument('--conf', type=float, default=0.2, help='object confidence threshold')
         self.parser.add_argument('--iou', type=float, default=0.45, help='IOU threshold for NMS')
         # ----------
+        self.parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
+        self.parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
 
         self.opt = self.parser.parse_args()
 
@@ -122,7 +124,7 @@ class FeatureMatcher(object):
                              verbose=False,
                              max_id_dict=max_id_dict,
                              emb_dim=128,
-                             feat_out_ids=opt.feat_out_ids,
+                             feat_out_ids=self.opt.feat_out_ids,
                              mode=self.opt.task).to(self.opt.device)
         # print(self.model)
 
@@ -309,25 +311,50 @@ class FeatureMatcher(object):
             img_h, img_w = img0.shape[:2]  # H×W×C
 
             with torch.no_grad():
-                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+                pred = None
+                if len(self.model.feat_out_ids) == 3:
+                    pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
+                    pred = pred.float()
+
+                elif len(self.model.feat_out_ids) == 1:
+                    pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+                    pred = pred.float()
+
                 pred = pred.float()
 
                 # ----- get dets: in x1, y1, x2, y2, score, cls_id format
                 # apply NMS
-                pred = non_max_suppression(predictions=pred,
-                                           conf_thres=self.opt.conf,
-                                           iou_thres=self.opt.iou,
-                                           merge=False,
-                                           classes=None,
-                                           agnostic=False)
+                # ----- apply NMS
+                if len(self.model.feat_out_ids) == 3:
+                    pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(predictions=pred,
+                                                                             yolo_inds=yolo_inds,
+                                                                             conf_thres=self.opt.conf,
+                                                                             iou_thres=self.opt.iou,
+                                                                             merge=False,
+                                                                             classes=self.opt.classes,
+                                                                             agnostic=self.opt.agnostic_nms)
+                    dets_yolo_ids = pred_yolo_ids[0]  # assume batch_size == 1 here
+
+                    # get reid map for this bbox(corresponding yolo idx)...
+                    reid_feat_map = reid_feat_out[yolo_id]
+
+                elif len(self.model.feat_out_ids) == 1:
+                    pred = non_max_suppression(predictions=pred,
+                                               conf_thres=self.opt.conf,
+                                               iou_thres=self.opt.iou,
+                                               merge=False,
+                                               classes=self.opt.classes,
+                                               agnostic=self.opt.agnostic_nms)
+
+                    # get reid feature map
+                    reid_feat_map = reid_feat_out[0]
+
+                b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
                     print('[Warning]: no objects detected.')
                     return None
-
-                # get reid feature map
-                reid_feat_map = reid_feat_out[0]
-                b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
 
                 if self.opt.img_proc_method == 'resize':
                     dets = map_resize_back(dets, net_w, net_h, img_w, img_h)

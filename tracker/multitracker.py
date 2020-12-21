@@ -580,6 +580,8 @@ class MCJDETracker(object):
                                                                          merge=False,
                                                                          classes=self.opt.classes,
                                                                          agnostic=self.opt.agnostic_nms)
+                dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
+
             elif len(self.model.feat_out_ids) == 1:
                 pred = non_max_suppression(predictions=pred,
                                            conf_thres=self.opt.conf_thres,
@@ -588,8 +590,9 @@ class MCJDETracker(object):
                                            classes=self.opt.classes,
                                            agnostic=self.opt.agnostic_nms)
 
+            # get dets
             dets = pred[0]  # assume batch_size == 1 here
-            dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
+
             if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
