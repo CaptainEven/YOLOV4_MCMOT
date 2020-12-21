@@ -581,7 +581,7 @@ class MCJDETracker(object):
             # print('run time (%.3fs)' % (t2 - t1))
 
             # ----- Get reid feature vector for each detection
-            b, c, h, w = img.shape  # net input img size
+            b, c, net_h, net_w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
 
             # get reid map
@@ -598,22 +598,22 @@ class MCJDETracker(object):
                 x1, y1, x2, y2, conf, cls_id = det
 
                 # get feature map's size
-                b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
+                b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
                 # assert b == 1  # make sure batch size is 1
 
                 # map center point from net scale to feature map scale(1/4 of net input size)
                 center_x = (x1 + x2) * 0.5
                 center_y = (y1 + y2) * 0.5
-                center_x *= float(w_id_map) / float(w)
-                center_y *= float(h_id_map) / float(h)
+                center_x *= float(w_feat_map) / float(net_w)
+                center_y *= float(h_feat_map) / float(net_h)
 
                 # convert to int64 for indexing
                 center_x += 0.5  # round
                 center_y += 0.5
                 center_x = center_x.long()
                 center_y = center_y.long()
-                center_x.clamp_(0, w_id_map - 1)  # to avoid the object center out of reid feature map's range
-                center_y.clamp_(0, h_id_map - 1)
+                center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
+                center_y.clamp_(0, h_feat_map - 1)
 
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]

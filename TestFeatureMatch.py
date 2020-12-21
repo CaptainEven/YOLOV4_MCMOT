@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 from models import *
 from utils.utils import map_resize_back, map_to_orig_coords
+from tracker.multitracker import cos
 from tracking_utils import visualization as vis
 from mAPEvaluate.cmp_det_label_sf import box_iou
 from demo import FindFreeGPU
@@ -233,6 +234,41 @@ class FeatureMatcher(object):
 
         return TPs, GT_tr_ids
 
+    def get_featur(self, reid_feat_map,
+                   feat_map_w, feat_map_h,
+                   net_w, net_h,
+                   x1, y1, x2, y2):
+        """
+        :param reid_feat_map:
+        :param feat_map_w:
+        :param feat_map_h:
+        :param net_w:
+        :param net_h:
+        :param x1:
+        :param y1:
+        :param x2:
+        :param y2:
+        :return:
+        """
+        # map center point from net scale to feature map scale(1/4 of net input size)
+        center_x = (x1 + x2) * 0.5
+        center_y = (y1 + y2) * 0.5
+        center_x *= float(feat_map_w) / float(net_w)
+        center_y *= float(feat_map_h) / float(net_h)
+
+        # convert to int64 for indexing
+        center_x += 0.5  # round
+        center_y += 0.5
+        center_x = center_x.long()
+        center_y = center_y.long()
+        center_x.clamp_(0, feat_map_w - 1)  # to avoid the object center out of reid feature map's range
+        center_y.clamp_(0, feat_map_h - 1)
+
+        # get reid feature vector and put into a dict
+        reid_feat_vect = reid_feat_map[0, :, center_y, center_x]
+
+        return reid_feat_vect
+
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
         :param cls_id:
@@ -282,7 +318,7 @@ class FeatureMatcher(object):
 
                 # get reid feature map
                 reid_feat_map = reid_feat_out[0]
-                b, reid_dim, h_id_map, w_id_map = reid_feat_map.shape
+                b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
 
                 if self.opt.img_proc_method == 'resize':
                     dets = map_resize_back(dets, net_w, net_h, img_w, img_h)
@@ -339,16 +375,30 @@ class FeatureMatcher(object):
                 # ----- greedy matching...
                 print('Start matching...')
                 for i, det_cur in enumerate(TPs_cur):
-                    sim = -1
+                    x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
+                    reid_feat_vect_cur = self.get_featur(reid_feat_map,
+                                                         feat_map_w, feat_map_h,
+                                                         net_w, net_h,
+                                                         x1_cur, y1_cur, x2_cur, y2_cur)
+
+                    best_sim = -1
                     for j, det_pre in enumerate(TPs_pre):
-                        pass
-                #
+                        x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
+
+                        reid_feat_vect_pre = self.get_featur(reid_feat_map,
+                                                             feat_map_w, feat_map_h,
+                                                             net_w, net_h,
+                                                             x1_pre, y1_pre, x2_pre, y2_pre)
+                        sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+                        if sim > best_sim:
+                            pass
 
             # ---------- update
             self.TPs_pre = TPs
             self.GT_tr_ids_pre = GT_tr_ids
 
             self.reid_feat_map_last = reid_feat_map
+
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
