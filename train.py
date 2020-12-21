@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.0001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -161,6 +161,7 @@ def train():
                         verbose=False,
                         max_id_dict=max_id_dict,  # using priori knowledge
                         emb_dim=128,
+                        feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
     # print(model)
     print(max_id_dict)
@@ -484,7 +485,10 @@ def train():
                 pred, reid_feat_out = model.forward(imgs)
 
                 # Loss
-                loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model)
+                if len(model.feat_out_ids) == 3:
+                    loss, loss_items = compute_loss_with_ids(pred, reid_feat_out, targets, track_ids, model)
+                elif len(model.feat_out_ids) == 1:
+                    loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model)
 
                 if opt.auto_weight:
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
@@ -666,17 +670,17 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l-one-feat.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/v4_tiny3l_one_feat_track_last.pt',
+                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',
                         help='initial weights path')
     # ----------
 
     parser.add_argument('--device',
-                        default='6',
+                        default='4',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -696,13 +700,19 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=0,  # 0
+                        default=44,  # 0, 44
                         help='cutoff layer index(index start from 0)')
+
+    # ----- Set ReID feature map output layer ids
+    parser.add_argument('--feat-out-ids',
+                        type=str,
+                        default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                        help='reid feature map output layer ids.')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,
+                        default=1,
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',

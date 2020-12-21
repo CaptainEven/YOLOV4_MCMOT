@@ -429,6 +429,7 @@ class MCJDETracker(object):
                                  verbose=False,
                                  max_id_dict=max_id_dict,
                                  emb_dim=128,
+                                 feat_out_ids=opt.feat_out_ids,
                                  mode=opt.task).to(device)
         elif self.opt.task == 'detect':
             self.model = Darknet(cfg=opt.cfg,
@@ -561,18 +562,34 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
-            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
-            pred = pred.float()
+            pred = None
+            if len(self.model.feat_out_ids) == 3:
+                pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
+                pred = pred.float()
+
+            elif len(self.model.feat_out_ids) == 1:
+                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+                pred = pred.float()
 
             # ----- apply NMS
-            pred = non_max_suppression(predictions=pred,
-                                       conf_thres=self.opt.conf_thres,
-                                       iou_thres=self.opt.iou_thres,
-                                       merge=False,
-                                       classes=self.opt.classes,
-                                       agnostic=self.opt.agnostic_nms)
+            if len(self.model.feat_out_ids) == 3:
+                pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(predictions=pred,
+                                                                         yolo_inds=yolo_inds,
+                                                                         conf_thres=self.opt.conf_thres,
+                                                                         iou_thres=self.opt.iou_thres,
+                                                                         merge=False,
+                                                                         classes=self.opt.classes,
+                                                                         agnostic=self.opt.agnostic_nms)
+            elif len(self.model.feat_out_ids) == 1:
+                pred = non_max_suppression(predictions=pred,
+                                           conf_thres=self.opt.conf_thres,
+                                           iou_thres=self.opt.iou_thres,
+                                           merge=False,
+                                           classes=self.opt.classes,
+                                           agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
+            dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
             if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
@@ -584,46 +601,83 @@ class MCJDETracker(object):
             b, c, net_h, net_w = img.shape  # net input img size
             id_vects_dict = defaultdict(list)
 
-            # get reid map
-            reid_feat_map = reid_feat_out[0]  # for one layer feature map
-
-            # L2 normalize the feature map(feature map scale(1/4 of net input size))
-            reid_feat_map = F.normalize(reid_feat_map, dim=1)
-
             # # for debugging...
             # id_vect_list = []
 
-            for det in dets:
-                # up-zip det
-                x1, y1, x2, y2, conf, cls_id = det
+            # get reid map
+            if len(self.model.feat_out_ids) == 1:
+                reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
-                # get feature map's size
-                b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
-                # assert b == 1  # make sure batch size is 1
+                # L2 normalize the feature map(feature map scale(1/4 of net input size))
+                reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
-                # map center point from net scale to feature map scale(1/4 of net input size)
-                center_x = (x1 + x2) * 0.5
-                center_y = (y1 + y2) * 0.5
-                center_x *= float(w_feat_map) / float(net_w)
-                center_y *= float(h_feat_map) / float(net_h)
+                for det in dets:
+                    # up-zip det
+                    x1, y1, x2, y2, conf, cls_id = det
 
-                # convert to int64 for indexing
-                center_x += 0.5  # round
-                center_y += 0.5
-                center_x = center_x.long()
-                center_y = center_y.long()
-                center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
-                center_y.clamp_(0, h_feat_map - 1)
+                    # get feature map's size
+                    b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
+                    # assert b == 1  # make sure batch size is 1
 
-                # get reid feature vector and put into a dict
-                id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    center_x = (x1 + x2) * 0.5
+                    center_y = (y1 + y2) * 0.5
+                    center_x *= float(w_feat_map) / float(net_w)
+                    center_y *= float(h_feat_map) / float(net_h)
 
-                # # for debugging...
-                # id_vect_list.append(id_feat_vect)
+                    # convert to int64 for indexing
+                    center_x += 0.5  # round
+                    center_y += 0.5
+                    center_x = center_x.long()
+                    center_y = center_y.long()
+                    center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
+                    center_y.clamp_(0, h_feat_map - 1)
 
-                id_feat_vect = id_feat_vect.squeeze()
-                id_feat_vect = id_feat_vect.cpu().numpy()
-                id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+                    # get reid feature vector and put into a dict
+                    id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+
+                    # # for debugging...
+                    # id_vect_list.append(id_feat_vect)
+
+                    id_feat_vect = id_feat_vect.squeeze()
+                    id_feat_vect = id_feat_vect.cpu().numpy()
+                    id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+
+            elif len(self.model.feat_out_ids) == 3:
+                for det, yolo_id in zip(dets, dets_yolo_ids):
+                    # up-zip det
+                    x1, y1, x2, y2, conf, cls_id = det
+
+                    # get reid map for this bbox(corresponding yolo idx)
+                    reid_feat_map = reid_feat_out[yolo_id]
+
+                    # get feature map's size
+                    b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
+                    # assert b == 1  # make sure batch size is 1
+
+                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    center_x = (x1 + x2) * 0.5
+                    center_y = (y1 + y2) * 0.5
+                    center_x *= float(w_feat_map) / float(net_w)
+                    center_y *= float(h_feat_map) / float(net_h)
+
+                    # convert to int64 for indexing
+                    center_x += 0.5  # round
+                    center_y += 0.5
+                    center_x = center_x.long()
+                    center_y = center_y.long()
+                    center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
+                    center_y.clamp_(0, h_feat_map - 1)
+
+                    # get reid feature vector and put into a dict
+                    id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+
+                    # # for debugging...
+                    # id_vect_list.append(id_feat_vect)
+
+                    id_feat_vect = id_feat_vect.squeeze()
+                    id_feat_vect = id_feat_vect.cpu().numpy()
+                    id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
             # Rescale boxes from img_size to img0 size(from net input size to original size)
             # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()

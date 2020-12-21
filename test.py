@@ -116,7 +116,10 @@ def test(cfg,
             with torch.no_grad():
                 # Run model
                 t = torch_utils.time_synchronized()
-                inf_out, train_out, reid_feat_map = model.forward(imgs, augment=augment)  # inference and training outputs
+                if len(model.feat_out_ids) == 3:
+                    inf_out, train_out, reid_feat_map, _ = model.forward(imgs, augment=augment)
+                elif len(model.feat_out_ids) == 1:
+                    inf_out, train_out, reid_feat_map = model.forward(imgs, augment=augment)  # inference and training outputs
                 t0 += torch_utils.time_synchronized() - t
 
                 # Compute loss_funcs

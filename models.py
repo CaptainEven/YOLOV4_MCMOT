@@ -348,6 +348,7 @@ class Darknet(nn.Module):
                  verbose=False,
                  max_id_dict=None,
                  emb_dim=128,
+                 feat_out_ids='-1',
                  mode='detect'):
         """
         :param cfg:
@@ -361,6 +362,10 @@ class Darknet(nn.Module):
 
         self.mode = mode
         print('Darknet mode: ', self.mode)
+
+        # parsing reid feature map output layer ids
+        self.feat_out_ids = [int(x) for x in feat_out_ids.split(',')]
+        print('Output reid feature map layer ids: ', self.feat_out_ids)
 
         # ---------- parsing cfg file
         self.module_defs = parse_model_cfg(cfg)
@@ -494,13 +499,16 @@ class Darknet(nn.Module):
 
         # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
         # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
-        reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
+        # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
 
         # reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
         # reid_feat_out.append(out[-5])  # the 2nd YOLO scale sam feature map
         # reid_feat_out.append(out[-1])  # the 3rd YOLO scale sam feature map
 
-        # for converting... 3(or 2) yolo output layers and 3 feature layers
+        for out_id in self.feat_out_ids:
+            reid_feat_out.append(out[out_id])
+
+        # for converting... 3(or 2, or 1) YOLO output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
         # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
         # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
@@ -521,13 +529,14 @@ class Darknet(nn.Module):
         else:  # inference or test
             x, p = zip(*yolo_out)  # inference output, training output
 
-            # # ----- record anchor inds
-            # for yolo_i, yolo_out in enumerate(x):
-            #     yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
-            #     if yolo_i == 0:
-            #         yolo_inds = yolo_inds_i
-            #     else:
-            #         yolo_inds = torch.cat((yolo_inds, yolo_inds_i), 1)
+            if len(self.feat_out_ids) == 3:
+                # ----- record anchor inds
+                for yolo_i, yolo_out in enumerate(x):
+                    yolo_inds_i = torch.full((yolo_out.size(0), yolo_out.size(1), 1), yolo_i, dtype=torch.long)
+                    if yolo_i == 0:
+                        yolo_inds = yolo_inds_i
+                    else:
+                        yolo_inds = torch.cat((yolo_inds, yolo_inds_i), 1)
 
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
@@ -540,7 +549,10 @@ class Darknet(nn.Module):
             if self.mode == 'pure_detect' or self.mode == 'detect':
                 return x, p
             elif self.mode == 'track':
-                return x, p, reid_feat_out  # , yolo_inds
+                if len(self.feat_out_ids) == 3:
+                    return x, p, reid_feat_out, yolo_inds
+                elif len(self.feat_out_ids) == 1:
+                    return x, p, reid_feat_out
             else:
                 print('[Err]: un-recognized mode, return None.')
                 return None

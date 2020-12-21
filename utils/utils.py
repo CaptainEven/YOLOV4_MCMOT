@@ -754,10 +754,10 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
     return loss, torch.cat((l_box, l_obj, l_cls, l_reid, loss)).detach()
 
 
-def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
+def compute_loss_with_ids(preds, reid_feat_out, targets, track_ids, model):
     """
     :param preds:
-    :param reid_feat_map:
+    :param reid_feat_out:
     :param targets:
     :param track_ids:
     :param model:
@@ -785,11 +785,12 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
     if g > 0:
         BCE_cls, BCE_obj = FocalLoss(BCE_cls, g), FocalLoss(BCE_obj, g)
 
-    id_map_w, id_map_h = reid_feat_map.shape[3], reid_feat_map.shape[2]
     np, ng = 0, 0  # number grid points, targets(GT)
 
     # Compute losses for each YOLO layer
     for i, pred_i in enumerate(preds):  # layer index, layer predictions
+        id_map_w, id_map_h = reid_feat_out[i].shape[3], reid_feat_out[i].shape[2]
+
         ny, nx = pred_i.shape[2], pred_i.shape[3]
         b, a, gy, gx = indices[i]  # image, anchor, grid_y, grid_x
         tr_ids = t_track_ids[i]  # track ids
@@ -843,7 +844,7 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
             center_y.clamp_(0, id_map_h - 1)
 
             # get reid feature vector for GT boxes
-            t_reid_feat_vects = reid_feat_map[b, :, center_y, center_x]  # nb × 128
+            t_reid_feat_vects = reid_feat_out[i][b, :, center_y, center_x]  # nb × 128
 
             # ----- compute each object class's reid loss_funcs
             multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
@@ -869,7 +870,11 @@ def compute_loss_with_ids(preds, reid_feat_map, targets, track_ids, model):
                     id_vects = t_reid_feat_vects[inds]
                     id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
 
-                    fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    # fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                    # l_reid += CE_reid(fc_preds, tr_ids[inds])
+
+                    # arc margin FC layer as classifier
+                    fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
 
             # Append targets to text file

@@ -24,12 +24,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l-one-feat.cfg',
+                                 default='cfg/yolov4-tiny-3l-3-feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
