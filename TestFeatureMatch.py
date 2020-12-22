@@ -11,6 +11,7 @@ from tracking_utils import visualization as vis
 from mAPEvaluate.cmp_det_label_sf import box_iou
 from demo import FindFreeGPU
 from utils.datasets import LoadImages
+from tqdm import tqdm
 
 
 class FeatureMatcher(object):
@@ -35,10 +36,10 @@ class FeatureMatcher(object):
         # ----------
         # -----
 
-        # input file/folder, 0 for webcam
-        self.parser.add_argument('--video',
+        # input seq videos
+        self.parser.add_argument('--videos',
                                  type=str,
-                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate/val_0.mp4',
+                                 default='/mnt/diskb/even/dataset/MCMOT_Evaluate',
                                  help='')  # 'data/samples/videos/'
 
         # task mode
@@ -99,12 +100,11 @@ class FeatureMatcher(object):
             self.cls2id[cls_name] = cls_id
 
         # video GT
-        self.darklabel_txt_path = self.opt.video[:-4] + '_gt.txt'
-
-        if not (os.path.isfile(self.opt.video)
-                and os.path.isfile(self.darklabel_txt_path)):
-            print('[Err]: invalid video path or GT.')
+        if not os.path.isdir(self.opt.videos):
+            print('[Err]: invalid videos dir.')
             return
+
+        self.videos = [self.opt.videos + '/' + x for x in os.listdir(self.opt.videos) if x.endswith('.mp4')]
 
         # ----------
         ## read from .npy(max_id_dict.npy file)
@@ -141,8 +141,42 @@ class FeatureMatcher(object):
         # Put model to device and set eval mode
         self.model.to(device).eval()
 
-        # set dataset
-        self.dataset = LoadImages(self.opt.video, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
+        #
+
+        # # set the first dataset
+        # self.video = self.videos[0]
+        # self.darklabel_txt_path = self.videos[0][:-4] + '_gt.txt'
+        # if not (os.path.isfile(self.opt.video)
+        #         and os.path.isfile(self.darklabel_txt_path)):
+        #     print('[Err]: invalid video path or GT.')
+        #     return
+        #
+        # self.dataset = LoadImages(self.opt.video, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
+
+    def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
+        """
+        :param viz_dir:
+        :return:
+        """
+        mean_precision = 0.0
+        for video_path in self.videos:
+            if not os.path.isfile(video_path):
+                print('[Warning]: {:s} not exists.'.format(video_path))
+                continue
+
+            self.darklabel_txt_path = video_path[:-4] + '_gt.txt'
+            if not os.path.isfile(self.darklabel_txt_path):
+                print('[Warning]: {:s} not exists.'.format(self.darklabel_txt_path))
+                continue
+
+            self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
+
+            print('Run seq {:s}...'.format(video_path))
+            precision = self.run_a_seq(cls_id, img_w, img_h, viz_dir)
+            mean_precision += precision
+            print('Seq {:s} done.\n'.format(video_path))
+
+        print('Mean precision: {:.3f}'.format(mean_precision))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
@@ -385,7 +419,7 @@ class FeatureMatcher(object):
         total = 0
         correct = 0
         sim_sum = 0.0
-        for fr_id, (path, img, img0, vid_cap) in enumerate(self.dataset):
+        for fr_id, (path, img, img0, vid_cap) in tqdm(enumerate(self.dataset)):
             img = torch.from_numpy(img).to(self.opt.device)
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -518,7 +552,7 @@ class FeatureMatcher(object):
                 total += len(TPs_cur)
 
                 # ----- greedy matching...
-                print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
+                # print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
                 if len(self.model.feat_out_ids) == 1:  # one feature map layer
                     for tpid_cur, det_cur in zip(TPs_cur_ids, TPs_cur):  # current frame as row
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
@@ -708,10 +742,14 @@ class FeatureMatcher(object):
 
             self.img0_pre = img0
 
+        precision = correct / total
         print('Precision: {:.3f}%, mean cos sim: {:.3f}'
-              .format(correct / total * 100.0, sim_sum / correct))
+              .format(precision * 100.0, sim_sum / correct))
+
+        return precision
 
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run_a_seq(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
+    # matcher.run_a_seq(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_three_feat')
