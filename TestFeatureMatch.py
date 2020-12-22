@@ -171,6 +171,14 @@ class FeatureMatcher(object):
 
             self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
+            # create viz dir
+            if viz_dir != None:
+                if not os.path.isdir(viz_dir):
+                    os.makedirs(viz_dir)
+                else:
+                    shutil.rmtree(viz_dir)
+                    os.makedirs(viz_dir)
+
             print('Run seq {:s}...'.format(video_path))
             precision = self.run_a_seq(cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
@@ -398,14 +406,6 @@ class FeatureMatcher(object):
         :param viz_dir:
         :return:
         """
-        # create viz dir
-        if viz_dir != None:
-            if not os.path.isdir(viz_dir):
-                os.makedirs(viz_dir)
-            else:
-                shutil.rmtree(viz_dir)
-                os.makedirs(viz_dir)
-
         # define image width and height
         self.img_w, self.img_h = img_w, img_h
 
