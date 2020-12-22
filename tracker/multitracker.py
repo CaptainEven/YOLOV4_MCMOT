@@ -562,6 +562,7 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
+            # ----- get dets and ReID feature-map in net input(net_w, net_h) scale
             pred = None
             if len(self.model.feat_out_ids) == 3:
                 pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
