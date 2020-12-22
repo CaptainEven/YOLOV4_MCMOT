@@ -548,7 +548,7 @@ class MCJDETracker(object):
         # -----
 
         # Get image size
-        orig_h, orig_w, _ = img0.shape  # H×W×C
+        img_h, img_w, _ = img0.shape  # H×W×C
 
         # record tracking states of the current frame
         activated_tracks_dict = defaultdict(list)
@@ -565,11 +565,11 @@ class MCJDETracker(object):
             pred = None
             if len(self.model.feat_out_ids) == 3:
                 pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
-                pred = pred.float()
+                # pred = pred.float()
 
             elif len(self.model.feat_out_ids) == 1:
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
-                pred = pred.float()
+                # pred = pred.float()
 
             # ----- apply NMS
             if len(self.model.feat_out_ids) == 3:
@@ -619,22 +619,29 @@ class MCJDETracker(object):
                     x1, y1, x2, y2, conf, cls_id = det
 
                     # get feature map's size
-                    b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
+                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
                     # assert b == 1  # make sure batch size is 1
 
-                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    # get center point
                     center_x = (x1 + x2) * 0.5
                     center_y = (y1 + y2) * 0.5
-                    center_x *= float(w_feat_map) / float(net_w)
-                    center_y *= float(h_feat_map) / float(net_h)
+
+                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    center_x = center_x / float(net_w)
+                    center_x = center_x * float(feat_map_w)
+                    center_y = center_y / float(net_h)
+                    center_y = center_y * float(feat_map_h)
+
+                    # center_x *= float(feat_map_w) / float(net_w)
+                    # center_y *= float(feat_map_h) / float(net_h)
 
                     # convert to int64 for indexing
                     center_x += 0.5  # round
                     center_y += 0.5
                     center_x = center_x.long()
                     center_y = center_y.long()
-                    center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
-                    center_y.clamp_(0, h_feat_map - 1)
+                    center_x.clamp_(0, feat_map_w - 1)  # to avoid the object center out of reid feature map's range
+                    center_y.clamp_(0, feat_map_h - 1)
 
                     # get reid feature vector and put into a dict
                     id_feat_vect = reid_feat_map[0, :, center_y, center_x]
@@ -654,23 +661,30 @@ class MCJDETracker(object):
                     # get reid map for this bbox(corresponding yolo idx)
                     reid_feat_map = reid_feat_out[yolo_id]
 
+                    # L2 normalize the feature map(feature map scale(1/4 of net input size))
+                    reid_feat_map = F.normalize(reid_feat_map, dim=1)
+
                     # get feature map's size
-                    b, reid_dim, h_feat_map, w_feat_map = reid_feat_map.shape
+                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
                     # assert b == 1  # make sure batch size is 1
 
-                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    # get center point
                     center_x = (x1 + x2) * 0.5
                     center_y = (y1 + y2) * 0.5
-                    center_x *= float(w_feat_map) / float(net_w)
-                    center_y *= float(h_feat_map) / float(net_h)
+
+                    # map center point from net scale to feature map scale(1/4 of net input size)
+                    center_x = center_x / float(net_w)
+                    center_x = center_x * float(feat_map_w)
+                    center_y = center_y / float(net_h)
+                    center_y = center_y * float(feat_map_h)
 
                     # convert to int64 for indexing
                     center_x += 0.5  # round
                     center_y += 0.5
                     center_x = center_x.long()
                     center_y = center_y.long()
-                    center_x.clamp_(0, w_feat_map - 1)  # to avoid the object center out of reid feature map's range
-                    center_y.clamp_(0, h_feat_map - 1)
+                    center_x.clamp_(0, feat_map_w - 1)  # to avoid the object center out of reid feature map's range
+                    center_y.clamp_(0, feat_map_h - 1)
 
                     # get reid feature vector and put into a dict
                     id_feat_vect = reid_feat_map[0, :, center_y, center_x]
@@ -682,14 +696,14 @@ class MCJDETracker(object):
                     id_feat_vect = id_feat_vect.cpu().numpy()
                     id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
-            # Rescale boxes from img_size to img0 size(from net input size to original size)
+            # ----- Rescale boxes from net size to img size
             # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
-            # dets = map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h)
+            # dets = map_to_orig_coords(dets, net_w, net_h, img_W, img_h)
 
             if self.opt.img_proc_method == 'resize':
-                dets = map_resize_back(dets, self.net_w, self.net_h, orig_w, orig_h)
+                dets = map_resize_back(dets, self.net_w, self.net_h, img_w, img_h)
             elif self.opt.img_proc_method == 'letterbox':
-                dets = map_to_orig_coords(dets, self.net_w, self.net_h, orig_w, orig_h)
+                dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
         # # for debugging...
         # debug_f_path = '/mnt/diskb/even/debug_{:d}.txt'.format(self.frame_id)

@@ -24,12 +24,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -77,7 +77,7 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         # -----
@@ -290,15 +290,15 @@ class FeatureMatcher(object):
 
     def get_feature(self, reid_feat_map,
                     feat_map_w, feat_map_h,
-                    net_w, net_h,
+                    img_w, img_h,
                     x1, y1, x2, y2):
         """
         Get feature vector
         :param reid_feat_map:
         :param feat_map_w:
         :param feat_map_h:
-        :param net_w:
-        :param net_h:
+        :param img_w:
+        :param img_h:
         :param x1:
         :param y1:
         :param x2:
@@ -310,9 +310,9 @@ class FeatureMatcher(object):
         center_y = (y1 + y2) * 0.5
 
         # map center point from net scale to feature map scale(1/4 of net input size)
-        center_x = center_x / float(net_w)
+        center_x = center_x / float(img_w)
         center_x = center_x * float(feat_map_w)
-        center_y = center_y / float(net_h)
+        center_y = center_y / float(img_h)
         center_y = center_y * float(feat_map_h)
 
         # convert to int64 for indexing
@@ -365,18 +365,31 @@ class FeatureMatcher(object):
                 pred = None
                 if len(self.model.feat_out_ids) == 3:
                     pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
-                    pred = pred.float()
 
-                    # reid_feat_out: GPU -> CPU
+                    # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     feat_tmp_list = []
                     for tmp in reid_feat_out:
+                        # L2 normalize the feature map(feature map scale)
+                        tmp = F.normalize(tmp, dim=1)
+
+                        # GPU -> CPU
                         tmp = tmp.detach().cpu().numpy()
+
                         feat_tmp_list.append(tmp)
+
                     reid_feat_out = feat_tmp_list
 
                 elif len(self.model.feat_out_ids) == 1:
                     pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
-                    pred = pred.float()
+
+                    # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
+                    reid_feat_map = reid_feat_out[0]
+
+                    # L2 normalize the feature map(feature map scale(1/4 of net input size))
+                    reid_feat_map = F.normalize(reid_feat_map, dim=1)
+
+                    reid_feat_map = reid_feat_map.detach().cpu().numpy()
+                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
 
                 # ----- apply NMS
                 if len(self.model.feat_out_ids) == 3:
@@ -397,10 +410,7 @@ class FeatureMatcher(object):
                                                classes=self.opt.classes,
                                                agnostic=self.opt.agnostic_nms)
 
-                    # get reid feature map
-                    reid_feat_map = reid_feat_out[0]
-                    reid_feat_map = reid_feat_map.detach().cpu().numpy()
-                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+
 
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
@@ -449,13 +459,13 @@ class FeatureMatcher(object):
 
                 # ----- get intersection of pre and cur GT for the specified object class
                 # filtering
-                tr_ids_cur = [x[4] for x in self.gt_cur]
-                tr_ids_pre = [x[4] for x in self.gt_pre]
-                tr_ids_gt_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
-                gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_gt_common]
-                gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_gt_common]
-                self.gt_pre = gt_pre_tmp
-                self.gt_cur = gt_cur_tmp
+                # tr_ids_cur = [x[4] for x in self.gt_cur]
+                # tr_ids_pre = [x[4] for x in self.gt_pre]
+                # tr_ids_gt_common = set(tr_ids_cur) & set(tr_ids_pre)  # GTs intersection
+                # gt_pre_tmp = [x for x in self.gt_pre if x[4] in tr_ids_gt_common]
+                # gt_cur_tmp = [x for x in self.gt_cur if x[4] in tr_ids_gt_common]
+                # self.gt_pre = gt_pre_tmp
+                # self.gt_cur = gt_cur_tmp
 
                 # ----- get intersection between pre and cur TPs for the specified object class
                 tr_ids_tp_common = set(self.GT_tr_ids_pre) & set(GT_tr_ids)
@@ -481,7 +491,7 @@ class FeatureMatcher(object):
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
                         reid_feat_vect_cur = self.get_feature(reid_feat_map,
                                                               feat_map_w, feat_map_h,
-                                                              net_w, net_h,
+                                                              img_w, img_h,
                                                               x1_cur, y1_cur, x2_cur, y2_cur)
 
                         best_sim = -1.0
@@ -491,7 +501,7 @@ class FeatureMatcher(object):
 
                             reid_feat_vect_pre = self.get_feature(self.reid_feat_map_pre,
                                                                   feat_map_w, feat_map_h,
-                                                                  net_w, net_h,
+                                                                  img_w, img_h,
                                                                   x1_pre, y1_pre, x2_pre, y2_pre)
 
                             # --- compute cosine of cur and pre corresponding feature vector
@@ -518,7 +528,7 @@ class FeatureMatcher(object):
 
                         reid_feat_vect_cur = self.get_feature(reid_feat_map_cur,
                                                               feat_map_w_cur, feat_map_h_cur,
-                                                              net_w, net_h,
+                                                              img_w, img_h,
                                                               x1_cur, y1_cur, x2_cur, y2_cur)
 
                         best_sim = -1.0
@@ -531,7 +541,7 @@ class FeatureMatcher(object):
 
                             reid_feat_vect_pre = self.get_feature(reid_feat_map_pre,
                                                                   feat_map_w_pre, feat_map_h_pre,
-                                                                  net_w, net_h,
+                                                                  img_w, img_h,
                                                                   x1_pre, y1_pre, x2_pre, y2_pre)
 
                             # --- compute cosine of cur and pre corresponding feature vector

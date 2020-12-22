@@ -142,22 +142,22 @@ def xywh2xyxy(x):
 
 # coordinate transformation: convert back to original image coordinate
 # for resizing pre-processing
-def map_resize_back(dets, net_w, net_h, orig_w, orig_h):
+def map_resize_back(dets, net_w, net_h, img_w, img_h):
     """
     :param dets:
     :param net_w:    eg: 768
     :param net_h:    eg: 448
-    :param orig_w:   eg: 1920
-    :param orig_h:   eg: 1080
+    :param img_w:   eg: 1920
+    :param img_h:   eg: 1080
     :return:
     """
-    dets[:, 0] = dets[:, 0] / net_w * orig_w  # x1
-    dets[:, 2] = dets[:, 2] / net_w * orig_w  # x2
-    dets[:, 1] = dets[:, 1] / net_h * orig_h  # y1
-    dets[:, 3] = dets[:, 3] / net_h * orig_h  # y2
+    dets[:, 0] = dets[:, 0] / net_w * img_w  # x1
+    dets[:, 2] = dets[:, 2] / net_w * img_w  # x2
+    dets[:, 1] = dets[:, 1] / net_h * img_h  # y1
+    dets[:, 3] = dets[:, 3] / net_h * img_h  # y2
 
     # clamp
-    clip_coords(dets[:, :4], (orig_h, orig_w))
+    clip_coords(dets[:, :4], (img_h, img_w))
 
     return dets
 
@@ -234,12 +234,12 @@ def clip_coords(boxes, img_shape):
     :return:
     """
     # Clip bounding xyxy bounding boxes to image shape (height, width)
-    h, w = img_shape
+    img_h, img_w = img_shape
 
-    boxes[:, 0].clamp_(0, w)  # x1
-    boxes[:, 1].clamp_(0, h)  # y1
-    boxes[:, 2].clamp_(0, w)  # x2
-    boxes[:, 3].clamp_(0, h)  # y2
+    boxes[:, 0].clamp_(0, img_w)  # x1
+    boxes[:, 1].clamp_(0, img_h)  # y1
+    boxes[:, 2].clamp_(0, img_w)  # x2
+    boxes[:, 3].clamp_(0, img_h)  # y2
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
