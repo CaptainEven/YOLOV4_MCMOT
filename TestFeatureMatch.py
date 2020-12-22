@@ -536,7 +536,7 @@ class FeatureMatcher(object):
                         for tpid_pre, det_pre, yolo_id_pre in zip(TPs_pre_ids, TPs_pre, TP_yolo_inds_pre):
                             x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
 
-                            reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_cur]
+                            reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_pre]
                             b, reid_dim, feat_map_h_pre, feat_map_w_pre = reid_feat_map_pre.shape
 
                             reid_feat_vect_pre = self.get_feature(reid_feat_map_pre,
