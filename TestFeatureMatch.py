@@ -198,6 +198,27 @@ class FeatureMatcher(object):
 
         return objs_gt
 
+    def clip_bbox(self, bbox, w, h):
+        """
+        :param bbox: x1, y1, x2, y2
+        :param w: max x
+        :param h: max y
+        :return:
+        """
+        x1, y1, x2, y2 = bbox
+
+        if x1 >= x2 or y1 >= y2:
+            print('[Err]: wrong bbox.')
+            return
+
+        x1 = x1 if x1 < w else w - 1
+        x2 = x2 if x2 < w else w - 1
+        y1 = y1 if y1 < h else h - 1
+        y2 = y2 if y2 < h else h - 1
+
+        bbox = x1, y1, x2, y2
+        return bbox
+
     def get_tp_three_feat(self, fr_id, dets, yolo_inds, cls_id=0):
         """
         :param fr_id:
@@ -240,6 +261,7 @@ class FeatureMatcher(object):
                 correct += 1
                 pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
 
+                # self.clip_bbox(objs_pred[best_pred_id][:4], )
                 TPs.append(objs_pred[best_pred_id])
                 GT_tr_ids.append(obj_gt[4])
                 TP_yolo_inds.append(yolo_inds_pred[best_pred_id])
@@ -344,6 +366,10 @@ class FeatureMatcher(object):
             else:
                 shutil.rmtree(viz_dir)
                 os.makedirs(viz_dir)
+
+        # define image width and height
+        self.img_w = img_w
+        self.img_h = img_h
 
         # read net input width and height
         net_h, net_w = self.opt.net_h, self.opt.net_w
