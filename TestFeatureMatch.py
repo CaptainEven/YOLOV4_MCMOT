@@ -356,7 +356,7 @@ class FeatureMatcher(object):
 
         return reid_feat_vect
 
-    def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
+    def run_a_seq(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
         :param cls_id:
         :param img_w:
@@ -714,4 +714,4 @@ class FeatureMatcher(object):
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
+    matcher.run_a_seq(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
