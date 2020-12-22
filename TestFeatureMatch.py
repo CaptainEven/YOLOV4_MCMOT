@@ -547,7 +547,7 @@ class FeatureMatcher(object):
                         gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                         gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
 
-                        # update correct
+                        # if matching correct
                         if gt_tr_id_pre == gt_tr_id_cur:
                             correct += 1
                             sim_sum += best_sim
@@ -558,97 +558,55 @@ class FeatureMatcher(object):
                                             + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
                                                 .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
 
-                                # text and line format
-                                text_scale = max(1.0, img_w / 1200.0)  # 1600.
-                                text_thickness = 2
-                                line_thickness = max(1, int(img_w / 500.0))
-
-                                # plot
-                                img0_pre = self.img0_pre.copy()
-                                x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
-                                cv2.rectangle(img0_pre,
-                                              (x1_pre, y1_pre),
-                                              (x2_pre, y2_pre),
-                                              [0, 0, 255],
-                                              thickness=line_thickness)
-                                cv2.putText(img0_pre,
-                                            'id{:d}'.format(gt_tr_id_pre),
-                                            (x1_pre, y1_pre),
-                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                            fontScale=text_scale,
-                                            color=[0, 255, 0],
-                                            thickness=text_thickness)
-
-                                img0_cur = img0.copy()
-                                cv2.rectangle(img0_cur,
-                                              (x1_cur, y1_cur),
-                                              (x2_cur, y2_cur),
-                                              [0, 0, 255],
-                                              thickness=line_thickness)
-                                cv2.putText(img0_cur,
-                                            'id{:d}'.format(gt_tr_id_cur),
-                                            (x1_cur, y1_cur),
-                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                            fontScale=text_scale,
-                                            color=[0, 255, 0],
-                                            thickness=text_thickness)
-
-                                img_save = np.zeros((2*img_h, img_w, 3), dtype=np.uint8)
-                                img_save[:img_h, :, :] = img0_pre
-                                img_save[img_h:2*img_h, :, :] = img0_cur
-                                cv2.imwrite(save_path, img_save)
-
                         else:  # visualize the wrong match:
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
                                                 .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+                        # ----- plot
+                        # text and line format
+                        text_scale = max(1.0, img_w / 1200.0)  # 1600.
+                        text_thickness = 2
+                        line_thickness = max(1, int(img_w / 500.0))
 
-                                # text and line format
-                                text_scale = max(1.0, img_w / 1200.0)  # 1600.
-                                text_thickness = 2
-                                line_thickness = max(1, int(img_w / 500.0))
+                        img0_pre = self.img0_pre.copy()
+                        x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
+                        cv2.rectangle(img0_pre,
+                                      (x1_pre, y1_pre),
+                                      (x2_pre, y2_pre),
+                                      [0, 0, 255],
+                                      thickness=line_thickness)
+                        cv2.putText(img0_pre,
+                                    'id{:d}'.format(gt_tr_id_pre),
+                                    (x1_pre, y1_pre),
+                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                    fontScale=text_scale,
+                                    color=[0, 255, 0],
+                                    thickness=text_thickness)
 
-                                # plot
-                                img0_pre = self.img0_pre.copy()
-                                x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
-                                cv2.rectangle(img0_pre,
-                                              (x1_pre, y1_pre),
-                                              (x2_pre, y2_pre),
-                                              [0, 0, 255],
-                                              thickness=line_thickness)
-                                cv2.putText(img0_pre,
-                                            'id{:d}'.format(gt_tr_id_pre),
-                                            (x1_pre, y1_pre),
-                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                            fontScale=text_scale,
-                                            color=[0, 255, 0],
-                                            thickness=text_thickness)
+                        img0_cur = img0.copy()
+                        cv2.rectangle(img0_cur,
+                                      (x1_cur, y1_cur),
+                                      (x2_cur, y2_cur),
+                                      [0, 0, 255],
+                                      thickness=line_thickness)
+                        cv2.putText(img0_cur,
+                                    'id{:d}'.format(gt_tr_id_cur),
+                                    (x1_cur, y1_cur),
+                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                    fontScale=text_scale,
+                                    color=[0, 255, 0],
+                                    thickness=text_thickness)
 
-                                img0_cur = img0.copy()
-                                cv2.rectangle(img0_cur,
-                                              (x1_cur, y1_cur),
-                                              (x2_cur, y2_cur),
-                                              [0, 0, 255],
-                                              thickness=line_thickness)
-                                cv2.putText(img0_cur,
-                                            'id{:d}'.format(gt_tr_id_cur),
-                                            (x1_cur, y1_cur),
-                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                            fontScale=text_scale,
-                                            color=[0, 255, 0],
-                                            thickness=text_thickness)
-
-                                img_save = np.zeros((2*img_h, img_w, 3), dtype=np.uint8)
-                                img_save[:img_h, :, :] = img0_pre
-                                img_save[img_h:2*img_h, :, :] = img0_cur
-                                cv2.imwrite(save_path, img_save)
+                        img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
+                        img_save[:img_h, :, :] = img0_pre
+                        img_save[img_h:2 * img_h, :, :] = img0_cur
+                        cv2.imwrite(save_path, img_save)
 
 
                 elif len(self.model.feat_out_ids) == 3:
-                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur,
-                                                              TP_yolo_inds_cur):  # current frame as row
+                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):  # current frame as row
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
 
                         reid_feat_map_cur = reid_feat_out[yolo_id_cur]
@@ -661,8 +619,7 @@ class FeatureMatcher(object):
 
                         best_sim = -1.0
                         best_tpid_pre = -1
-                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_pre_ids, TPs_pre,
-                                                                  TP_yolo_inds_pre):  # previous frame as col
+                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_pre_ids, TPs_pre, TP_yolo_inds_pre):  # previous frame as col
                             x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
 
                             reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_pre]
@@ -687,6 +644,57 @@ class FeatureMatcher(object):
                         if gt_tr_id_pre == gt_tr_id_cur:
                             correct += 1
                             sim_sum += best_sim
+
+                            # if do visualization for correct and wrong match
+                            if viz_dir != None:
+                                save_path = viz_dir + '/' \
+                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
+                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+
+                        else:  # if wrong matching
+                            save_path = viz_dir + '/' \
+                                        + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
+                                            .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+
+                        # ----- plot
+                        # text and line format
+                        text_scale = max(1.0, img_w / 1200.0)  # 1600.
+                        text_thickness = 2
+                        line_thickness = max(1, int(img_w / 500.0))
+
+                        img0_pre = self.img0_pre.copy()
+                        x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # get best match bbox
+                        cv2.rectangle(img0_pre,
+                                      (x1_pre, y1_pre),
+                                      (x2_pre, y2_pre),
+                                      [0, 0, 255],
+                                      thickness=line_thickness)
+                        cv2.putText(img0_pre,
+                                    'id{:d}'.format(gt_tr_id_pre),
+                                    (x1_pre, y1_pre),
+                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                    fontScale=text_scale,
+                                    color=[0, 255, 0],
+                                    thickness=text_thickness)
+
+                        img0_cur = img0.copy()
+                        cv2.rectangle(img0_cur,
+                                      (x1_cur, y1_cur),
+                                      (x2_cur, y2_cur),
+                                      [0, 0, 255],
+                                      thickness=line_thickness)
+                        cv2.putText(img0_cur,
+                                    'id{:d}'.format(gt_tr_id_cur),
+                                    (x1_cur, y1_cur),
+                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                    fontScale=text_scale,
+                                    color=[0, 255, 0],
+                                    thickness=text_thickness)
+
+                        img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
+                        img_save[:img_h, :, :] = img0_pre
+                        img_save[img_h:2 * img_h, :, :] = img0_cur
+                        cv2.imwrite(save_path, img_save)
 
             # ---------- update
             self.TPs_pre = TPs
