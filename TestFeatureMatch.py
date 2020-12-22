@@ -495,6 +495,14 @@ class FeatureMatcher(object):
                                 best_sim = sim
                                 best_tpid_pre = tpid_pre
 
+                        # determine matched right or not
+                        gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
+                        gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+                        # update correct
+                        if gt_tr_id_pre == gt_tr_id_cur:
+                            correct += 1
+                            sim_sum += best_sim
+
                 elif len(self.model.feat_out_ids) == 3:
                     for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
@@ -526,14 +534,13 @@ class FeatureMatcher(object):
                                 best_sim = sim
                                 best_tpid_pre = tpid_pre
 
-                    # determine matched right or not
-                    gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
-                    gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
-
-                    # update correct
-                    if gt_tr_id_pre == gt_tr_id_cur:
-                        correct += 1
-                        sim_sum += best_sim
+                        # determine matched right or not
+                        gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
+                        gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+                        # update correct
+                        if gt_tr_id_pre == gt_tr_id_cur:
+                            correct += 1
+                            sim_sum += best_sim
 
             # ---------- update
             self.TPs_pre = TPs
