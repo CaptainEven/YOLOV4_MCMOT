@@ -589,18 +589,18 @@ class FeatureMatcher(object):
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # visualize the wrong match:
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
                         # ----- plot
                         # text and line format
-                        text_scale = max(1.0, img_w / 1200.0)  # 1600.
+                        text_scale = max(1.0, img_w / 1000.0)  # 1600.
                         text_thickness = 2
                         line_thickness = max(1, int(img_w / 500.0))
 
@@ -681,17 +681,17 @@ class FeatureMatcher(object):
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # if wrong matching
                             save_path = viz_dir + '/' \
-                                        + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
-                                            .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
+                                        + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                            .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         # ----- plot
                         # text and line format
-                        text_scale = max(1.0, img_w / 1200.0)  # 1600.
+                        text_scale = max(1.0, img_w / 1000.0)  # 1600.
                         text_thickness = 2
                         line_thickness = max(1, int(img_w / 500.0))
 
