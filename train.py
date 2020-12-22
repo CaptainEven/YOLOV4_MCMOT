@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0003,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.0001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -675,7 +675,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',
+                        default='./weights/v4_tiny3l_one_feat_track_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -700,7 +700,7 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=44,  # 0, 44
+                        default=0,  # 0, 44
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set ReID feature map output layer ids

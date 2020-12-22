@@ -320,7 +320,7 @@ class FeatureMatcher(object):
                     pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
                     pred = pred.float()
 
-                pred = pred.float()
+                # pred = pred.float()
 
                 # ----- get dets: in x1, y1, x2, y2, score, cls_id format
                 # apply NMS
@@ -336,7 +336,7 @@ class FeatureMatcher(object):
                     dets_yolo_ids = pred_yolo_ids[0]  # assume batch_size == 1 here
 
                     # get reid map for this bbox(corresponding yolo idx)...
-                    reid_feat_map = reid_feat_out[yolo_id]
+                    # reid_feat_map = reid_feat_out[yolo_id]
 
                 elif len(self.model.feat_out_ids) == 1:
                     pred = non_max_suppression(predictions=pred,
@@ -348,8 +348,8 @@ class FeatureMatcher(object):
 
                     # get reid feature map
                     reid_feat_map = reid_feat_out[0]
-
-                b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+                    reid_feat_map = reid_feat_map.detach().cpu().numpy()
+                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
 
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
