@@ -25,12 +25,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -78,7 +78,7 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         # -----
@@ -573,13 +573,13 @@ class FeatureMatcher(object):
                         img0_pre = self.img0_pre.copy()
                         x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
                         cv2.rectangle(img0_pre,
-                                      (x1_pre, y1_pre),
-                                      (x2_pre, y2_pre),
+                                      (int(x1_pre), int(y1_pre)),
+                                      (int(x2_pre), int(y2_pre)),
                                       [0, 0, 255],
                                       thickness=line_thickness)
                         cv2.putText(img0_pre,
                                     'id{:d}'.format(gt_tr_id_pre),
-                                    (x1_pre, y1_pre),
+                                    (int(x1_pre), int(y1_pre)),
                                     fontFace=cv2.FONT_HERSHEY_PLAIN,
                                     fontScale=text_scale,
                                     color=[0, 255, 0],
@@ -587,13 +587,13 @@ class FeatureMatcher(object):
 
                         img0_cur = img0.copy()
                         cv2.rectangle(img0_cur,
-                                      (x1_cur, y1_cur),
-                                      (x2_cur, y2_cur),
+                                      (int(x1_cur), int(y1_cur)),
+                                      (int(x2_cur), int(y2_cur)),
                                       [0, 0, 255],
                                       thickness=line_thickness)
                         cv2.putText(img0_cur,
                                     'id{:d}'.format(gt_tr_id_cur),
-                                    (x1_cur, y1_cur),
+                                    (int(x1_cur), int(y1_cur)),
                                     fontFace=cv2.FONT_HERSHEY_PLAIN,
                                     fontScale=text_scale,
                                     color=[0, 255, 0],
@@ -603,7 +603,6 @@ class FeatureMatcher(object):
                         img_save[:img_h, :, :] = img0_pre
                         img_save[img_h:2 * img_h, :, :] = img0_cur
                         cv2.imwrite(save_path, img_save)
-
 
                 elif len(self.model.feat_out_ids) == 3:
                     for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):  # current frame as row
@@ -665,13 +664,13 @@ class FeatureMatcher(object):
                         img0_pre = self.img0_pre.copy()
                         x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # get best match bbox
                         cv2.rectangle(img0_pre,
-                                      (x1_pre, y1_pre),
-                                      (x2_pre, y2_pre),
+                                      (int(x1_pre), int(y1_pre)),
+                                      (int(x2_pre), int(y2_pre)),
                                       [0, 0, 255],
                                       thickness=line_thickness)
                         cv2.putText(img0_pre,
                                     'id{:d}'.format(gt_tr_id_pre),
-                                    (x1_pre, y1_pre),
+                                    (int(x1_pre), int(y1_pre)),
                                     fontFace=cv2.FONT_HERSHEY_PLAIN,
                                     fontScale=text_scale,
                                     color=[0, 255, 0],
@@ -679,13 +678,13 @@ class FeatureMatcher(object):
 
                         img0_cur = img0.copy()
                         cv2.rectangle(img0_cur,
-                                      (x1_cur, y1_cur),
-                                      (x2_cur, y2_cur),
+                                      (int(x1_cur), int(y1_cur)),
+                                      (int(x2_cur), int(y2_cur)),
                                       [0, 0, 255],
                                       thickness=line_thickness)
                         cv2.putText(img0_cur,
                                     'id{:d}'.format(gt_tr_id_cur),
-                                    (x1_cur, y1_cur),
+                                    (int(x1_cur), int(y1_cur)),
                                     fontFace=cv2.FONT_HERSHEY_PLAIN,
                                     fontScale=text_scale,
                                     color=[0, 255, 0],
