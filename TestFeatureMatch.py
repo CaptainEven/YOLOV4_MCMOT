@@ -308,8 +308,13 @@ class FeatureMatcher(object):
         # map center point from net scale to feature map scale(1/4 of net input size)
         center_x = (x1 + x2) * 0.5
         center_y = (y1 + y2) * 0.5
-        center_x *= float(feat_map_w) / float(net_w)
-        center_y *= float(feat_map_h) / float(net_h)
+        center_x = center_x / float(net_w)
+        center_x = center_x * float(feat_map_w)
+        center_y = center_y / float(net_h)
+        center_y = center_y * float(feat_map_h)
+
+        # center_x *= float(feat_map_w) / float(net_w)
+        # center_y *= float(feat_map_h) / float(net_h)
 
         # convert to int64 for indexing
         center_x = int(center_x + 0.5)
@@ -363,14 +368,17 @@ class FeatureMatcher(object):
                     pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
                     pred = pred.float()
 
+                    # reid_feat_out: GPU -> CPU
+                    feat_tmp_list = []
+                    for tmp in reid_feat_out:
+                        tmp = tmp.detach().cpu().numpy()
+                        feat_tmp_list.append(tmp)
+                    reid_feat_out = feat_tmp_list
+
                 elif len(self.model.feat_out_ids) == 1:
                     pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
                     pred = pred.float()
 
-                # pred = pred.float()
-
-                # ----- get dets: in x1, y1, x2, y2, score, cls_id format
-                # apply NMS
                 # ----- apply NMS
                 if len(self.model.feat_out_ids) == 3:
                     pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(predictions=pred,
@@ -381,9 +389,6 @@ class FeatureMatcher(object):
                                                                              classes=self.opt.classes,
                                                                              agnostic=self.opt.agnostic_nms)
                     dets_yolo_ids = pred_yolo_ids[0]  # assume batch_size == 1 here
-
-                    # get reid map for this bbox(corresponding yolo idx)...
-                    # reid_feat_map = reid_feat_out[yolo_id]
 
                 elif len(self.model.feat_out_ids) == 1:
                     pred = non_max_suppression(predictions=pred,
