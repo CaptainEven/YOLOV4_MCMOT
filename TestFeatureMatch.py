@@ -24,12 +24,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -77,7 +77,7 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         # -----
@@ -197,7 +197,55 @@ class FeatureMatcher(object):
 
         return objs_gt
 
-    def get_tp(self, fr_id, dets, cls_id=0):
+    def get_tp_three_feat(self, fr_id, dets, yolo_inds, cls_id=0):
+        """
+        :param fr_id:
+        :param dets:
+        :param yolo_inds:
+        :param cls_id:
+        :return:
+        """
+        assert len(self.objs_gt) == self.dataset.nframes
+
+        # get GT objs of current frame for specified object class
+        fr_objs_gt = self.objs_gt[fr_id]
+        objs_gt = [obj for obj in fr_objs_gt if obj[-1] == cls_id]
+
+        dets = dets.tolist()
+        det_ids = [dets.index(x) for x in dets if x[-1] == cls_id]
+        objs_pred = [dets[id] for id in det_ids]
+        yolo_inds = yolo_inds.squeeze().numpy()
+        yolo_inds_pred = [yolo_inds[id] for id in det_ids]
+
+        # compute TPs
+        pred_match_flag = [False for n in range(len(objs_pred))]
+        correct = 0
+        TPs = []
+        GT_tr_ids = []  # GT ids for each TP
+        TP_yolo_inds = []
+        for i, obj_gt in enumerate(objs_gt):  # each gt obj
+            best_iou = 0
+            best_pred_id = -1
+            for j, obj_pred in enumerate(objs_pred):  # each pred obj
+                box_gt = obj_gt[:4]
+                box_pred = obj_pred[:4]
+                b_iou = box_iou(box_gt, box_pred)  # compute iou
+                if obj_pred[4] > self.opt.conf and b_iou > best_iou:  # meet the conf thresh
+                    best_pred_id = j
+                    best_iou = b_iou
+
+            # meet the iou thresh and not matched yet
+            if best_iou > self.opt.iou and not pred_match_flag[best_pred_id]:
+                correct += 1
+                pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
+
+                TPs.append(objs_pred[best_pred_id])
+                GT_tr_ids.append(obj_gt[4])
+                TP_yolo_inds.append(yolo_inds_pred[best_pred_id])
+
+        return TPs, GT_tr_ids, TP_yolo_inds
+
+    def get_tp_one_feat(self, fr_id, dets, cls_id=0):
         """
         Compute true positives for the current frame and specified object class
         :param fr_id:
@@ -263,10 +311,8 @@ class FeatureMatcher(object):
         center_y *= float(feat_map_h) / float(net_h)
 
         # convert to int64 for indexing
-        center_x += 0.5  # round
-        center_y += 0.5
-        center_x = center_x.astype(int)
-        center_y = center_y.astype(int)
+        center_x = int(center_x + 0.5)
+        center_y = int(center_y + 0.5)
 
         # to avoid the object center out of reid feature map's range
         center_x = np.clip(center_x, 0, feat_map_w - 1)
@@ -381,7 +427,10 @@ class FeatureMatcher(object):
                 cv2.imwrite(det_img_path, img_plot)
 
             # ----- compute TPs for current frame
-            TPs, GT_tr_ids = self.get_tp(fr_id, dets, cls_id=cls_id)  # only for car(cls_id == 0)
+            if len(self.model.feat_out_ids) == 3:
+                TPs, GT_tr_ids, TP_yolo_inds = self.get_tp_three_feat(fr_id, dets, dets_yolo_ids, cls_id=cls_id)
+            elif len(self.model.feat_out_ids) == 1:
+                TPs, GT_tr_ids = self.get_tp_one_feat(fr_id, dets, cls_id=cls_id)  # only for car(cls_id == 0)
             # print('{:d} true positive cars.'.format(len(TPs)))
 
             # ----- build mapping from TP id to GT track id
@@ -410,6 +459,11 @@ class FeatureMatcher(object):
 
                 TPs_pre = [self.TPs_pre[x] for x in TPs_pre_ids]
                 TPs_cur = [TPs[x] for x in TPs_cur_ids]
+
+                if len(self.model.feat_out_ids) == 3:
+                    TP_yolo_inds_pre = [self.TP_yolo_inds_pre[x] for x in TPs_pre_ids]
+                    TP_yolo_inds_cur = [TP_yolo_inds[x] for x in TPs_cur_ids]
+
                 assert len(TPs_pre) == len(TPs_cur)
 
                 # ----- update total pairs
@@ -417,31 +471,63 @@ class FeatureMatcher(object):
 
                 # ----- greedy matching...
                 print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
-                for tpid_cur, det_cur in zip(TPs_cur_ids, TPs_cur):
-                    x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
-                    reid_feat_vect_cur = self.get_feature(reid_feat_map,
-                                                          feat_map_w, feat_map_h,
-                                                          net_w, net_h,
-                                                          x1_cur, y1_cur, x2_cur, y2_cur)
-
-                    best_sim = -1.0
-                    best_tpid_pre = -1
-                    for tpid_pre, det_pre in zip(TPs_pre_ids, TPs_pre):
-                        x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
-
-                        reid_feat_vect_pre = self.get_feature(self.reid_feat_map_last,
+                if len(self.model.feat_out_ids) == 1:
+                    for tpid_cur, det_cur in zip(TPs_cur_ids, TPs_cur):
+                        x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
+                        reid_feat_vect_cur = self.get_feature(reid_feat_map,
                                                               feat_map_w, feat_map_h,
                                                               net_w, net_h,
-                                                              x1_pre, y1_pre, x2_pre, y2_pre)
+                                                              x1_cur, y1_cur, x2_cur, y2_cur)
 
-                        # --- compute cosine of cur and pre corresponding feature vector
-                        sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
-                        if sim > best_sim:
-                            best_sim = sim
-                            best_tpid_pre = tpid_pre
+                        best_sim = -1.0
+                        best_tpid_pre = -1
+                        for tpid_pre, det_pre in zip(TPs_pre_ids, TPs_pre):
+                            x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
+
+                            reid_feat_vect_pre = self.get_feature(self.reid_feat_map_pre,
+                                                                  feat_map_w, feat_map_h,
+                                                                  net_w, net_h,
+                                                                  x1_pre, y1_pre, x2_pre, y2_pre)
+
+                            # --- compute cosine of cur and pre corresponding feature vector
+                            sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+                            if sim > best_sim:
+                                best_sim = sim
+                                best_tpid_pre = tpid_pre
+
+                elif len(self.model.feat_out_ids) == 3:
+                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):
+                        x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
+
+                        reid_feat_map_cur = reid_feat_out[yolo_id_cur]
+                        b, reid_dim, feat_map_h_cur, feat_map_w_cur = reid_feat_map_cur.shape
+
+                        reid_feat_vect_cur = self.get_feature(reid_feat_map_cur,
+                                                              feat_map_w_cur, feat_map_h_cur,
+                                                              net_w, net_h,
+                                                              x1_cur, y1_cur, x2_cur, y2_cur)
+
+                        best_sim = -1.0
+                        best_tpid_pre = -1
+                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_pre_ids, TPs_pre, TP_yolo_inds_pre):
+                            x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
+
+                            reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_cur]
+                            b, reid_dim, feat_map_h_pre, feat_map_w_pre = reid_feat_map_pre.shape
+
+                            reid_feat_vect_pre = self.get_feature(reid_feat_map_pre,
+                                                                  feat_map_w_pre, feat_map_h_pre,
+                                                                  net_w, net_h,
+                                                                  x1_pre, y1_pre, x2_pre, y2_pre)
+
+                            # --- compute cosine of cur and pre corresponding feature vector
+                            sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+                            if sim > best_sim:
+                                best_sim = sim
+                                best_tpid_pre = tpid_pre
 
                     # determine matched right or not
-                    gt_tr_id_pre = self.tpid_to_gttrid_last[best_tpid_pre]
+                    gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                     gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
 
                     # update correct
@@ -452,8 +538,13 @@ class FeatureMatcher(object):
             # ---------- update
             self.TPs_pre = TPs
             self.GT_tr_ids_pre = GT_tr_ids
-            self.tpid_to_gttrid_last = tpid_to_gttrid
-            self.reid_feat_map_last = reid_feat_map
+            self.tpid_to_gttrid_pre = tpid_to_gttrid
+
+            if len(self.model.feat_out_ids) == 1:
+                self.reid_feat_map_pre = reid_feat_map  # contains 1 feature map
+            elif len(self.model.feat_out_ids) == 3:
+                self.reid_feat_out_pre = reid_feat_out  # contains 3 feature map
+                self.TP_yolo_inds_pre = TP_yolo_inds
 
         print('Precision: {:.3f}%, mean cos sim: {:.3f}'
               .format(correct / total * 100.0, sim_sum / correct))
