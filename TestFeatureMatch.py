@@ -368,14 +368,13 @@ class FeatureMatcher(object):
                 os.makedirs(viz_dir)
 
         # define image width and height
-        self.img_w = img_w
-        self.img_h = img_h
+        self.img_w, self.img_h = img_w, img_h
 
         # read net input width and height
         net_h, net_w = self.opt.net_h, self.opt.net_w
 
         # ---------- load GT for all frames
-        self.objs_gt = self.load_gt(img_w, img_h, cls_id=cls_id)
+        self.objs_gt = self.load_gt(self.img_w, self.img_h, cls_id=cls_id)
 
         # ---------- iterate tracking results of each frame
         total = 0
