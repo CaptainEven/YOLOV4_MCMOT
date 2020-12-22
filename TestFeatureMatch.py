@@ -572,7 +572,7 @@ class FeatureMatcher(object):
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
+                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}.jpg' \
                                                 .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur)
 
                                 # text and line format
