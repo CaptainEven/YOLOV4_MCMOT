@@ -236,11 +236,15 @@ def clip_coords(boxes, img_shape):
     # Clip bounding xyxy bounding boxes to image shape (height, width)
     img_h, img_w = img_shape
 
-    boxes[:, 0].clamp_(0, img_w)  # x1
-    boxes[:, 1].clamp_(0, img_h)  # y1
-    boxes[:, 2].clamp_(0, img_w)  # x2
-    boxes[:, 3].clamp_(0, img_h)  # y2
+    boxes[:, 0].clamp_(0, img_w - 1)  # x1
+    boxes[:, 1].clamp_(0, img_h - 1)  # y1
+    boxes[:, 2].clamp_(0, img_w - 1)  # x2
+    boxes[:, 3].clamp_(0, img_h - 1)  # y2
 
+    # boxes[:, 0] = np.clip(boxes[:, 0], 0, img_w - 1)  # x1
+    # boxes[:, 1] = np.clip(boxes[:, 1], 0, img_h - 1)  # y1
+    # boxes[:, 2] = np.clip(boxes[:, 2], 0, img_w - 1)  # x2
+    # boxes[:, 3] = np.clip(boxes[:, 3], 0, img_h - 1)  # y2
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """ Compute the average precision, given the recall and precision curves.

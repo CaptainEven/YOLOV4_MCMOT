@@ -590,6 +590,7 @@ class MCJDETracker(object):
 
             # get dets
             dets = pred[0]  # assume batch_size == 1 here
+            # dets = dets.detach().cpu().numpy()
 
             if dets is None:
                 print('[Warning]: no objects detected.')
@@ -637,11 +638,14 @@ class MCJDETracker(object):
                     # center_y *= float(feat_map_h) / float(net_h)
 
                     # convert to int64 for indexing
-                    center_x += 0.5  # round
+                    # rounding and converting to int64 for indexing
+                    center_x += 0.5
                     center_y += 0.5
                     center_x = center_x.long()
                     center_y = center_y.long()
-                    center_x.clamp_(0, feat_map_w - 1)  # to avoid the object center out of reid feature map's range
+
+                    # to avoid the object center out of reid feature map's range
+                    center_x.clamp_(0, feat_map_w - 1)
                     center_y.clamp_(0, feat_map_h - 1)
 
                     # get reid feature vector and put into a dict
@@ -681,12 +685,14 @@ class MCJDETracker(object):
                     center_y = center_y / float(net_h)
                     center_y = center_y * float(feat_map_h)
 
-                    # convert to int64 for indexing
-                    center_x += 0.5  # round
+                    # rounding and converting to int64 for indexing
+                    center_x += 0.5
                     center_y += 0.5
                     center_x = center_x.long()
                     center_y = center_y.long()
-                    center_x.clamp_(0, feat_map_w - 1)  # to avoid the object center out of reid feature map's range
+
+                    # to avoid the object center out of reid feature map's range
+                    center_x.clamp_(0, feat_map_w - 1)
                     center_y.clamp_(0, feat_map_h - 1)
 
                     # get reid feature vector and put into a dict
@@ -808,6 +814,7 @@ class MCJDETracker(object):
         #             # f.write('\n')
 
         ## ---------- Process each object class
+
         for cls_id in range(self.opt.num_classes):
             cls_inds = torch.where(dets[:, -1] == cls_id)
             cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)
