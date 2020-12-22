@@ -565,11 +565,9 @@ class MCJDETracker(object):
             pred = None
             if len(self.model.feat_out_ids) == 3:
                 pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
-                # pred = pred.float()
 
             elif len(self.model.feat_out_ids) == 1:
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
-                # pred = pred.float()
 
             # ----- apply NMS
             if len(self.model.feat_out_ids) == 3:
