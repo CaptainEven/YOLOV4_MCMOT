@@ -261,7 +261,9 @@ class FeatureMatcher(object):
                 correct += 1
                 pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
 
-                # self.clip_bbox(objs_pred[best_pred_id][:4], )
+                # clipping predicted bbox
+                objs_pred[best_pred_id][:4] = self.clip_bbox(objs_pred[best_pred_id][:4], self.img_w, self.img_h)
+
                 TPs.append(objs_pred[best_pred_id])
                 GT_tr_ids.append(obj_gt[4])
                 TP_yolo_inds.append(yolo_inds_pred[best_pred_id])
@@ -305,6 +307,9 @@ class FeatureMatcher(object):
             if best_iou > self.opt.iou and not pred_match_flag[best_pred_id]:
                 correct += 1
                 pred_match_flag[best_pred_id] = True  # set flag true for matched prediction
+
+                # clipping predicted bbox
+                objs_pred[best_pred_id][:4] = self.clip_bbox(objs_pred[best_pred_id][:4], self.img_w, self.img_h)
 
                 TPs.append(objs_pred[best_pred_id])
                 GT_tr_ids.append(obj_gt[4])
@@ -560,7 +565,7 @@ class FeatureMatcher(object):
 
                                 # plot
                                 img0_pre = self.img0_pre.copy()
-                                x1_pre, y1_pre, x2_pre, y2_pre = TPs_pre[best_tpid_pre][:4]  # best match bbox
+                                x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
                                 cv2.rectangle(img0_pre,
                                               (x1_pre, y1_pre),
                                               (x2_pre, y2_pre),
@@ -607,7 +612,7 @@ class FeatureMatcher(object):
 
                                 # plot
                                 img0_pre = self.img0_pre.copy()
-                                x1_pre, y1_pre, x2_pre, y2_pre = TPs_pre[best_tpid_pre][:4]  # best match bbox
+                                x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
                                 cv2.rectangle(img0_pre,
                                               (x1_pre, y1_pre),
                                               (x2_pre, y2_pre),
