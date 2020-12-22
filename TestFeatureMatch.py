@@ -305,16 +305,15 @@ class FeatureMatcher(object):
         :param y2:
         :return:
         """
-        # map center point from net scale to feature map scale(1/4 of net input size)
+        # get center point
         center_x = (x1 + x2) * 0.5
         center_y = (y1 + y2) * 0.5
+
+        # map center point from net scale to feature map scale(1/4 of net input size)
         center_x = center_x / float(net_w)
         center_x = center_x * float(feat_map_w)
         center_y = center_y / float(net_h)
         center_y = center_y * float(feat_map_h)
-
-        # center_x *= float(feat_map_w) / float(net_w)
-        # center_y *= float(feat_map_h) / float(net_h)
 
         # convert to int64 for indexing
         center_x = int(center_x + 0.5)
