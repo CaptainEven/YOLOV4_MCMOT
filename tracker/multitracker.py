@@ -614,6 +614,9 @@ class MCJDETracker(object):
                 # L2 normalize the feature map(feature map scale(1/4 of net input size))
                 reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
+                # GPU -> CPU
+                reid_feat_map = reid_feat_map.detach().cpu().numpy()
+
                 for det in dets:
                     # up-zip det
                     x1, y1, x2, y2, conf, cls_id = det
@@ -650,7 +653,6 @@ class MCJDETracker(object):
                     # id_vect_list.append(id_feat_vect)
 
                     id_feat_vect = id_feat_vect.squeeze()
-                    id_feat_vect = id_feat_vect.cpu().numpy()
                     id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
             elif len(self.model.feat_out_ids) == 3:
@@ -661,8 +663,11 @@ class MCJDETracker(object):
                     # get reid map for this bbox(corresponding yolo idx)
                     reid_feat_map = reid_feat_out[yolo_id]
 
-                    # L2 normalize the feature map(feature map scale(1/4 of net input size))
+                    # L2 normalize the feature map(feature map scale)
                     reid_feat_map = F.normalize(reid_feat_map, dim=1)
+
+                    # GPU -> CPU
+                    reid_feat_map = reid_feat_map.detach().cpu().numpy()
 
                     # get feature map's size
                     b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
@@ -693,7 +698,6 @@ class MCJDETracker(object):
                     # id_vect_list.append(id_feat_vect)
 
                     id_feat_vect = id_feat_vect.squeeze()
-                    id_feat_vect = id_feat_vect.cpu().numpy()
                     id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
             # ----- Rescale boxes from net size to img size
