@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import cv2
 from collections import defaultdict
 from models import *
 from utils.utils import map_resize_back, map_to_orig_coords
@@ -340,6 +341,9 @@ class FeatureMatcher(object):
         if viz_dir != None:
             if not os.path.isdir(viz_dir):
                 os.makedirs(viz_dir)
+            else:
+                shutil.rmtree(viz_dir)
+                os.makedirs(viz_dir)
 
         # read net input width and height
         net_h, net_w = self.opt.net_h, self.opt.net_w
@@ -520,12 +524,48 @@ class FeatureMatcher(object):
                         else:  # visualize the wrong match:
                             # wrong match img saving path
                             if viz_dir != None:
-                                save_path_pre = viz_dir + '/' + '_wrong_match_{:d}:{:d}-{:d}:{:d}_fr{:d}.jpg' \
+                                save_path_pre = viz_dir + '/' \
+                                                + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}_fr{:d}.jpg' \
                                     .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, fr_id - 1)
-                                save_path_cur = viz_dir + '/' + '_wrong_match_{:d}:{:d}-{:d}:{:d}_fr{:d}.jpg' \
+                                save_path_cur = viz_dir + '/' \
+                                                + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}_fr{:d}.jpg' \
                                     .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, fr_id)
 
+                                # text and line format
+                                text_scale = max(1.0, img_w / 1200.0)  # 1600.
+                                text_thickness = 2
+                                line_thickness = max(1, int(img_w / 500.0))
+
                                 # plot
+                                img0_pre = self.img0_pre.copy()
+                                cv2.rectangle(img0_pre,
+                                              (x1_pre, y1_pre),
+                                              (x2_pre, y2_pre),
+                                              [0, 0, 255],
+                                              thickness=line_thickness)
+                                cv2.putText(img0_pre,
+                                            'id{:d}'.format(gt_tr_id_pre),
+                                            (x1_pre, y1_pre),
+                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                            fontScale=text_scale,
+                                            color=[0, 255, 0],
+                                            thickness=text_thickness)
+                                cv2.imwrite(save_path_pre, img0_pre)
+
+                                img0_cur = img0.copy()
+                                cv2.rectangle(img0_cur,
+                                              (x1_cur, y1_cur),
+                                              (x2_cur, y2_cur),
+                                              [0, 0, 255],
+                                              thickness=line_thickness)
+                                cv2.putText(img0_cur,
+                                            'id{:d}'.format(gt_tr_id_cur),
+                                            (x1_cur, y1_cur),
+                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                            fontScale=text_scale,
+                                            color=[0, 255, 0],
+                                            thickness=text_thickness)
+                                cv2.imwrite(save_path_cur, img0_cur)
 
 
                 elif len(self.model.feat_out_ids) == 3:

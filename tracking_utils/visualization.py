@@ -24,6 +24,8 @@ def tlwhs_to_tlbrs(tlwhs):
 
 
 def get_color(idx):
+    if idx == 0:
+        idx += 10
     idx *= 3
     # idx += np.random.randint(50, 255)
     color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
@@ -112,10 +114,10 @@ def plot_tracks(image,
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
-    text_scale = max(1.0, image.shape[1] / 1200.)  # 1600.
+    text_scale = max(1.0, image.shape[1] / 1200.0)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
-    line_thickness = max(1, int(image.shape[1] / 500.))
+    line_thickness = max(1, int(image.shape[1] / 500.0))
 
     radius = max(5, int(im_w / 140.))
 
