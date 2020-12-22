@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.000005,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.000002,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -670,12 +670,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/v4_tiny3l_three_feat_track_last.pt',
+                        default='./weights/v4_tiny3l_one_feat_track_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -706,7 +706,7 @@ if __name__ == '__main__':
     # ----- Set ReID feature map output layer ids
     parser.add_argument('--feat-out-ids',
                         type=str,
-                        default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                        default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                         help='reid feature map output layer ids.')
 
     # use debug mode to enforce the parameter of worker number to be 0
@@ -716,7 +716,7 @@ if __name__ == '__main__':
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='v4_tiny3l_three_feat',
+                        default='v4_tiny3l_one_feat',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()

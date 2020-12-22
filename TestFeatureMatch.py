@@ -184,7 +184,8 @@ class FeatureMatcher(object):
             mean_precision += precision
             print('Seq {:s} done.\n'.format(video_path))
 
-        print('Mean precision: {:.3f}'.format(mean_precision))
+        mean_precision /= float(len(self.videos))
+        print('Mean precision: {:.3f}%'.format(mean_precision * 100.0))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
