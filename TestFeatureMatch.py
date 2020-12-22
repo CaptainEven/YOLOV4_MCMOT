@@ -167,6 +167,7 @@ class FeatureMatcher(object):
                 os.makedirs(viz_dir)
 
         mean_precision = 0.0
+        cnt = 0
         for video_path in self.videos:
             if not os.path.isfile(video_path):
                 print('[Warning]: {:s} not exists.'.format(video_path))
@@ -184,7 +185,9 @@ class FeatureMatcher(object):
             mean_precision += precision
             print('Seq {:s} done.\n'.format(video_path))
 
-        mean_precision /= float(len(self.videos))
+            cnt += 1
+
+        mean_precision /= float(cnt)
         print('Mean precision: {:.3f}%'.format(mean_precision * 100.0))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
