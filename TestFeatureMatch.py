@@ -410,8 +410,6 @@ class FeatureMatcher(object):
                                                classes=self.opt.classes,
                                                agnostic=self.opt.agnostic_nms)
 
-
-
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
                     print('[Warning]: no objects detected.')
@@ -425,22 +423,22 @@ class FeatureMatcher(object):
 
                 dets = dets.detach().cpu().numpy()
 
-            # --- viz dets
-            if viz_dir != None:
-                img_plot = vis.plot_detects(img0, dets, len(self.cls2id), fr_id, self.id2cls)
-                det_img_path = viz_dir + '/' + str(fr_id) + '_det' + '.jpg'
-                cv2.imwrite(det_img_path, img_plot)
+            # # --- viz dets
+            # if viz_dir != None:
+            #     img_plot = vis.plot_detects(img0, dets, len(self.cls2id), fr_id, self.id2cls)
+            #     det_img_path = viz_dir + '/' + str(fr_id) + '_det' + '.jpg'
+            #     cv2.imwrite(det_img_path, img_plot)
 
             # ----- get GT for current frame
             self.gt_cur = self.objs_gt[fr_id]
 
-            # --- viz GTs
-            if viz_dir != None:
-                objs_gt = np.array(self.objs_gt[fr_id])
-                objs_gt[:, 4] = 1.0
-                img_plot = vis.plot_detects(img0, objs_gt, len(self.cls2id), fr_id, self.id2cls)
-                det_img_path = viz_dir + '/' + str(fr_id) + '_gt' + '.jpg'
-                cv2.imwrite(det_img_path, img_plot)
+            # # --- viz GTs
+            # if viz_dir != None:
+            #     objs_gt = np.array(self.objs_gt[fr_id])
+            #     objs_gt[:, 4] = 1.0
+            #     img_plot = vis.plot_detects(img0, objs_gt, len(self.cls2id), fr_id, self.id2cls)
+            #     det_img_path = viz_dir + '/' + str(fr_id) + '_gt' + '.jpg'
+            #     cv2.imwrite(det_img_path, img_plot)
 
             # ----- compute TPs for current frame
             if len(self.model.feat_out_ids) == 3:
@@ -519,6 +517,16 @@ class FeatureMatcher(object):
                         if gt_tr_id_pre == gt_tr_id_cur:
                             correct += 1
                             sim_sum += best_sim
+                        else:  # visualize the wrong match:
+                            # wrong match img saving path
+                            if viz_dir != None:
+                                save_path_pre = viz_dir + '/' + '_wrong_match_{:d}:{:d}-{:d}:{:d}_fr{:d}.jpg' \
+                                    .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, fr_id - 1)
+                                save_path_cur = viz_dir + '/' + '_wrong_match_{:d}:{:d}-{:d}:{:d}_fr{:d}.jpg' \
+                                    .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, fr_id)
+
+                                # plot
+
 
                 elif len(self.model.feat_out_ids) == 3:
                     for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):
@@ -571,10 +579,12 @@ class FeatureMatcher(object):
                 self.reid_feat_out_pre = reid_feat_out  # contains 3 feature map
                 self.TP_yolo_inds_pre = TP_yolo_inds
 
+            self.img0_pre = img0
+
         print('Precision: {:.3f}%, mean cos sim: {:.3f}'
               .format(correct / total * 100.0, sim_sum / correct))
 
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run(viz_dir=None)  # '/mnt/diskc/even/viz'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
