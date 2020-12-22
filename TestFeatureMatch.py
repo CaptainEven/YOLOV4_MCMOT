@@ -293,6 +293,7 @@ class FeatureMatcher(object):
                     net_w, net_h,
                     x1, y1, x2, y2):
         """
+        Get feature vector
         :param reid_feat_map:
         :param feat_map_w:
         :param feat_map_h:
@@ -498,6 +499,7 @@ class FeatureMatcher(object):
                         # determine matched right or not
                         gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                         gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+
                         # update correct
                         if gt_tr_id_pre == gt_tr_id_cur:
                             correct += 1
@@ -537,6 +539,7 @@ class FeatureMatcher(object):
                         # determine matched right or not
                         gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                         gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+
                         # update correct
                         if gt_tr_id_pre == gt_tr_id_cur:
                             correct += 1
