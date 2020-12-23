@@ -741,7 +741,7 @@ class FeatureMatcher(object):
                             # do cosine similarity statistics
                             best_sim *= 100.0
                             edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                            self.correct_sim_bins_dict[edge] += 1
+                            self.wrong_sim_bins_dict[edge] += 1
 
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
