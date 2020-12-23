@@ -371,6 +371,10 @@ class Darknet(nn.Module):
         print('Output reid feature map layer ids: ', self.feat_out_ids)
 
         self.fc_type = fc  # only matters in train mode
+        print('FC layer type: {:s}'.format(self.fc_type))
+
+        self.emb_dim = emb_dim
+        print('Embedding dimension: {:d}'.format(self.emb_dim))
 
         # ---------- parsing cfg file
         self.module_defs = parse_model_cfg(cfg)
@@ -381,7 +385,7 @@ class Darknet(nn.Module):
         # ----- Define ReID classifiers
         if max_id_dict is not None:
             self.max_id_dict = max_id_dict
-            self.emb_dim = emb_dim  # dimension of embedding feature vector
+            # self.emb_dim = emb_dim  # dimension of embedding feature vector
             self.id_classifiers = nn.ModuleList()  # num_classes layers of FC
 
             for cls_id, nID in self.max_id_dict.items():

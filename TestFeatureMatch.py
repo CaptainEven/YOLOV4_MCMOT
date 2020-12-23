@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_256.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_dim256_track_last.weights',
+                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -79,12 +79,12 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=256,
+                                 default=128,
                                  help='reid feature map output embedding dimension')
 
         # -----
@@ -173,20 +173,24 @@ class FeatureMatcher(object):
 
         mean_precision = 0.0
         cnt = 0
-        for video_path in self.videos:
+        for video_path in self.videos:  # .mp4
             if not os.path.isfile(video_path):
                 print('[Warning]: {:s} not exists.'.format(video_path))
                 continue
 
+            seq_name = os.path.split(video_path)[-1][:-4]
+
+            # current video seq's gt label
             self.darklabel_txt_path = video_path[:-4] + '_gt.txt'
             if not os.path.isfile(self.darklabel_txt_path):
                 print('[Warning]: {:s} not exists.'.format(self.darklabel_txt_path))
                 continue
 
+            # current video seq's dataset
             self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
             print('Run seq {:s}...'.format(video_path))
-            precision = self.run_a_seq(cls_id, img_w, img_h, viz_dir)
+            precision = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
             print('Seq {:s} done.\n'.format(video_path))
 
@@ -407,8 +411,9 @@ class FeatureMatcher(object):
 
         return reid_feat_vect
 
-    def run_a_seq(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
+    def run_a_seq(self, seq_name, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
+        :param seq_name:
         :param cls_id:
         :param img_w:
         :param img_h:
@@ -598,20 +603,20 @@ class FeatureMatcher(object):
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                            + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # visualize the wrong match:
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                            + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         if viz_dir != None:
                             # ----- plot
                             # text and line format
-                            text_scale = max(1.0, img_w / 1000.0)  # 1600.
+                            text_scale = max(1.0, img_w / 800.0)  # 1600.
                             text_thickness = 2
                             line_thickness = max(1, int(img_w / 500.0))
 
@@ -692,19 +697,19 @@ class FeatureMatcher(object):
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'correct_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                            + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # if wrong matching
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
-                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                            + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         if viz_dir != None:
                             # ----- plot
                             # text and line format
-                            text_scale = max(1.0, img_w / 1000.0)  # 1600.
+                            text_scale = max(1.0, img_w / 800.0)  # 1600.
                             text_thickness = 2
                             line_thickness = max(1, int(img_w / 500.0))
 
@@ -764,5 +769,4 @@ class FeatureMatcher(object):
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    # matcher.run_a_seq(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
-    matcher.run(cls_id=0, img_w=1920, img_h=1080)  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_three_feat')  # '/mnt/diskc/even/viz_one_feat'

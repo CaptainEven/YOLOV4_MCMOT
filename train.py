@@ -672,12 +672,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_up4.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/v4_tiny3l_one_feat_track_last.pt',
+                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',
                         help='initial weights path')
     # ----------
 
@@ -702,7 +702,7 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=0,  # 0, 44
+                        default=44,  # 0, 44
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set ReID feature map output layer ids
@@ -728,7 +728,7 @@ if __name__ == '__main__':
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='v4_tiny3l_one_feat',
+                        default='v4_tiny3l_one_feat_up4',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()
