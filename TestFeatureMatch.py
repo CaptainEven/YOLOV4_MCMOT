@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_up4.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_up4_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -811,4 +811,4 @@ class FeatureMatcher(object):
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_one_feat_fuse')  # '/mnt/diskc/even/viz_one_feat'
