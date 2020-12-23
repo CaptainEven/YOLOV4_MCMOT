@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -79,13 +79,18 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         self.parser.add_argument('--dim',
                                  type=int,
                                  default=128,
                                  help='reid feature map output embedding dimension')
+
+        self.parser.add_argument('--bin-step',
+                                 type=int,
+                                 default=5,
+                                 help='number of bins for cosine similarity statistics(10 or 5).')
 
         # -----
         self.parser.add_argument('--conf', type=float, default=0.2, help='object confidence threshold')
@@ -143,20 +148,18 @@ class FeatureMatcher(object):
         else:  # dark-net format
             load_darknet_weights(self.model, self.opt.weights, int(self.opt.cutoff))
 
-        # Put model to device and set eval mode
+        # put model to device and set eval mode
         self.model.to(device).eval()
 
-        #
+        # statistics
+        self.correct_sim_bins_dict = defaultdict(int)
+        self.wrong_sim_bins_dict = defaultdict(int)
 
-        # # set the first dataset
-        # self.video = self.videos[0]
-        # self.darklabel_txt_path = self.videos[0][:-4] + '_gt.txt'
-        # if not (os.path.isfile(self.opt.video)
-        #         and os.path.isfile(self.darklabel_txt_path)):
-        #     print('[Err]: invalid video path or GT.')
-        #     return
-        #
-        # self.dataset = LoadImages(self.opt.video, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
+        for edge in range(0, 100, self.opt.bin_step):
+            self.correct_sim_bins_dict[edge] = 0
+            self.wrong_sim_bins_dict[edge] = 0
+
+        print('Feature matcher init done.')
 
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
@@ -198,6 +201,25 @@ class FeatureMatcher(object):
 
         mean_precision /= float(cnt)
         print('Mean precision: {:.3f}%'.format(mean_precision * 100.0))
+
+        # histogram statistics
+        num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
+        num_total_correct = sum(num_correct)
+        num_wrong = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
+        num_total_wrong = sum(num_wrong)
+        num_total = num_total_correct + num_total_wrong
+        print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
+        # print(num_total_wrong / num_total)
+
+        print(self.correct_sim_bins_dict)
+        print(self.wrong_sim_bins_dict)
+
+        # detailed statistics
+        for edge in range(0, 100, self.opt.bin_step):
+            correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
+            print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+            wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
+            print('Wrong [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
@@ -600,6 +622,11 @@ class FeatureMatcher(object):
                             correct += 1
                             sim_sum += best_sim
 
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.correct_sim_bins_dict[edge] += 1
+
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
@@ -607,6 +634,11 @@ class FeatureMatcher(object):
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # visualize the wrong match:
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.wrong_sim_bins_dict[edge] += 1
+
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
@@ -769,4 +801,4 @@ class FeatureMatcher(object):
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_three_feat')  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
