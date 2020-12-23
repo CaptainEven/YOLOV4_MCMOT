@@ -348,6 +348,7 @@ class Darknet(nn.Module):
                  verbose=False,
                  max_id_dict=None,
                  emb_dim=128,
+                 fc='FC',
                  feat_out_ids='-1',
                  mode='detect'):
         """
@@ -355,8 +356,10 @@ class Darknet(nn.Module):
         :param img_size:
         :param verbose:
         :param max_id_dict:
-        :param emb_dim: record max id numbers for each object class, used to do reid classification
-        :param mode: output detection or tracking(detection + reid vector)
+        :param emb_dim:
+        :param fc: FC layer type
+        :param feat_out_ids:
+        :param mode:
         """
         super(Darknet, self).__init__()
 
@@ -366,6 +369,8 @@ class Darknet(nn.Module):
         # parsing reid feature map output layer ids
         self.feat_out_ids = [int(x) for x in feat_out_ids.split(',')]
         print('Output reid feature map layer ids: ', self.feat_out_ids)
+
+        self.fc_type = fc  # only matters in train mode
 
         # ---------- parsing cfg file
         self.module_defs = parse_model_cfg(cfg)
@@ -381,10 +386,12 @@ class Darknet(nn.Module):
 
             for cls_id, nID in self.max_id_dict.items():
                 ## choice 1: use normal FC layers as classifiers
-                # self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # FC layers
+                if self.fc_type == 'FC':
+                    self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # normal FC layers
 
                 ## choice 2: use arc margin FC layer as classifier
-                self.id_classifiers.append(ArcMargin(self.emb_dim, nID, device='cuda:0', m=0.2))
+                elif self.fc_type == 'Arc':
+                    self.id_classifiers.append(ArcMargin(self.emb_dim, nID, device='cuda:0', m=0.1))
 
             # add reid classifiers(nn.ModuleList) to self.module_list to be registered
             self.module_list.append(self.id_classifiers)

@@ -153,6 +153,7 @@ def train():
                         verbose=False,
                         max_id_dict=max_id_dict,  # after dataset's statistics
                         emb_dim=opt.dim,
+                        fc=opt.fc,
                         mode=opt.task).to(device)
     else:
         max_id_dict = dataset.max_ids_dict
@@ -161,6 +162,7 @@ def train():
                         verbose=False,
                         max_id_dict=max_id_dict,  # using priori knowledge
                         emb_dim=opt.dim,
+                        fc=opt.fc,
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
     # print(model)
@@ -675,7 +677,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/v4_tiny3l_one_feat_dim256_track_last.weights',
+                        default='./weights/v4_tiny3l_one_feat_dim256_track_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -713,6 +715,11 @@ if __name__ == '__main__':
                         type=int,
                         default=256,
                         help='reid feature map output embedding dimension')
+
+    parser.add_argument('--fc',
+                        type=str,
+                        default='Arc',  # Arc
+                        help='FC layer type: FC or Arc')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',

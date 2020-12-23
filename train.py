@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0005,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0002,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.0001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -153,6 +153,7 @@ def train():
                         verbose=False,
                         max_id_dict=max_id_dict,  # after dataset's statistics
                         emb_dim=opt.dim,
+                        fc=opt.fc,
                         mode=opt.task).to(device)
     else:
         max_id_dict = dataset.max_ids_dict
@@ -161,6 +162,7 @@ def train():
                         verbose=False,
                         max_id_dict=max_id_dict,  # using priori knowledge
                         emb_dim=opt.dim,
+                        fc=opt.fc,
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
     # print(model)
@@ -713,6 +715,11 @@ if __name__ == '__main__':
                         type=int,
                         default=128,
                         help='reid feature map output embedding dimension')
+
+    parser.add_argument('--fc',
+                        type=str,
+                        default='FC',  # Arc
+                        help='FC layer type: FC or Arc')
 
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
