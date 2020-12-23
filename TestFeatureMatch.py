@@ -200,7 +200,7 @@ class FeatureMatcher(object):
             cnt += 1
 
         mean_precision /= float(cnt)
-        print('Mean precision: {:.3f}%'.format(mean_precision * 100.0))
+        print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
 
         # histogram statistics
         num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]

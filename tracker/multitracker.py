@@ -429,6 +429,7 @@ class MCJDETracker(object):
                                  verbose=False,
                                  max_id_dict=max_id_dict,
                                  emb_dim=128,
+                                 fc=opt.fc,
                                  feat_out_ids=opt.feat_out_ids,
                                  mode=opt.task).to(device)
         elif self.opt.task == 'detect':
