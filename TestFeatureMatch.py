@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_256.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_dim256_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -79,8 +79,13 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
+
+        self.parser.add_argument('--dim',
+                                 type=int,
+                                 default=256,
+                                 help='reid feature map output embedding dimension')
 
         # -----
         self.parser.add_argument('--conf', type=float, default=0.2, help='object confidence threshold')
@@ -124,7 +129,7 @@ class FeatureMatcher(object):
                              img_size=self.opt.img_size,
                              verbose=False,
                              max_id_dict=max_id_dict,
-                             emb_dim=128,
+                             emb_dim=self.opt.dim,
                              feat_out_ids=self.opt.feat_out_ids,
                              mode=self.opt.task).to(self.opt.device)
         # print(self.model)
@@ -540,15 +545,15 @@ class FeatureMatcher(object):
 
                 # ----- get intersection between pre and cur TPs for the specified object class
                 tr_ids_tp_common = set(self.GT_tr_ids_pre) & set(GT_tr_ids)
-                TPs_pre_ids = [self.GT_tr_ids_pre.index(x) for x in self.GT_tr_ids_pre if x in tr_ids_tp_common]
-                TPs_cur_ids = [GT_tr_ids.index(x) for x in GT_tr_ids if x in tr_ids_tp_common]
+                TPs_ids_pre = [self.GT_tr_ids_pre.index(x) for x in self.GT_tr_ids_pre if x in tr_ids_tp_common]
+                TPs_ids_cur = [GT_tr_ids.index(x) for x in GT_tr_ids if x in tr_ids_tp_common]
 
-                TPs_pre = [self.TPs_pre[x] for x in TPs_pre_ids]
-                TPs_cur = [TPs[x] for x in TPs_cur_ids]
+                TPs_pre = [self.TPs_pre[x] for x in TPs_ids_pre]
+                TPs_cur = [TPs[x] for x in TPs_ids_cur]
 
                 if len(self.model.feat_out_ids) == 3:
-                    TP_yolo_inds_pre = [self.TP_yolo_inds_pre[x] for x in TPs_pre_ids]
-                    TP_yolo_inds_cur = [TP_yolo_inds[x] for x in TPs_cur_ids]
+                    TP_yolo_inds_pre = [self.TP_yolo_inds_pre[x] for x in TPs_ids_pre]
+                    TP_yolo_inds_cur = [TP_yolo_inds[x] for x in TPs_ids_cur]
 
                 assert len(TPs_pre) == len(TPs_cur)
 
@@ -558,7 +563,7 @@ class FeatureMatcher(object):
                 # ----- greedy matching...
                 # print('Frame {:d} start matching for {:d} TP pairs.'.format(fr_id, len(TPs_cur)))
                 if len(self.model.feat_out_ids) == 1:  # one feature map layer
-                    for tpid_cur, det_cur in zip(TPs_cur_ids, TPs_cur):  # current frame as row
+                    for tpid_cur, det_cur in zip(TPs_ids_cur, TPs_cur):  # current frame as row
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
                         reid_feat_vect_cur = self.get_feature(reid_feat_map,
                                                               feat_map_w, feat_map_h,
@@ -567,7 +572,7 @@ class FeatureMatcher(object):
 
                         best_sim = -1.0
                         best_tpid_pre = -1
-                        for tpid_pre, det_pre in zip(TPs_pre_ids, TPs_pre):  # previous frame as col
+                        for tpid_pre, det_pre in zip(TPs_ids_pre, TPs_pre):  # previous frame as col
                             x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
 
                             reid_feat_vect_pre = self.get_feature(self.reid_feat_map_pre,
@@ -602,48 +607,50 @@ class FeatureMatcher(object):
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
-                        # ----- plot
-                        # text and line format
-                        text_scale = max(1.0, img_w / 1000.0)  # 1600.
-                        text_thickness = 2
-                        line_thickness = max(1, int(img_w / 500.0))
 
-                        img0_pre = self.img0_pre.copy()
-                        x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
-                        cv2.rectangle(img0_pre,
-                                      (int(x1_pre), int(y1_pre)),
-                                      (int(x2_pre), int(y2_pre)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_pre,
-                                    'id{:d}'.format(gt_tr_id_pre),
-                                    (int(x1_pre), int(y1_pre)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
+                        if viz_dir != None:
+                            # ----- plot
+                            # text and line format
+                            text_scale = max(1.0, img_w / 1000.0)  # 1600.
+                            text_thickness = 2
+                            line_thickness = max(1, int(img_w / 500.0))
 
-                        img0_cur = img0.copy()
-                        cv2.rectangle(img0_cur,
-                                      (int(x1_cur), int(y1_cur)),
-                                      (int(x2_cur), int(y2_cur)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_cur,
-                                    'id{:d}'.format(gt_tr_id_cur),
-                                    (int(x1_cur), int(y1_cur)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
+                            img0_pre = self.img0_pre.copy()
+                            x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # best match bbox
+                            cv2.rectangle(img0_pre,
+                                          (int(x1_pre), int(y1_pre)),
+                                          (int(x2_pre), int(y2_pre)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_pre,
+                                        'id{:d}'.format(gt_tr_id_pre),
+                                        (int(x1_pre), int(y1_pre)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
 
-                        img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
-                        img_save[:img_h, :, :] = img0_pre
-                        img_save[img_h:2 * img_h, :, :] = img0_cur
-                        cv2.imwrite(save_path, img_save)
+                            img0_cur = img0.copy()
+                            cv2.rectangle(img0_cur,
+                                          (int(x1_cur), int(y1_cur)),
+                                          (int(x2_cur), int(y2_cur)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_cur,
+                                        'id{:d}'.format(gt_tr_id_cur),
+                                        (int(x1_cur), int(y1_cur)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
+
+                            img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
+                            img_save[:img_h, :, :] = img0_pre
+                            img_save[img_h:2 * img_h, :, :] = img0_cur
+                            cv2.imwrite(save_path, img_save)
 
                 elif len(self.model.feat_out_ids) == 3:
-                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_cur_ids, TPs_cur, TP_yolo_inds_cur):  # current frame as row
+                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_ids_cur, TPs_cur, TP_yolo_inds_cur):  # current frame as row
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
 
                         reid_feat_map_cur = reid_feat_out[yolo_id_cur]
@@ -656,7 +663,7 @@ class FeatureMatcher(object):
 
                         best_sim = -1.0
                         best_tpid_pre = -1
-                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_pre_ids, TPs_pre, TP_yolo_inds_pre):  # previous frame as col
+                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_ids_pre, TPs_pre, TP_yolo_inds_pre):  # previous frame as col
                             x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
 
                             reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_pre]
@@ -689,49 +696,51 @@ class FeatureMatcher(object):
                                                 .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # if wrong matching
-                            save_path = viz_dir + '/' \
-                                        + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                            .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                            if viz_dir != None:
+                                save_path = viz_dir + '/' \
+                                            + 'wrong_match_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
+                                                .format(fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
-                        # ----- plot
-                        # text and line format
-                        text_scale = max(1.0, img_w / 1000.0)  # 1600.
-                        text_thickness = 2
-                        line_thickness = max(1, int(img_w / 500.0))
+                        if viz_dir != None:
+                            # ----- plot
+                            # text and line format
+                            text_scale = max(1.0, img_w / 1000.0)  # 1600.
+                            text_thickness = 2
+                            line_thickness = max(1, int(img_w / 500.0))
 
-                        img0_pre = self.img0_pre.copy()
-                        x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # get best match bbox
-                        cv2.rectangle(img0_pre,
-                                      (int(x1_pre), int(y1_pre)),
-                                      (int(x2_pre), int(y2_pre)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_pre,
-                                    'id{:d}'.format(gt_tr_id_pre),
-                                    (int(x1_pre), int(y1_pre)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
+                            img0_pre = self.img0_pre.copy()
+                            x1_pre, y1_pre, x2_pre, y2_pre = self.TPs_pre[best_tpid_pre][:4]  # get best match bbox
+                            cv2.rectangle(img0_pre,
+                                          (int(x1_pre), int(y1_pre)),
+                                          (int(x2_pre), int(y2_pre)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_pre,
+                                        'id{:d}'.format(gt_tr_id_pre),
+                                        (int(x1_pre), int(y1_pre)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
 
-                        img0_cur = img0.copy()
-                        cv2.rectangle(img0_cur,
-                                      (int(x1_cur), int(y1_cur)),
-                                      (int(x2_cur), int(y2_cur)),
-                                      [0, 0, 255],
-                                      thickness=line_thickness)
-                        cv2.putText(img0_cur,
-                                    'id{:d}'.format(gt_tr_id_cur),
-                                    (int(x1_cur), int(y1_cur)),
-                                    fontFace=cv2.FONT_HERSHEY_PLAIN,
-                                    fontScale=text_scale,
-                                    color=[0, 255, 0],
-                                    thickness=text_thickness)
+                            img0_cur = img0.copy()
+                            cv2.rectangle(img0_cur,
+                                          (int(x1_cur), int(y1_cur)),
+                                          (int(x2_cur), int(y2_cur)),
+                                          [0, 0, 255],
+                                          thickness=line_thickness)
+                            cv2.putText(img0_cur,
+                                        'id{:d}'.format(gt_tr_id_cur),
+                                        (int(x1_cur), int(y1_cur)),
+                                        fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                        fontScale=text_scale,
+                                        color=[0, 255, 0],
+                                        thickness=text_thickness)
 
-                        img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
-                        img_save[:img_h, :, :] = img0_pre
-                        img_save[img_h:2 * img_h, :, :] = img0_cur
-                        cv2.imwrite(save_path, img_save)
+                            img_save = np.zeros((2 * img_h, img_w, 3), dtype=np.uint8)
+                            img_save[:img_h, :, :] = img0_pre
+                            img_save[img_h:2 * img_h, :, :] = img0_cur
+                            cv2.imwrite(save_path, img_save)
 
             # ---------- update
             self.TPs_pre = TPs
@@ -756,4 +765,4 @@ class FeatureMatcher(object):
 if __name__ == '__main__':
     matcher = FeatureMatcher()
     # matcher.run_a_seq(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz')  # '/mnt/diskc/even/viz'
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_three_feat')
+    matcher.run(cls_id=0, img_w=1920, img_h=1080)  # '/mnt/diskc/even/viz_one_feat'
