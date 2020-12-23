@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_three_feat.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_track_last.weights',
+                                 default='weights/v4_tiny3l_three_feat_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -79,7 +79,7 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-5, -3, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         self.parser.add_argument('--dim',
@@ -726,6 +726,11 @@ class FeatureMatcher(object):
                             correct += 1
                             sim_sum += best_sim
 
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.correct_sim_bins_dict[edge] += 1
+
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
@@ -733,6 +738,11 @@ class FeatureMatcher(object):
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
                         else:  # if wrong matching
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.correct_sim_bins_dict[edge] += 1
+
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
