@@ -636,14 +636,14 @@ class FeatureMatcher(object):
                                             + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
+                            # do min similarity statistics of same object class
+                            if best_sim < self.min_same_class_sim:
+                                self.min_same_class_sim = best_sim
+
                             # do cosine similarity statistics
                             best_sim *= 100.0
                             edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
                             self.correct_sim_bins_dict[edge] += 1
-
-                            # do min similarity statistics of same object class
-                            if best_sim < self.min_same_class_sim:
-                                self.min_same_class_sim = best_sim
 
                         else:  # visualize the wrong match:
                             # wrong match img saving path
@@ -652,14 +652,14 @@ class FeatureMatcher(object):
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
+                            # do max similarity statistics of the different object class
+                            if best_sim > self.max_diff_class_sim:
+                                self.max_diff_class_sim = best_sim
+
                             # do cosine similarity statistics
                             best_sim *= 100.0
                             edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
                             self.wrong_sim_bins_dict[edge] += 1
-
-                            # do max similarity statistics of the different object class
-                            if best_sim > self.max_diff_class_sim:
-                                self.max_diff_class_sim = best_sim
 
                         if viz_dir != None:
                             # ----- plot
