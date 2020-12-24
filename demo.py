@@ -616,6 +616,11 @@ class DemoRunner(object):
                                  default=128,
                                  help='reid feature map output embedding dimension')
 
+        self.parser.add_argument('--fc',
+                                 type=str,
+                                 default='Arc',  # Arc
+                                 help='FC layer type: FC or Arc')
+
         self.parser.add_argument('--fourcc', type=str, default='mp4v',
                                  help='output video codec (verify ffmpeg support)')
         self.parser.add_argument('--half', action='store_true', help='half precision FP16 inference')

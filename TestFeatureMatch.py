@@ -154,10 +154,13 @@ class FeatureMatcher(object):
         # statistics
         self.correct_sim_bins_dict = defaultdict(int)
         self.wrong_sim_bins_dict = defaultdict(int)
-
         for edge in range(0, 100, self.opt.bin_step):
             self.correct_sim_bins_dict[edge] = 0
             self.wrong_sim_bins_dict[edge] = 0
+
+        # gap of the same object class and different object class
+        self.min_same_class_sim = 1.0   # init to the max
+        self.max_diff_class_sim = -1.0  # init to the min
 
         print('Feature matcher init done.')
 
@@ -220,6 +223,10 @@ class FeatureMatcher(object):
             print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
             print('Wrong   [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
+
+
+        print('Min same class similarity: {:.3f}'.format(self.min_same_class_sim))
+        print('Max diff class similarity: {:.3f}'.format(self.max_diff_class_sim))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
@@ -619,13 +626,9 @@ class FeatureMatcher(object):
 
                         # if matching correct
                         if gt_tr_id_pre == gt_tr_id_cur:
+                            # update correct number
                             correct += 1
                             sim_sum += best_sim
-
-                            # do cosine similarity statistics
-                            best_sim *= 100.0
-                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                            self.correct_sim_bins_dict[edge] += 1
 
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
@@ -633,22 +636,35 @@ class FeatureMatcher(object):
                                             + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
-                        else:  # visualize the wrong match:
                             # do cosine similarity statistics
                             best_sim *= 100.0
                             edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                            self.wrong_sim_bins_dict[edge] += 1
+                            self.correct_sim_bins_dict[edge] += 1
 
+                            # do min similarity statistics of same object class
+                            if best_sim < self.min_same_class_sim:
+                                self.min_same_class_sim = best_sim
+
+                        else:  # visualize the wrong match:
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.wrong_sim_bins_dict[edge] += 1
+
+                            # do max similarity statistics of the different object class
+                            if best_sim > self.max_diff_class_sim:
+                                self.max_diff_class_sim = best_sim
+
                         if viz_dir != None:
                             # ----- plot
                             # text and line format
-                            text_scale = max(1.0, img_w / 800.0)  # 1600.
+                            text_scale = max(1.0, img_w / 500.0)  # 1600.
                             text_thickness = 2
                             line_thickness = max(1, int(img_w / 500.0))
 
@@ -714,6 +730,7 @@ class FeatureMatcher(object):
                             # --- compute cosine of cur and pre corresponding feature vector
                             sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
                             if sim > best_sim:
+                                # update correct number
                                 best_sim = sim
                                 best_tpid_pre = tpid_pre
 
@@ -726,32 +743,32 @@ class FeatureMatcher(object):
                             correct += 1
                             sim_sum += best_sim
 
-                            # do cosine similarity statistics
-                            best_sim *= 100.0
-                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                            self.correct_sim_bins_dict[edge] += 1
-
                             # if do visualization for correct and wrong match
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
-                        else:  # if wrong matching
                             # do cosine similarity statistics
                             best_sim *= 100.0
                             edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
-                            self.wrong_sim_bins_dict[edge] += 1
+                            self.correct_sim_bins_dict[edge] += 1
 
+                        else:  # if wrong matching
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
                                                 .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
 
+                            # do cosine similarity statistics
+                            best_sim *= 100.0
+                            edge = int(best_sim / self.opt.bin_step) * self.opt.bin_step
+                            self.wrong_sim_bins_dict[edge] += 1
+
                         if viz_dir != None:
                             # ----- plot
                             # text and line format
-                            text_scale = max(1.0, img_w / 800.0)  # 1600.
+                            text_scale = max(1.0, img_w / 500.0)  # 1600.
                             text_thickness = 2
                             line_thickness = max(1, int(img_w / 500.0))
 
@@ -811,4 +828,4 @@ class FeatureMatcher(object):
 
 if __name__ == '__main__':
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_one_feat_fuse')  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
