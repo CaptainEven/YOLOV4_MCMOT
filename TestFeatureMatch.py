@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse_up.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_fuse_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_fuse_up_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -211,7 +211,7 @@ class FeatureMatcher(object):
         num_wrong = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
         num_total_wrong = sum(num_wrong)
         num_total = num_total_correct + num_total_wrong
-        print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
+        print('Average precision: {:.3f}%\n'.format(num_total_correct / num_total * 100.0))
         # print(num_total_wrong / num_total)
 
         print(self.correct_sim_bins_dict)
@@ -496,11 +496,13 @@ class FeatureMatcher(object):
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     reid_feat_map = reid_feat_out[0]
 
-                    # L2 normalize the feature map(feature map scale(1/4 of net input size))
+                    # L2 normalize the feature map(feature map scale(1/4 or 1/8 of net input size))
                     reid_feat_map = F.normalize(reid_feat_map, dim=1)
 
                     reid_feat_map = reid_feat_map.detach().cpu().numpy()
                     b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+                    if fr_id == 0:
+                        print('Feature map size(w×h): {:d}×{:d}'.format(feat_map_w, feat_map_h))
 
                 # ----- apply NMS
                 if len(self.model.feat_out_ids) == 3:

@@ -856,7 +856,7 @@ class MCJDETracker(object):
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9)  # thresh=0.7
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.95)  # thresh=0.7
             for i_tracked, i_det in matches:  # process matched pairs between track pool and current frame detection
                 track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]

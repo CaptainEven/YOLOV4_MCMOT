@@ -672,12 +672,12 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse_decon.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/v4_tiny3l_one_feat_fuse_track_last.pt',
+                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
@@ -728,7 +728,7 @@ if __name__ == '__main__':
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='v4_tiny3l_one_feat_fuse',
+                        default='v4_tiny3l_one_feat_fuse_decon',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()
