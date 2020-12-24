@@ -876,12 +876,15 @@ def compute_loss_with_ids(preds, reid_feat_out, targets, track_ids, model):
                     id_vects = t_reid_feat_vects[inds]
                     id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
 
-                    fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
-                    l_reid += CE_reid(fc_preds, tr_ids[inds])
+                    if model.fc_type == 'FC':
+                    ## normal FC layer as classifier
+                        fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                        l_reid += CE_reid(fc_preds, tr_ids[inds])
 
-                    # arc margin FC layer as classifier
-                    # fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
-                    # l_reid += CE_reid(fc_preds, tr_ids[inds])
+                    elif model.fc_type == 'Arc':
+                        ## arc margin FC layer as classifier
+                        fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
+                        l_reid += CE_reid(fc_preds, tr_ids[inds])
 
             # Append targets to text file
             # with open('targets.txt', 'a') as file:

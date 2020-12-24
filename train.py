@@ -672,7 +672,7 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse_decon.cfg',
+                        default='cfg/tmp.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
@@ -708,7 +708,7 @@ if __name__ == '__main__':
     # ----- Set ReID feature map output layer ids
     parser.add_argument('--feat-out-ids',
                         type=str,
-                        default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                        default='-9, -4, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                         help='reid feature map output layer ids.')
 
     parser.add_argument('--dim',
@@ -728,7 +728,7 @@ if __name__ == '__main__':
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='v4_tiny3l_one_feat_fuse_decon',
+                        default='tmp',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()
