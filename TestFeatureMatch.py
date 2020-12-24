@@ -203,7 +203,6 @@ class FeatureMatcher(object):
             cnt += 1
 
         mean_precision /= float(cnt)
-        print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
 
         # histogram statistics
         num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
@@ -211,7 +210,6 @@ class FeatureMatcher(object):
         num_wrong = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
         num_total_wrong = sum(num_wrong)
         num_total = num_total_correct + num_total_wrong
-        print('Average precision: {:.3f}%\n'.format(num_total_correct / num_total * 100.0))
         # print(num_total_wrong / num_total)
 
         print(self.correct_sim_bins_dict)
@@ -224,7 +222,9 @@ class FeatureMatcher(object):
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
             print('Wrong   [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
-
+        print('Total {:d} matches tested.'.format(num_total))
+        print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
+        print('Average precision: {:.3f}%\n'.format(num_total_correct / num_total * 100.0))
         print('Min same class similarity: {:.3f}'.format(self.min_same_class_sim))
         print('Max diff class similarity: {:.3f}'.format(self.max_diff_class_sim))
 
