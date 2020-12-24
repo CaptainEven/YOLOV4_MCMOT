@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/tmp.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/tmp_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -79,7 +79,7 @@ class FeatureMatcher(object):
         # ----- Set ReID feature map output layer ids
         self.parser.add_argument('--feat-out-ids',
                                  type=str,
-                                 default='-9, -4, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                                 default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                                  help='reid feature map output layer ids.')
 
         self.parser.add_argument('--dim',
@@ -503,7 +503,7 @@ class FeatureMatcher(object):
 
                     if fr_id == 0:
                         # feature map size
-                        n, c, h, w = tmp.shape
+                        n, c, h, w = reid_feat_map.shape
                         print('Feature map size: {:d}×{:d}'.format(w, h))
 
                     # L2 normalize the feature map(feature map scale(1/4 or 1/8 of net input size))
