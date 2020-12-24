@@ -177,6 +177,7 @@ class FeatureMatcher(object):
                 shutil.rmtree(viz_dir)
                 os.makedirs(viz_dir)
 
+        # traverse each video seq
         mean_precision = 0.0
         cnt = 0
         for video_path in self.videos:  # .mp4
