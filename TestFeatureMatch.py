@@ -225,11 +225,11 @@ class FeatureMatcher(object):
         # detailed statistics
         for edge in range(0, 100, self.opt.bin_step):
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
-            print('Wrong   [{:2d}, {:2d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
+            print('Wrong   [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
         for edge in range(0, 100, self.opt.bin_step):
             correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
-            print('Correct [{:2d}, {:2d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+            print('Correct [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
 
         print('\nTotal {:d} true positives detected.'.format(num_tps_total))
         print('Total {:d} matches tested.'.format(num_total))
