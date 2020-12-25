@@ -211,8 +211,8 @@ class FeatureMatcher(object):
 
         # histogram statistics
         num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
-        num_total_correct = sum(num_correct)
         num_wrong = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
+        num_total_correct = sum(num_correct)
         num_total_wrong = sum(num_wrong)
         num_total = num_total_correct + num_total_wrong
         # print(num_total_wrong / num_total)
