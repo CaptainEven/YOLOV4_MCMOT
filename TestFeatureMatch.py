@@ -847,7 +847,7 @@ class FeatureMatcher(object):
         print('Precision: {:.3f}%, mean cos sim: {:.3f}, num_TPs: {:d}'
               .format(precision * 100.0, sim_sum / correct, num_tps))
 
-        return precision, len(TPs)
+        return precision, num_tps
 
 
 if __name__ == '__main__':
