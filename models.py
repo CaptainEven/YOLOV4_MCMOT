@@ -466,6 +466,7 @@ class Darknet(nn.Module):
                              'FeatureConcat',  # Route(concatenate)
                              'FeatureConcat_l',
                              'RouteGroup',
+                             'ScaleChannel',
                              'ScaleChannels',
                              'SAM']
         for i, module in enumerate(self.module_list):
@@ -637,11 +638,8 @@ def load_darknet_weights(model, weights, cutoff=0):
                 nb = bn.bias.numel()  # number of biases
 
                 # Bias
-                try:
-                    bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
-                    ptr += nb
-                except Exception as e:
-                    print(e)
+                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                ptr += nb
 
                 # Weight
                 bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))

@@ -677,7 +677,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/tmp_track_last.pt',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
@@ -708,7 +708,7 @@ if __name__ == '__main__':
     # ----- Set ReID feature map output layer ids
     parser.add_argument('--feat-out-ids',
                         type=str,
-                        default='-9, -4, -1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
+                        default='-1',  # '-5, -3, -1' or '-9, -5, -1' or '-1'
                         help='reid feature map output layer ids.')
 
     parser.add_argument('--dim',
