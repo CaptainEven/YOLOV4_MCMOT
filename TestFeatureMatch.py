@@ -185,6 +185,7 @@ class FeatureMatcher(object):
                 print('[Warning]: {:s} not exists.'.format(video_path))
                 continue
 
+            # get video seq name
             seq_name = os.path.split(video_path)[-1][:-4]
 
             # current video seq's gt label
@@ -196,6 +197,7 @@ class FeatureMatcher(object):
             # current video seq's dataset
             self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
+            # run a vide oseq
             print('Run seq {:s}...'.format(video_path))
             precision = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
@@ -218,14 +220,16 @@ class FeatureMatcher(object):
 
         # detailed statistics
         for edge in range(0, 100, self.opt.bin_step):
-            correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
-            print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
             print('Wrong   [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
+        for edge in range(0, 100, self.opt.bin_step):
+            correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
+            print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+
         print('\nTotal {:d} matches tested.'.format(num_total))
-        print('Correct matched number: {:d}'.format(num_correct))
-        print('Wrong matched number:   {:d}'.format(num_wrong))
+        print('Correct matched number: {:d}'.format(num_total_correct))
+        print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
         print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
         print('Min same class similarity: {:.3f}'.format(self.min_same_class_sim))
