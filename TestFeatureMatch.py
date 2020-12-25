@@ -84,7 +84,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=128,  # 128, 256, 512
+                                 default=128,  # 128, 256, 384, 512
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--bin-step',
@@ -154,15 +154,18 @@ class FeatureMatcher(object):
         # statistics
         self.correct_sim_bins_dict = defaultdict(int)
         self.wrong_sim_bins_dict = defaultdict(int)
+        self.sim_bins_dict = defaultdict(int)
         for edge in range(0, 100, self.opt.bin_step):
             self.correct_sim_bins_dict[edge] = 0
             self.wrong_sim_bins_dict[edge] = 0
+            self.sim_bins_dict[edge] = 0
 
         # gap of the same object class and different object class
         self.min_same_class_sim = 1.0   # init to the max
         self.max_diff_class_sim = -1.0  # init to the min
 
         self.num_total_match = 0
+        self.num_sim_compute = 0
 
         print('Feature matcher init done.')
 
@@ -230,6 +233,10 @@ class FeatureMatcher(object):
         for edge in range(0, 100, self.opt.bin_step):
             correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
             print('Correct [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+
+        for edge in range(0, 100, self.opt.bin_step):
+            ratio = self.sim_bins_dict[edge] / self.num_sim_compute * 100.0
+            print('Ratio [{:3d}, {:3d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, ratio))
 
         print('\nTotal {:d} true positives detected.'.format(num_tps_total))
         print('Total {:d} matches tested.'.format(num_total))
@@ -643,6 +650,15 @@ class FeatureMatcher(object):
 
                             # --- compute cosine of cur and pre corresponding feature vector
                             sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+
+                            # do cosine similarity statistics
+                            sim_tmp = sim * 100.0
+                            edge = int(sim_tmp / self.opt.bin_step) * self.opt.bin_step
+                            self.sim_bins_dict[edge] += 1
+
+                            # statistics of sim computation number
+                            self.num_sim_compute += 1
+
                             if sim > best_sim:
                                 best_sim = sim
                                 best_tpid_pre = tpid_pre

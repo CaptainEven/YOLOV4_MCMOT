@@ -677,7 +677,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/tmp_track_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
@@ -713,7 +713,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--dim',
                         type=int,
-                        default=128,  # 128, 256, 512
+                        default=128,  # 128, 256, 384, 512
                         help='reid feature map output embedding dimension')
 
     parser.add_argument('--fc',
