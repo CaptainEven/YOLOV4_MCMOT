@@ -84,7 +84,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=128,
+                                 default=128,  # 128, 256, 512
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--bin-step',
@@ -137,7 +137,7 @@ class FeatureMatcher(object):
                              emb_dim=self.opt.dim,
                              feat_out_ids=self.opt.feat_out_ids,
                              mode=self.opt.task).to(self.opt.device)
-        # print(self.model)
+        print(self.model)
 
         # Load checkpoint
         if self.opt.weights.endswith('.pt'):  # py-torch format
