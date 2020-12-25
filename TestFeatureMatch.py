@@ -545,7 +545,8 @@ class FeatureMatcher(object):
                 dets = pred[0]  # assume batch_size == 1 here
                 if dets is None:
                     print('[Warning]: no objects detected.')
-                    return None
+                    num_tps += 0
+                    continue
 
                 # ----- Rescale boxes from net size to img size
                 if self.opt.img_proc_method == 'resize':
