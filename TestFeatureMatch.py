@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_tmp.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_fuse_track_last.weights',
+                                 default='weights/tmp_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -224,6 +224,8 @@ class FeatureMatcher(object):
             print('Wrong   [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
         print('\nTotal {:d} matches tested.'.format(num_total))
+        print('Correct matched number: {:d}'.format(num_correct))
+        print('Wrong matched number:   {:d}'.format(num_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
         print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
         print('Min same class similarity: {:.3f}'.format(self.min_same_class_sim))
