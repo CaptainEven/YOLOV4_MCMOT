@@ -584,7 +584,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=30,
+                                 default=120,
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45

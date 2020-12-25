@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.000001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0000001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -677,7 +677,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/tmp_track_last.pt',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 

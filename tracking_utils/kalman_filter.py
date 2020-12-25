@@ -48,8 +48,8 @@ class KalmanFilter(object):
         # Motion and observation uncertainty are chosen relative to the current
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
-        self._std_weight_position = 1. / 20
-        self._std_weight_velocity = 1. / 160
+        self._std_weight_position = 1.0 / 20
+        self._std_weight_velocity = 1.0 / 160
 
     def initiate(self, measurement):
         """Create track from unassociated measurement.
@@ -80,7 +80,8 @@ class KalmanFilter(object):
             10 * self._std_weight_velocity * measurement[3],
             10 * self._std_weight_velocity * measurement[3],
             1e-5,
-            10 * self._std_weight_velocity * measurement[3]]
+            10 * self._std_weight_velocity * measurement[3]
+        ]
         covariance = np.diag(np.square(std))
         return mean, covariance
 

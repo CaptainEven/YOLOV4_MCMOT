@@ -7,6 +7,13 @@ ONNX_EXPORT = False
 
 # Parse cfg file, create every layer
 def create_modules(module_defs, img_size, cfg, id_classifiers=None):
+    """
+    :param module_defs:
+    :param img_size:
+    :param cfg:
+    :param id_classifiers:
+    :return:
+    """
     # Constructs module list of layer blocks from module configuration in module_defs
 
     img_size = [img_size] * 2 if isinstance(img_size, int) else img_size  # expand if necessary
@@ -621,8 +628,6 @@ def load_darknet_weights(model, weights, cutoff=0):
     for i, (mdef, module) in enumerate(zip(model.module_defs, model.module_list)):
         if cutoff != 0 and i > cutoff:
             break
-        # if i > 56:
-        #     break
 
         if mdef['type'] == 'convolutional' or mdef['type'] == 'deconvolutional':  # how to load 'deconvolutional' layer
             conv = module[0]

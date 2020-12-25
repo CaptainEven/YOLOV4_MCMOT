@@ -396,22 +396,6 @@ class MCJDETracker(object):
     def __init__(self, opt):
         self.opt = opt
 
-        # ---------- Init model
-        # max_ids_dict = {
-        #     0: 341,  # car
-        #     1: 103,  # bicycle
-        #     2: 104,  # person
-        #     3: 329,  # cyclist
-        #     4: 48  # tricycle
-        # }
-        # max_id_dict = {
-        #     0: 330,
-        #     1: 102,
-        #     2: 104,
-        #     3: 312,
-        #     4: 53
-        # }  # previous version
-
         # set device
         device = opt.device
 
@@ -856,7 +840,7 @@ class MCJDETracker(object):
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.95)  # thresh=0.7
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.8)  # thresh=0.7
             for i_tracked, i_det in matches:  # process matched pairs between track pool and current frame detection
                 track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
