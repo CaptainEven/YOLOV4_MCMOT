@@ -237,7 +237,7 @@ class FeatureMatcher(object):
         print('Correct matched number: {:d}'.format(num_total_correct))
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
-        print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
+        print('Average precision: {:.3f}%'.format(num_total_correct / self.num_total_match * 100.0))
         print('Min same ID similarity: {:.3f}'.format(self.min_same_class_sim))
         print('Max diff ID similarity: {:.3f}'.format(self.max_diff_class_sim))
 
