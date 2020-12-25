@@ -179,7 +179,8 @@ class FeatureMatcher(object):
 
         # traverse each video seq
         mean_precision = 0.0
-        cnt = 0
+        valid_seq_cnt = 0
+        num_tps_total = 0
         for video_path in self.videos:  # .mp4
             if not os.path.isfile(video_path):
                 print('[Warning]: {:s} not exists.'.format(video_path))
@@ -199,13 +200,14 @@ class FeatureMatcher(object):
 
             # run a vide oseq
             print('Run seq {:s}...'.format(video_path))
-            precision = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
+            precision, num_tps = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
+            num_tps_total += num_tps
             print('Seq {:s} done.\n'.format(video_path))
 
-            cnt += 1
+            valid_seq_cnt += 1
 
-        mean_precision /= float(cnt)
+        mean_precision /= float(valid_seq_cnt)
 
         # histogram statistics
         num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
@@ -227,7 +229,8 @@ class FeatureMatcher(object):
             correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
             print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
 
-        print('\nTotal {:d} matches tested.'.format(num_total))
+        print('\nTotal {:d} true positives detected.'.format(num_tps_total))
+        print('Total {:d} matches tested.'.format(num_total))
         print('Correct matched number: {:d}'.format(num_total_correct))
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
@@ -469,6 +472,7 @@ class FeatureMatcher(object):
         total = 0
         correct = 0
         sim_sum = 0.0
+        num_tps = 0
         for fr_id, (path, img, img0, vid_cap) in tqdm(enumerate(self.dataset)):
             img = torch.from_numpy(img).to(self.opt.device)
             img = img.float()  # uint8 to fp32
@@ -574,6 +578,8 @@ class FeatureMatcher(object):
             elif len(self.model.feat_out_ids) == 1:
                 TPs, GT_tr_ids = self.get_tp_one_feat(fr_id, dets, cls_id=cls_id)  # only for car(cls_id == 0)
             # print('{:d} true positive cars.'.format(len(TPs)))
+
+            num_tps += len(TPs)
 
             # ----- build mapping from TP id to GT track id
             tpid_to_gttrid = [GT_tr_ids[x] for x in range(len(TPs))]
@@ -837,10 +843,10 @@ class FeatureMatcher(object):
             self.img0_pre = img0
 
         precision = correct / total
-        print('Precision: {:.3f}%, mean cos sim: {:.3f}'
-              .format(precision * 100.0, sim_sum / correct))
+        print('Precision: {:.3f}%, mean cos sim: {:.3f}, num_TPs: {:d}'
+              .format(precision * 100.0, sim_sum / correct, num_tps))
 
-        return precision
+        return precision, len(TPs)
 
 
 if __name__ == '__main__':
