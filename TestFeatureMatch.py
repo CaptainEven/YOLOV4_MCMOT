@@ -162,6 +162,8 @@ class FeatureMatcher(object):
         self.min_same_class_sim = 1.0   # init to the max
         self.max_diff_class_sim = -1.0  # init to the min
 
+        self.num_total_match = 0
+
         print('Feature matcher init done.')
 
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
@@ -198,7 +200,7 @@ class FeatureMatcher(object):
             # current video seq's dataset
             self.dataset = LoadImages(video_path, self.opt.img_proc_method, self.opt.net_w, self.opt.net_h)
 
-            # run a vide oseq
+            # run a video seq
             print('Run seq {:s}...'.format(video_path))
             precision, num_tps = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
@@ -223,20 +225,21 @@ class FeatureMatcher(object):
         # detailed statistics
         for edge in range(0, 100, self.opt.bin_step):
             wrong_ratio = self.wrong_sim_bins_dict[edge] / num_total * 100.0
-            print('Wrong   [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
+            print('Wrong   [{:2d}, {:2d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, wrong_ratio))
 
         for edge in range(0, 100, self.opt.bin_step):
             correct_ratio = self.correct_sim_bins_dict[edge] / num_total * 100.0
-            print('Correct [{:d}, {:d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
+            print('Correct [{:2d}, {:2d}]: {:.3f}'.format(edge, edge + self.opt.bin_step, correct_ratio))
 
         print('\nTotal {:d} true positives detected.'.format(num_tps_total))
         print('Total {:d} matches tested.'.format(num_total))
+        print('Num total match: {:d}'.format(self.num_total_match))
         print('Correct matched number: {:d}'.format(num_total_correct))
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
         print('Average precision: {:.3f}%'.format(num_total_correct / num_total * 100.0))
-        print('Min same class similarity: {:.3f}'.format(self.min_same_class_sim))
-        print('Max diff class similarity: {:.3f}'.format(self.max_diff_class_sim))
+        print('Min same ID similarity: {:.3f}'.format(self.min_same_class_sim))
+        print('Max diff ID similarity: {:.3f}'.format(self.max_diff_class_sim))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
@@ -648,6 +651,9 @@ class FeatureMatcher(object):
                         gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                         gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
 
+                        # update match counting
+                        self.num_total_match += 1
+
                         # if matching correct
                         if gt_tr_id_pre == gt_tr_id_cur:
                             # update correct number
@@ -761,6 +767,9 @@ class FeatureMatcher(object):
                         # determine matched right or not
                         gt_tr_id_pre = self.tpid_to_gttrid_pre[best_tpid_pre]
                         gt_tr_id_cur = tpid_to_gttrid[tpid_cur]
+
+                        # update match counting
+                        self.num_total_match += 1
 
                         # update correct
                         if gt_tr_id_pre == gt_tr_id_cur:
