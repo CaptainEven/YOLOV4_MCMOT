@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.005,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -490,7 +490,7 @@ def train():
                 if len(model.feat_out_ids) == 3:
                     loss, loss_items = compute_loss_with_ids(pred, reid_feat_out, targets, track_ids, model)
                 elif len(model.feat_out_ids) == 1:
-                    loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model)
+                    loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model, device)
 
                 if opt.auto_weight:
                     loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
@@ -677,7 +677,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/tmp_track_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 

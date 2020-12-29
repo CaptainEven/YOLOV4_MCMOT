@@ -27,6 +27,30 @@ matplotlib.rc('font', **{'size': 11})
 cv2.setNumThreads(0)
 
 
+def cos(vect_1, vect_2):
+    norm1 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_1))))
+    norm2 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_2))))
+    return sum([vect_1[i] * vect_2[i] for i in range(0, len(vect_1))]) / (norm1 * norm2)
+
+
+def euclidean(vect_1, vect_2):
+    return np.sqrt(np.sum((vect_1 - vect_2) ** 2))
+
+
+def SSIM(vect_1, vect_2):
+    u_true = np.mean(vect_1)
+    u_pred = np.mean(vect_2)
+    var_true = np.var(vect_1)
+    var_pred = np.var(vect_2)
+    std_true = np.sqrt(var_true)
+    std_pred = np.sqrt(var_pred)
+    c1 = np.square(0.01 * 7)
+    c2 = np.square(0.03 * 7)
+    ssim = (2 * u_true * u_pred + c1) * (2 * std_pred * std_true + c2)
+    denom = (u_true ** 2 + u_pred ** 2 + c1) * (var_pred + var_true + c2)
+    return ssim / denom
+
+
 def init_seeds(seed=0):
     random.seed(seed)
     np.random.seed(seed)
@@ -246,6 +270,7 @@ def clip_coords(boxes, img_shape):
     # boxes[:, 2] = np.clip(boxes[:, 2], 0, img_w - 1)  # x2
     # boxes[:, 3] = np.clip(boxes[:, 3], 0, img_h - 1)  # y2
 
+
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """ Compute the average precision, given the recall and precision curves.
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
@@ -459,7 +484,10 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
-def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
+def compute_loss_one_layer(preds, reid_feat_out,
+                           targets, track_ids,
+                           model, dev,
+                           s_id=-1.05, s_det=-1.85):
     """
     :param preds:
     :param reid_feat_out:
@@ -468,6 +496,9 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
     :param model:
     :return:
     """
+    s_id = nn.Parameter(s_id * torch.ones(1)).to(dev)  # -1.05
+    s_det = nn.Parameter(s_det * torch.ones(1)).to(dev)  # -1.85
+
     ft = torch.cuda.FloatTensor if preds[0].is_cuda else torch.Tensor
     l_cls, l_box, l_obj, l_reid = ft([0]), ft([0]), ft([0]), ft([0])
 
@@ -475,11 +506,11 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
     t_cls, t_box, indices, anchor_vec, t_track_ids = build_targets_with_ids(preds, targets, track_ids, model)
 
     h = model.hyp  # hyper parameters
-    red = 'mean'  # Loss reduction (sum or mean)
+    reduction = 'mean'  # Loss reduction (sum or mean)
 
     # Define criteria
-    BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
-    BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+    BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=reduction)
+    BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=reduction)
     CE_reid = nn.CrossEntropyLoss()
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
@@ -520,7 +551,7 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
             g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
-            l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
+            l_box += (1.0 - g_iou).sum() if reduction == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
                 t_obj.dtype)  # g_iou ratio taken into account
 
@@ -579,7 +610,7 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
                     id_vects = F.normalize(id_vects, dim=1)
 
                     if model.fc_type == 'FC':
-                    ## normal FC layer as classifier
+                        ## normal FC layer as classifier
                         fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                         l_reid += CE_reid(fc_preds, tr_ids[inds])
 
@@ -600,14 +631,18 @@ def compute_loss_one_layer(preds, reid_feat_out, targets, track_ids, model):
     # l_reid *= h['reid']
     l_reid /= float(nb)  # reid loss_funcs normalize by number of GT objects
 
-    if red == 'sum':
+    if reduction == 'sum':
         bs = t_obj.shape[0]  # batch size
         l_obj *= 3 / (6300 * bs) * 2  # 3 / np * 2
         if ng:
             l_cls *= 3 / ng / model.nc
             l_box *= 3 / ng
 
-    loss = l_box + l_obj + l_cls + l_reid
+    l_det = l_box + l_obj + l_cls
+    # loss = l_det + l_reid
+    loss = torch.exp(-s_det) * l_det \
+           + torch.exp(-s_id) * l_reid \
+           + (s_det + s_id)
     return loss, torch.cat((l_box, l_obj, l_cls, l_reid, loss)).detach()
 
 
@@ -877,7 +912,7 @@ def compute_loss_with_ids(preds, reid_feat_out, targets, track_ids, model):
                     id_vects = F.normalize(id_vects, dim=1)  # L2 normalize the feature vector
 
                     if model.fc_type == 'FC':
-                    ## normal FC layer as classifier
+                        ## normal FC layer as classifier
                         fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                         l_reid += CE_reid(fc_preds, tr_ids[inds])
 

@@ -13,16 +13,10 @@ from tracker import matching
 from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.utils import *
 from tracking_utils.log import logger
-from utils.utils import non_max_suppression
+from utils.utils import non_max_suppression  # , cos
 
 from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
-
-
-def cos(array1, array2):
-    norm1 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), array1))))
-    norm2 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), array2))))
-    return sum([array1[i] * array2[i] for i in range(0, len(array1))]) / (norm1 * norm2)
 
 
 # TODO: Multi-class Track class

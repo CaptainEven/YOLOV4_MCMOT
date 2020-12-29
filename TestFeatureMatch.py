@@ -6,7 +6,7 @@ import cv2
 from collections import defaultdict
 from models import *
 from utils.utils import map_resize_back, map_to_orig_coords
-from tracker.multitracker import cos
+from utils.utils import cos, SSIM
 from tracking_utils import visualization as vis
 from mAPEvaluate.cmp_det_label_sf import box_iou
 from demo import FindFreeGPU
@@ -650,6 +650,8 @@ class FeatureMatcher(object):
 
                             # --- compute cosine of cur and pre corresponding feature vector
                             sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+                            # sim = euclidean(reid_feat_vect_cur, reid_feat_vect_pre)
+                            # sim = SSIM(reid_feat_vect_cur, reid_feat_vect_pre)
 
                             # do cosine similarity statistics
                             sim_tmp = sim * 100.0
