@@ -303,6 +303,9 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
                 f_h.write(f_name)
             elif mode == 'path':
                 f_h.write(f_path)
+            else:
+                print('[Err]: un-recognized output mode.')
+                return
 
             if i != len(f_list) - 1:
                 f_h.write('\n')
