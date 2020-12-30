@@ -99,6 +99,9 @@ def run_detection(opt):
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
+            ## for debugging...
+            # img.cpu().numpy().tofile('/mnt/diskb/even/input.bin')
+
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
@@ -122,6 +125,7 @@ def run_detection(opt):
                 # save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
                 save_img_path = frame_dir + '/' + os.path.split(path)[-1]
                 cv2.imwrite(save_img_path, online_im)
+                print('{:s} saved.'.format(save_img_path))
 
             # output results as .txt file
             if dets is None:
@@ -510,12 +514,12 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_tmp.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_no_group_id_last.weights',
+                                 default='weights/yolov4-tiny-3l_no_group_id_127000.weights',
                                  help='weights path')
         # ----------
 
@@ -548,7 +552,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--input-type',
                                  type=str,
-                                 default='videos',
+                                 default='txt',
                                  help='videos or txt')
 
         # output type

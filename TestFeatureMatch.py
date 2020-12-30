@@ -73,7 +73,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=0,  # 0 or 44
+                                 default=56,  # 0 or 44
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids
@@ -777,6 +777,15 @@ class FeatureMatcher(object):
 
                             # --- compute cosine of cur and pre corresponding feature vector
                             sim = cos(reid_feat_vect_cur, reid_feat_vect_pre)
+
+                            # do cosine similarity statistics
+                            sim_tmp = sim * 100.0
+                            edge = int(sim_tmp / self.opt.bin_step) * self.opt.bin_step
+                            self.sim_bins_dict[edge] += 1
+
+                            # statistics of sim computation number
+                            self.num_sim_compute += 1
+
                             if sim > best_sim:
                                 # update correct number
                                 best_sim = sim

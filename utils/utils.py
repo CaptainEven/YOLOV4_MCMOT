@@ -181,7 +181,7 @@ def map_resize_back(dets, net_w, net_h, img_w, img_h):
     dets[:, 3] = dets[:, 3] / net_h * img_h  # y2
 
     # clamp
-    clip_coords(dets[:, :4], (img_h, img_w))
+    # clip_coords(dets[:, :4], (img_h, img_w))
 
     return dets
 
