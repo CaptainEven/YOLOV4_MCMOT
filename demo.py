@@ -99,7 +99,7 @@ def run_detection(opt):
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
-            ## for debugging...
+            # # for debugging...
             # img.cpu().numpy().tofile('/mnt/diskb/even/input.bin')
 
             if img.ndimension() == 3:
@@ -192,8 +192,10 @@ def run_detection(opt):
                                                      id2cls=id2cls)
 
                     if opt.save_img_dir is not None:
-                        save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
-                        cv2.imwrite(save_path, online_im)
+                        save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_id))
+                        cv2.imwrite(save_img_path, online_im)
+                        print('{:s} saved.'.format(save_img_path))
+
                 else:  # interval > 1
                     if fr_id % opt.interval == 0:  # skip some frames
 
@@ -209,8 +211,9 @@ def run_detection(opt):
                                                          id2cls=id2cls)
 
                         if opt.save_img_dir is not None:
-                            save_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
-                            cv2.imwrite(save_path, online_im)
+                            save_img_path = os.path.join(frame_dir, '{:05d}.jpg'.format(fr_cnt))
+                            cv2.imwrite(save_img_path, online_im)
+                            print('{:s} saved.'.format(save_img_path))
 
                         # update sampled frame count
                         fr_cnt += 1
@@ -519,7 +522,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_no_group_id_127000.weights',
+                                 default='weights/v4_tiny3l_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
 
@@ -530,7 +533,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test1.txt',  # test1.txt or c5_test or test2.txt
+                                 default='/mnt/diskb/even/Pic_1/tmp.txt',  # test1.txt or c5_test or test1.txt or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -606,7 +609,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=44,  # 0 or 44
+                                 default=0,  # 0 or 44
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids

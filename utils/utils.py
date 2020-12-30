@@ -1390,7 +1390,7 @@ def non_max_suppression(predictions,
     if predictions.dtype is torch.float16:
         predictions = predictions.float()  # to FP32
 
-    nc = predictions[0].shape[1] - 5  # number of classes
+    nc = predictions[0].shape[1] - 5       # number of classes
     xc = predictions[..., 4] > conf_thres  # candidates
 
     # Settings

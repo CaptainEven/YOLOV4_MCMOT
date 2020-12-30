@@ -10,7 +10,6 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 
-
 classes = [
     'car',  # 0
     'bicycle',  # 1
@@ -270,11 +269,51 @@ def gen_mcmot_data(img_root, out_f_path):
                 w_h.write(img_path + '\n')
 
 
-if __name__ == '__main__':
-    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
-                           one_plus=True,
-                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
-                           viz_root=None)
+def FindFileWithSuffix(root, suffix, f_list):
+    """
+    递归的方式查找特定后缀文件
+    """
+    for f in os.listdir(root):
+        f_path = os.path.join(root, f)
+        if os.path.isfile(f_path) and f.endswith(suffix):
+            f_list.append(f_path)
+        elif os.path.isdir(f_path):
+            FindFileWithSuffix(f_path, suffix, f_list)
 
-    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+
+def GenerateFileList(root, suffix, list_name):
+    """
+    生成指定后缀的文件名列表txt文件
+    """
+    if not os.path.isdir(root):
+        print('[Err]: invalid root')
+        return
+
+    f_list = []
+    FindFileWithSuffix(root, suffix, f_list)
+
+    if len(f_list) == 0:
+        print('[Warning]: empty file list')
+        return
+
+    with open(root + '/' + list_name, 'w', encoding='utf-8') as f_h:
+        for i, f_path in tqdm(enumerate(f_list)):
+            f_name = os.path.split(f_path)[1]
+            f_h.write(f_path)
+
+            if i != len(f_list) - 1:
+                f_h.write('\n')
+
+
+if __name__ == '__main__':
+    # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
+    #                        one_plus=True,
+    #                        dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
+    #                        viz_root=None)
+    #
+    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+
+    GenerateFileList(root='/mnt/diskb/even/Pic_1/',
+                     suffix='.jpg',
+                     list_name='tmp.txt')
