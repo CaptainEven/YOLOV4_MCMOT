@@ -281,7 +281,7 @@ def FindFileWithSuffix(root, suffix, f_list):
             FindFileWithSuffix(f_path, suffix, f_list)
 
 
-def GenerateFileList(root, suffix, list_name):
+def GenerateFileList(root, suffix, list_name, mode='name'):
     """
     生成指定后缀的文件名列表txt文件
     """
@@ -299,7 +299,10 @@ def GenerateFileList(root, suffix, list_name):
     with open(root + '/' + list_name, 'w', encoding='utf-8') as f_h:
         for i, f_path in tqdm(enumerate(f_list)):
             f_name = os.path.split(f_path)[1]
-            f_h.write(f_path)
+            if mode == 'name':
+                f_h.write(f_name)
+            elif mode == 'path':
+                f_h.write(f_path)
 
             if i != len(f_list) - 1:
                 f_h.write('\n')
@@ -316,4 +319,5 @@ if __name__ == '__main__':
 
     GenerateFileList(root='/mnt/diskb/even/Pic_1/',
                      suffix='.jpg',
-                     list_name='tmp.txt')
+                     list_name='tmp.txt',
+                     mode='path')  # name of path
