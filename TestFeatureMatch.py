@@ -26,7 +26,7 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_tmp.cfg',
+                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse_up.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
@@ -73,7 +73,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=56,  # 0 or 44
+                                 default=0,  # 0 or 44
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids
@@ -161,7 +161,7 @@ class FeatureMatcher(object):
             self.sim_bins_dict[edge] = 0
 
         # gap of the same object class and different object class
-        self.min_same_class_sim = 1.0   # init to the max
+        self.min_same_class_sim = 1.0  # init to the max
         self.max_diff_class_sim = -1.0  # init to the min
 
         self.num_total_match = 0
@@ -496,7 +496,13 @@ class FeatureMatcher(object):
             with torch.no_grad():
                 pred = None
                 if len(self.model.feat_out_ids) == 3:
+                    t1 = torch_utils.time_synchronized()
+
                     pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
+
+                    t2 = torch_utils.time_synchronized()
+                    if fr_id % 10 == 0:
+                        print('Frame %d done, time (%.3fms)' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     feat_tmp_list = []
@@ -517,7 +523,13 @@ class FeatureMatcher(object):
                     reid_feat_out = feat_tmp_list
 
                 elif len(self.model.feat_out_ids) == 1:
+                    t1 = torch_utils.time_synchronized()
+
                     pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+
+                    t2 = torch_utils.time_synchronized()
+                    if fr_id % 10 == 0:
+                        print('Frame %d done, time (%.3fms)' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     reid_feat_map = reid_feat_out[0]
@@ -682,7 +694,8 @@ class FeatureMatcher(object):
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
 
                             # do min similarity statistics of same object class
                             if best_sim < self.min_same_class_sim:
@@ -698,7 +711,8 @@ class FeatureMatcher(object):
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
 
                             # do max similarity statistics of the different object class
                             if best_sim > self.max_diff_class_sim:
@@ -751,7 +765,8 @@ class FeatureMatcher(object):
                             cv2.imwrite(save_path, img_save)
 
                 elif len(self.model.feat_out_ids) == 3:
-                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_ids_cur, TPs_cur, TP_yolo_inds_cur):  # current frame as row
+                    for tpid_cur, det_cur, yolo_id_cur in zip(TPs_ids_cur, TPs_cur,
+                                                              TP_yolo_inds_cur):  # current frame as row
                         x1_cur, y1_cur, x2_cur, y2_cur = det_cur[:4]
 
                         reid_feat_map_cur = reid_feat_out[yolo_id_cur]
@@ -764,7 +779,8 @@ class FeatureMatcher(object):
 
                         best_sim = -1.0
                         best_tpid_pre = -1
-                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_ids_pre, TPs_pre, TP_yolo_inds_pre):  # previous frame as col
+                        for tpid_pre, det_pre, yolo_id_pre in zip(TPs_ids_pre, TPs_pre,
+                                                                  TP_yolo_inds_pre):  # previous frame as col
                             x1_pre, y1_pre, x2_pre, y2_pre = det_pre[:4]
 
                             reid_feat_map_pre = self.reid_feat_out_pre[yolo_id_pre]
@@ -807,7 +823,8 @@ class FeatureMatcher(object):
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'correct_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
 
                             # do cosine similarity statistics
                             best_sim *= 100.0
@@ -818,7 +835,8 @@ class FeatureMatcher(object):
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
-                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur, best_sim)
+                                                .format(seq_name, fr_id - 1, gt_tr_id_pre, fr_id, gt_tr_id_cur,
+                                                        best_sim)
 
                             # do cosine similarity statistics
                             best_sim *= 100.0

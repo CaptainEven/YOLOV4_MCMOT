@@ -512,6 +512,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=reduction)
     BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=reduction)
     CE_reid = nn.CrossEntropyLoss()
+    ghm_c = GHMC(bins=30)
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
@@ -612,7 +613,13 @@ def compute_loss_one_layer(preds, reid_feat_out,
                     if model.fc_type == 'FC':
                         ## normal FC layer as classifier
                         fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
-                        l_reid += CE_reid(fc_preds, tr_ids[inds])
+                        # l_reid += CE_reid(fc_preds, tr_ids[inds])  # using cross entropy loss
+
+                        ## using GHM-C loss for reid classification
+                        target = torch.zeros_like(fc_preds)
+                        target.scatter_(1, tr_ids[inds].view(-1, 1).long(), 1)
+                        label_weight = torch.ones_like(fc_preds)
+                        l_reid += ghm_c.forward(fc_preds, target, label_weight)
 
                     elif model.fc_type == 'Arc':
                         ## arc margin FC layer as classifier
@@ -1390,7 +1397,7 @@ def non_max_suppression(predictions,
     if predictions.dtype is torch.float16:
         predictions = predictions.float()  # to FP32
 
-    nc = predictions[0].shape[1] - 5       # number of classes
+    nc = predictions[0].shape[1] - 5  # number of classes
     xc = predictions[..., 4] > conf_thres  # candidates
 
     # Settings
@@ -1891,3 +1898,89 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from evaluate_utils.eval
     fig.tight_layout()
     ax[1].legend()
     fig.savefig('results.png', dpi=200)
+
+
+class GHMC(nn.Module):
+    """GHM Classification Loss.
+    Details of the theorem can be viewed in the paper
+    "Gradient Harmonized Single-stage Detector".
+    https://arxiv.org/abs/1811.05181
+    Args:
+        bins (int): Number of the unit regions for distribution calculation.
+        momentum (float): The parameter for moving average.
+        use_sigmoid (bool): Can only be true for BCE based loss now.
+        loss_weight (float): The weight of the total GHM-C loss.
+    """
+
+    def __init__(
+            self,
+            bins=10,
+            momentum=0,
+            use_sigmoid=True,
+            loss_weight=1.0):
+        """
+        :param bins:
+        :param momentum:
+        :param use_sigmoid:
+        :param loss_weight:
+        """
+        super(GHMC, self).__init__()
+
+        self.bins = bins
+        self.momentum = momentum
+        self.edges = torch.arange(bins + 1).float().cuda() / bins
+        self.edges[-1] += 1e-6
+
+        if momentum > 0:
+            self.acc_sum = torch.zeros(bins).cuda()
+
+        self.use_sigmoid = use_sigmoid
+        if not self.use_sigmoid:
+            raise NotImplementedError
+        self.loss_weight = loss_weight
+
+    def forward(self, pred, target, label_weight, *args, **kwargs):
+        """Calculate the GHM-C loss.
+        Args:
+            pred (float tensor of size [batch_num, class_num]):
+                The direct prediction of classification fc layer.
+            target (float tensor of size [batch_num, class_num]):
+                Binary class target for each sample.
+            label_weight (float tensor of size [batch_num, class_num]):
+                the value is 1 if the sample is valid and 0 if ignored.
+        Returns:
+            The gradient harmonized loss.
+        """
+        # the target should be binary class label
+        if pred.dim() != target.dim():
+            target, label_weight = _expand_binary_labels(
+                target, label_weight, pred.size(-1))
+
+        target, label_weight = target.float(), label_weight.float()
+        edges = self.edges
+        mmt = self.momentum
+        weights = torch.zeros_like(pred)
+
+        # gradient length
+        g = torch.abs(pred.sigmoid().detach() - target)
+
+        valid = label_weight > 0
+        tot = max(valid.float().sum().item(), 1.0)
+        n = 0  # n valid bins
+        for i in range(self.bins):
+            inds = (g >= edges[i]) & (g < edges[i + 1]) & valid
+            num_in_bin = inds.sum().item()
+            if num_in_bin > 0:
+                if mmt > 0:
+                    self.acc_sum[i] = mmt * self.acc_sum[i] \
+                                      + (1 - mmt) * num_in_bin
+                    weights[inds] = tot / self.acc_sum[i]
+                else:
+                    weights[inds] = tot / num_in_bin
+                n += 1
+        if n > 0:
+            weights = weights / n
+
+        loss = F.binary_cross_entropy_with_logits(pred, target, weights, reduction='sum') / tot
+
+        return loss * self.loss_weight
