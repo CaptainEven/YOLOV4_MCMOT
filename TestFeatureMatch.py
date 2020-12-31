@@ -84,7 +84,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=128,  # 128, 256, 384, 512
+                                 default=256,  # 128, 256, 384, 512
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--bin-step',
