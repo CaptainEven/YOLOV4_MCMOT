@@ -406,7 +406,7 @@ class MCJDETracker(object):
                                  img_size=opt.img_size,
                                  verbose=False,
                                  max_id_dict=max_id_dict,
-                                 emb_dim=128,
+                                 emb_dim=opt.dim,
                                  fc=opt.fc,
                                  feat_out_ids=opt.feat_out_ids,
                                  mode=opt.task).to(device)

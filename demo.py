@@ -522,7 +522,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_no_group_id_one_feat_fuse_up_track_last.weights',
+                                 default='weights/v4_tiny3l_one_feat_fuse_up_track_last.weights',
                                  help='weights path')
         # ----------
 
@@ -550,12 +550,12 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',
+                                 default='track',
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',
                                  type=str,
-                                 default='txt',
+                                 default='videos',
                                  help='videos or txt')
 
         # output type
@@ -574,7 +574,7 @@ class DemoRunner(object):
         # standard output FPS
         self.parser.add_argument('--fps',
                                  type=int,
-                                 default=12,
+                                 default=6,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
@@ -591,7 +591,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=120,
+                                 default=30,  # 30, 60, 90, 120...
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
@@ -620,7 +620,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=128,
+                                 default=256,  # 128, 256...
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--fc',
