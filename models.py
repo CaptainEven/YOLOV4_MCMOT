@@ -203,8 +203,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'yolo':
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
-            if any(x in cfg for x in ['yolov4-tiny', 'mobile', 'Mobile', 'enet', 'Enet']):  # stride order reversed
-                stride = [32, 16, 8]
+            if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny', 'tmp', 'mobile', 'Mobile', 'enet', 'Enet']):
+                stride = [32, 16, 8]  # stride order reversed
 
             layers = mdef['from'] if 'from' in mdef else []
             modules = YOLOLayer(anchors=mdef['anchors'][mdef['mask']],  # anchor list

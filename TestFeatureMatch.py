@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse_up.cfg',
+                                 default='cfg/tmp.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/v4_tiny3l_one_feat_fuse_up_track_last.weights',
+                                 default='weights/tmp_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -84,7 +84,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=256,  # 128, 256, 384, 512
+                                 default=128,  # 64, 128, 256, 384, 512
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--bin-step',
@@ -501,7 +501,7 @@ class FeatureMatcher(object):
                     pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
 
                     t2 = torch_utils.time_synchronized()
-                    if fr_id % 10 == 0:
+                    if fr_id % 20 == 0:
                         print('Frame %d done, time (%.3fms)' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
@@ -528,8 +528,8 @@ class FeatureMatcher(object):
                     pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
 
                     t2 = torch_utils.time_synchronized()
-                    if fr_id % 10 == 0:
-                        print('Frame %d done, time (%.3fms)' % (fr_id, 1000.0 * (t2 - t1)))
+                    if fr_id % 20 == 0:
+                        print('Frame %d done, time (%.5fms)' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     reid_feat_map = reid_feat_out[0]
