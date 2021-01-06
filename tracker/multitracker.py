@@ -1,20 +1,17 @@
-from collections import deque
+# encoding=utf-8
 
-# for debugging..
+
 import math
-# from scipy.spatial.distance import cdist
-
 import numpy as np
 import torch
 import torch.nn.functional as F
-from collections import defaultdict
 
+from collections import deque, defaultdict
 from tracker import matching
 from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.utils import *
 from tracking_utils.log import logger
 from utils.utils import non_max_suppression  # , cos
-
 from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
 
@@ -23,12 +20,11 @@ from models import *
 class MCTrack(MCBaseTrack):
     shared_kalman = KalmanFilter()
 
-    def __init__(self, tlwh, score, temp_feat, num_classes, cls_id, buff_size=30):
+    def __init__(self, tlwh, score, temp_feat, cls_id, buff_size=30):
         """
         :param tlwh:
         :param score:
         :param temp_feat:
-        :param num_classes:
         :param cls_id:
         :param buff_size:
         """
@@ -806,7 +802,7 @@ class MCJDETracker(object):
             if len(cls_dets) > 0:
                 '''Detections, tlbrs: top left bottom right score'''
                 cls_detections = [
-                    MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, self.opt.num_classes, cls_id, 30)
+                    MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, cls_id, 30)
                     for (tlbrs, feat) in
                     zip(cls_dets[:, :5], cls_id_feature)]  # detection of current frame
             else:

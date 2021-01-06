@@ -502,7 +502,7 @@ class FeatureMatcher(object):
 
                     t2 = torch_utils.time_synchronized()
                     if fr_id % 20 == 0:
-                        print('Frame %d done, time (%.3fms)' % (fr_id, 1000.0 * (t2 - t1)))
+                        print('Frame %d done, time: %.3fms' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     feat_tmp_list = []
@@ -529,7 +529,7 @@ class FeatureMatcher(object):
 
                     t2 = torch_utils.time_synchronized()
                     if fr_id % 20 == 0:
-                        print('Frame %d done, time (%.5fms)' % (fr_id, 1000.0 * (t2 - t1)))
+                        print('Frame %d done, time: %.5fms' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize
                     reid_feat_map = reid_feat_out[0]
