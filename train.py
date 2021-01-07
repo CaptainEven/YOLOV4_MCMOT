@@ -204,36 +204,48 @@ def train():
 
     # ---------- Freeze weights of some previous layers(freeze detection results)
     if opt.stop_freeze_layer_idx > 0:
-        for layer_i, (name, layer) in enumerate(model.module_list.named_children()):
+        layers_dict = dict(model.module_list.named_children())
+        for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
             if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
-                for child_i, param in enumerate(layer.parameters()):
+                for param_i, (param_name, param) in enumerate(layer.named_parameters()):
                     param.requires_grad = False
-                print('Layer ', name, 'frozen.')
+                print('Layer ', layer_name, 'frozen.')
             else:
-                print('Layer ', name, ' requires grad.')
+                print('Layer ', layer_name, ' requires grad.')
 
     # ---------- Optimizer definition and model parameters registration
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
-    for k, v in dict(model.named_parameters()).items():
-        if '.bias' in k:
-            pg2 += [v]  # biases
-        elif 'Conv2d.weight' in k:
-            pg1 += [v]  # apply weight_decay
-        else:
-            pg0 += [v]  # all else
+    # params_dict = dict(model.module_list.named_parameters())
+    # for param_i, (param_name, param) in enumerate(params_dict.items()):
+    #     if '.bias' in param_name:
+    #         pg2 += [param]  # biases
+    #     elif 'Conv2d.weight' in param_name:
+    #         pg1 += [param]  # apply weight_decay
+    #     else:
+    #         pg0 += [param]  # all else
+
+    layers_dict = dict(model.module_list.named_children())
+    for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
+        for param_i, (param_name, param) in enumerate(layer.named_parameters()):
+            if '.bias' in param_name:
+                pg2 += [param]  # biases
+            elif 'Conv2d.weight' in param_name:
+                pg1 += [param]  # apply weight_decay
+            else:
+                pg0 += [param]  # all else
 
     if opt.adam:
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, pg0), lr=hyp['lr0'])
-        # optimizer = AdaBound(filter(lambda p: p.requires_grad, pg0), lr=hyp['lr0'], final_lr=0.1)
+        optimizer = optim.Adam(filter(lambda pram: pram.requires_grad, pg0), lr=hyp['lr0'])
+        # optimizer = AdaBound(filter(lambda pram: pram.requires_grad, pg0), lr=hyp['lr0'], final_lr=0.1)
     else:  # add filter for parameters which require grad
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, pg0),
+        optimizer = optim.SGD(filter(lambda pram: pram.requires_grad, pg0),
                               lr=hyp['lr0'],
                               momentum=hyp['momentum'],
                               nesterov=True)
-    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg1),
+    optimizer.add_param_group({'params': filter(lambda param: param.requires_grad, pg1),
                                'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
-    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg2)})  # add pg2 (biases)
+    optimizer.add_param_group({'params': filter(lambda param: param.requires_grad, pg2)})  # add pg2 (biases)
 
     del pg0, pg1, pg2
 
