@@ -36,8 +36,8 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0000003,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
-    'lrf': 0.0000001,  # final learning rate (with cos scheduler)
+    'lr0': 0.00000001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lrf': 0.00000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
     'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
@@ -189,10 +189,14 @@ def train():
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
         optimizer = optim.Adam(pg0, lr=hyp['lr0'])
         # optimizer = AdaBound(pg0, lr=hyp['lr0'], final_lr=0.1)
-    else:
-        optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
-    optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
-    optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+    else:  # add filter for parameters which require grad
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, pg0),
+                              lr=hyp['lr0'],
+                              momentum=hyp['momentum'],
+                              nesterov=True)
+    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg1),
+                               'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
+    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg2)})  # add pg2 (biases)
 
     if opt.auto_weight:
         optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
@@ -233,13 +237,15 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
-    ## freeze weights of some previous layers(for yolo detection only)
-    for layer_i, (name, child) in enumerate(model.module_list.named_children()):
-        if layer_i < 44:  # cutoff layer
-            for param in child.parameters():
-                param.requires_grad = False
-        else:
-            print('Layer ', name, ' requires grad.')
+    ## freeze weights of some previous layers(freeze detection results)
+    if opt.stop_freeze_layer_idx > 0:
+        for layer_i, (name, layer) in enumerate(model.module_list.named_children()):
+            if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
+                for child_i, param in enumerate(layer.parameters()):
+                    param.requires_grad = False
+                print('Layer ', name, 'frozen.')
+            else:
+                print('Layer ', name, ' requires grad.')
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -672,20 +678,28 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/one_feat_fuse_track_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=0,  # 0, 44
+                        default=47,  # 0, 44, 47
                         help='cutoff layer index(index start from 0)')
+
+    # ----- Set the layer index from where are not to be frozen
+    parser.add_argument('--stop-freeze-layer-idx',
+                        type=int,
+                        default=48,  # -1, 45, 48
+                        help='The layer index from where the '
+                             'subsequent layers are not to be frozen,'
+                             '-1 means do not freeze any layer')
 
     parser.add_argument('--device',
                         default='4',
@@ -724,7 +738,7 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,  # 0 or 1
+                        default=1,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
