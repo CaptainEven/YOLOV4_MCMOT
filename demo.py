@@ -112,7 +112,7 @@ def run_detection(opt):
             # ----------
 
             t2 = torch_utils.time_synchronized()
-            print('%sdone, time (%.3fs)' % (path, t2 - t1))
+            print('%s done, time (%.3fs)' % (path, t2 - t1))
 
             if opt.show_image:
                 online_im = vis.plot_detects(img=img0,
@@ -609,7 +609,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=47,  # 0 or 44, 47
+                                 default=0,  # 0 or 44, 47
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids

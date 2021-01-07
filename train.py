@@ -227,6 +227,7 @@ def train():
 
     layers_dict = dict(model.module_list.named_children())
     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
+        # traverse each child parameter of the layer
         for param_i, (param_name, param) in enumerate(layer.named_parameters()):
             if '.bias' in param_name:
                 pg2 += [param]  # biases
