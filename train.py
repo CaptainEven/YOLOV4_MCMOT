@@ -331,7 +331,7 @@ def train():
     # Model EMA: exponential moving average
     ema = torch_utils.ModelEMA(model)
 
-    # Start training
+    # ---------- Start training
     start_epoch = 0
     best_fitness = 0.0
 
