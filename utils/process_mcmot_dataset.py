@@ -143,10 +143,10 @@ def gen_labels_for_seq(dark_txt_path, seq_label_dir, class_types, one_plus=True)
                         print('Found illegal value of class id or track id.', class_id, track_id)
                         break
 
-                    if bbox_center_x < 0.0 or bbox_center_x >= 1.0 \
-                        or bbox_center_y < 0.0 or bbox_center_y >= 1.0 \
-                        or bbox_width < 0.0 or bbox_width >= 1.0 \
-                        or bbox_height < 0.0 or bbox_height >= 1.0:
+                    if bbox_center_x < 0.0 or bbox_center_x > 1.0 \
+                        or bbox_center_y < 0.0 or bbox_center_y > 1.0 \
+                        or bbox_width < 0.0 or bbox_width > 1.0 \
+                        or bbox_height < 0.0 or bbox_height > 1.0:
                         print('Found illegal value of bbox.',
                               bbox_center_x, bbox_center_y, bbox_width, bbox_height)
                         break
