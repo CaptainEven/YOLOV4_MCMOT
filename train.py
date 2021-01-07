@@ -168,43 +168,8 @@ def train():
     print(model)
     print(max_id_dict)
 
-    # Optimizer definition and model parameters registration
-    pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
-    for k, v in dict(model.named_parameters()).items():
-        if '.bias' in k:
-            pg2 += [v]  # biases
-        elif 'Conv2d.weight' in k:
-            pg1 += [v]  # apply weight_decay
-        else:
-            pg0 += [v]  # all else
 
-    # do not succeed...
-    if opt.auto_weight:
-        if opt.task == 'pure_detect' or opt.task == 'detect':
-            awl = AutomaticWeightedLoss(3)
-        elif opt.task == 'track':
-            awl = AutomaticWeightedLoss(4)
-
-    if opt.adam:
-        # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
-        optimizer = optim.Adam(pg0, lr=hyp['lr0'])
-        # optimizer = AdaBound(pg0, lr=hyp['lr0'], final_lr=0.1)
-    else:  # add filter for parameters which require grad
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, pg0),
-                              lr=hyp['lr0'],
-                              momentum=hyp['momentum'],
-                              nesterov=True)
-    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg1),
-                               'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
-    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg2)})  # add pg2 (biases)
-
-    if opt.auto_weight:
-        optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
-
-    del pg0, pg1, pg2
-
-    start_epoch = 0
-    best_fitness = 0.0
+    # ---------- load weights(checkpoint)
     # attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
         chkpt = torch.load(weights, map_location=device)
@@ -237,7 +202,7 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
-    ## freeze weights of some previous layers(freeze detection results)
+    # ---------- freeze weights of some previous layers(freeze detection results)
     if opt.stop_freeze_layer_idx > 0:
         for layer_i, (name, layer) in enumerate(model.module_list.named_children()):
             if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
@@ -246,6 +211,44 @@ def train():
                 print('Layer ', name, 'frozen.')
             else:
                 print('Layer ', name, ' requires grad.')
+
+    # Optimizer definition and model parameters registration
+    pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
+    for k, v in dict(model.named_parameters()).items():
+        if '.bias' in k:
+            pg2 += [v]  # biases
+        elif 'Conv2d.weight' in k:
+            pg1 += [v]  # apply weight_decay
+        else:
+            pg0 += [v]  # all else
+
+    # do not succeed...
+    if opt.auto_weight:
+        if opt.task == 'pure_detect' or opt.task == 'detect':
+            awl = AutomaticWeightedLoss(3)
+        elif opt.task == 'track':
+            awl = AutomaticWeightedLoss(4)
+
+    if opt.adam:
+        # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, pg0), lr=hyp['lr0'])
+        # optimizer = AdaBound(filter(lambda p: p.requires_grad, pg0), lr=hyp['lr0'], final_lr=0.1)
+    else:  # add filter for parameters which require grad
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, pg0),
+                              lr=hyp['lr0'],
+                              momentum=hyp['momentum'],
+                              nesterov=True)
+    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg1),
+                               'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
+    optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg2)})  # add pg2 (biases)
+
+    if opt.auto_weight:
+        optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
+
+    del pg0, pg1, pg2
+
+    start_epoch = 0
+    best_fitness = 0.0
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:

@@ -522,7 +522,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',
+                                 default='weights/one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
 
