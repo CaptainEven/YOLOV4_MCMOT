@@ -207,6 +207,7 @@ def train():
         layers_dict = dict(model.module_list.named_children())
         for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
             if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
+                # traverse each child parameter of the layer
                 for param_i, (param_name, param) in enumerate(layer.named_parameters()):
                     param.requires_grad = False
                 print('Layer ', layer_name, 'frozen.')
