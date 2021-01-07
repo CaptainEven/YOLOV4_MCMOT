@@ -4,13 +4,14 @@ import os
 import time
 import shutil
 import re
+import math
 import cv2
 import pickle
 import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 
-classes = [
+class_types = [
     'car',  # 0
     'bicycle',  # 1
     'person',  # 2
@@ -34,28 +35,37 @@ id2cls = {
     4: 'tricycle'
 }
 
-# 视频训练数据图片的宽高是固定的
-W, H = 1920, 1080
+# 视频训练数据图片的宽高是固定的(并不是固定的)
+global W, H
+W, H = -1, -1
 
 
-def gen_labels_for_seq(dark_txt_path, seq_label_dir, classes, one_plus=True):
+def gen_labels_for_seq(dark_txt_path, seq_label_dir, class_types, one_plus=True):
     """
     """
-    global seq_max_id_dict, start_id_dict, fr_cnt
+    global seq_max_id_dict, start_id_dict, fr_cnt, W, H
+    if W < 0 or H < 0:
+        print('[Err]: wrong image WH.')
+        return None
+    print('Image width&height: {}×{}'.format(W, H))
 
     # ----- 开始一个视频seq的label生成
     # 每遇到一个待处理的视频seq, reset各类max_id为0
-    for class_type in classes:
+    for class_type in class_types:
         seq_max_id_dict[class_type] = 0
 
     # 记录当前seq各个类别的track id集合
     id_set_dict = defaultdict(set)
 
     # 读取dark label(读取该视频seq的标注文件, 一行代表一帧)
+    lb_cnt = 0
     with open(dark_txt_path, 'r', encoding='utf-8') as r_h:
         # 读视频标注文件的每一行: 每一行即一帧
-        for line in r_h.readlines():
+        for line_i, line in enumerate(r_h.readlines()):
             fr_cnt += 1
+
+            # 判断该帧是否合法的标志
+            is_fr_valid = False
 
             line = line.split(',')
             fr_id = int(line[0])
@@ -100,6 +110,12 @@ def gen_labels_for_seq(dark_txt_path, seq_label_dir, classes, one_plus=True):
                 y2 = y2 if y2 >= 0 else 0
                 y2 = y2 if y2 < H else H - 1
 
+                # 出现坐标错误的情况是应该跳过整个Video
+                # 还是仅仅跳过当前帧
+                if x1 >= x2 or y1 >= y2:
+                    print('{} wrong labeled in line {}.'.format(dark_txt_path, line_i))
+                    return None
+
                 # 计算bbox center和bbox width&height
                 bbox_center_x = 0.5 * float(x1 + x2)
                 bbox_center_y = 0.5 * float(y1 + y2)
@@ -115,25 +131,52 @@ def gen_labels_for_seq(dark_txt_path, seq_label_dir, classes, one_plus=True):
                 # 打印中间结果, 验证是否解析正确...
                 # print(track_id, x1, y1, x2, y2, class_type)
 
+                # Nan 判断
+                if math.isnan(class_id) or math.isnan(track_id) \
+                    or math.isnan(bbox_center_x) or math.isnan(bbox_center_y) \
+                        or math.isnan(bbox_width) or math.isnan(bbox_height):
+                        print('Found nan value, invalid frame, skip frame {}.'.format(fr_id))
+                        break  # 跳出当前帧的循环
+                else:
+                    # class id, track id有效性判断
+                    if class_id < 0 or class_id >= len(class_types) or track_id < 0:
+                        print('Found illegal value of class id or track id.', class_id, track_id)
+                        break
+
+                    if bbox_center_x < 0.0 or bbox_center_x >= 1.0 \
+                        or bbox_center_y < 0.0 or bbox_center_y >= 1.0 \
+                        or bbox_width < 0.0 or bbox_width >= 1.0 \
+                        or bbox_height < 0.0 or bbox_height >= 1.0:
+                        print('Found illegal value of bbox.',
+                              bbox_center_x, bbox_center_y, bbox_width, bbox_height)
+                        break
+
+                    is_fr_valid = True
+
                 # 每一帧对应的label中的每一行
                 obj_str = '{:d} {:d} {:.6f} {:.6f} {:.6f} {:.6f}\n'.format(
-                    class_id,  # class id: 从0开始计算
-                    track_id,  # track id: 从1开始计算
-                    bbox_center_x,  # center_x
-                    bbox_center_y,  # center_y
-                    bbox_width,  # bbox_w
-                    bbox_height)  # bbox_h
+                    class_id,                         # class id: 从0开始计算
+                    track_id,                         # track id: 从1开始计算
+                    bbox_center_x,                    # center_x
+                    bbox_center_y,                    # center_y
+                    bbox_width,                       # bbox_w
+                    bbox_height)                      # bbox_h
                 # print(obj_str, end='')
                 fr_label_objs.append(obj_str)
 
-            # ----- 该帧解析结束, 输出该帧的label文件: 每一帧图像对应一个txt格式的label文件
-            label_f_path = seq_label_dir + '/{:05d}.txt'.format(fr_id)
-            with open(label_f_path, 'w', encoding='utf-8') as w_h:
-                for obj in fr_label_objs:
-                    w_h.write(obj)
-            # print('{} written\n'.format(label_f_path))
+            if is_fr_valid:
+                # ----- 该帧解析结束, 输出该帧的label文件: 每一帧图像对应一个txt格式的label文件
+                label_f_path = seq_label_dir + '/{:05d}.txt'.format(fr_id)
+                with open(label_f_path, 'w', encoding='utf-8') as w_h:
+                    for obj in fr_label_objs:
+                        w_h.write(obj)
+                # print('{} written\n'.format(label_f_path))
+            else:
+                return None
 
-    return id_set_dict
+            lb_cnt += 1
+
+    return id_set_dict, lb_cnt
 
 
 """
@@ -152,6 +195,8 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
     :param viz_root:
     :return:
     """
+    global W, H
+
     if not os.path.isdir(data_root):
         print('[Err]: invalid data root')
         return
@@ -172,7 +217,7 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
     # 为视频seq的每个检测类别设置[起始]track id
     global start_id_dict
     start_id_dict = defaultdict(int)  # str => int
-    for class_type in classes:  # 初始化
+    for class_type in class_types:  # 初始化
         start_id_dict[class_type] = 0
 
     # 记录每一个视频seq各类最大的track id
@@ -191,6 +236,12 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
         seq_dir = img_root + '/' + seq_name
         print('\nProcessing seq', seq_dir)
 
+        # 读取正确的image width and image height(W, H)
+        img_paths = [seq_dir + '/' + x for x in os.listdir(seq_dir) if x.endswith('.jpg')]
+        print('total {} frames for {}.'.format(len(img_paths), seq_name))
+        img_tmp = cv2.imread(img_paths[0])
+        H, W = img_tmp.shape[:2]
+
         # 为该视频seq创建label目录
         seq_label_dir = label_root + '/' + seq_name
         if not os.path.isdir(seq_label_dir):
@@ -204,8 +255,17 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
             print('[Warning]: invalid dark label file.')
             continue
 
-        # 当前seq生成labels
-        id_set_dict = gen_labels_for_seq(dark_txt_path, seq_label_dir, classes, one_plus)
+        # ---------- 当前seq生成labels
+        id_set_dict, lb_cnt = gen_labels_for_seq(dark_txt_path, seq_label_dir, class_types, one_plus)
+        if id_set_dict == None:
+            print('Skip video seq {} because of wrong label.'.format(video))
+            continue
+        # ----------
+        print('{} labels generated.'.format(lb_cnt))
+
+        if len(img_paths) != lb_cnt:
+            print('[Warning]: difference of frames and labels length: {} frames, {} labels'
+                  .format(len(img_paths), lb_cnt))
 
         # 输出该视频seq各个检测类别的max track id(从1开始)
         for k, v in seq_max_id_dict.items():
@@ -234,7 +294,7 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
         print(k + ' total ' + str(v) + ' track ids')
     print('Total {} frames.'.format(fr_cnt))
 
-    # 序列化max_id_dict到磁盘
+    ## 序列化max_id_dict到磁盘
     if not dict_path is None:
         max_id_dict = {cls2id[k]: v for k, v in start_id_dict.items()}
         with open(dict_path, 'wb') as f:
@@ -242,6 +302,49 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
 
     print('{:s} dumped.'.format(dict_path))
 
+
+def check_imgs_and_labels(mcmot_root):
+    if not os.path.isdir(mcmot_root):
+        print('[Err]: invalid mcmot root.')
+        return
+
+    jpg_root = mcmot_root + '/JPEGImages'
+    txt_root = mcmot_root + '/labels_with_ids'
+
+    seq_names = [x for x in os.listdir(jpg_root)]
+    cnt = 0
+    cnt_no_label = 0
+    for seq_name in seq_names:
+        seq_dir = jpg_root + '/' + seq_name
+        txt_dir = txt_root + '/' + seq_name
+        if not (os.path.isdir(seq_dir) and os.path.isdir(txt_dir)):
+            print('[Warning]: seq {} not complete.'.format(seq_name))
+            continue
+
+        for jpg_name in os.listdir(seq_dir):
+            if not jpg_name.endswith('.jpg'):
+                continue
+
+            jpg_path = seq_dir + '/' + jpg_name
+            txt_path = txt_dir + '/' + jpg_name.replace('.jpg', '.txt')
+
+            if os.path.isfile(jpg_path) and os.path.isfile(txt_path):
+                cnt += 1
+            elif os.path.isfile(jpg_path) and (not os.path.isfile(txt_path)):
+                print('Label {} do not exists.'.format(txt_path))
+                cnt_no_label += 1
+
+                # 删除相应的帧
+                os.remove(jpg_path)
+                print('{} removed.'.format(jpg_path))
+            elif os.path.isfile(txt_path) and (not os.path.isfile(jpg_path)):
+                print('Image {} do not exists.'.format(jpg_path))
+                # 删除相应的标注文件
+                os.remove(txt_path)
+                print('{} removed.'.format(txt_path))
+
+    print('Total {} labels do not exists.\n'.format(cnt_no_label))
+    print('Reamain {} images and corresponding labels.'.format(cnt))
 
 def gen_mcmot_data(img_root, out_f_path):
     """
@@ -312,15 +415,19 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
 
 
 if __name__ == '__main__':
-    # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
-    #                        one_plus=True,
-    #                        dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
-    #                        viz_root=None)
-    #
-    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
+                           one_plus=True,
+                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
+                           viz_root=None)
 
-    GenerateFileList(root='/mnt/diskb/even/Pic_1/',
-                     suffix='.jpg',
-                     list_name='tmp.txt',
-                     mode='path')  # name of path
+    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/MCMOT')
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+
+
+
+    # GenerateFileList(root='/mnt/diskb/even/Pic_1/',
+    #                  suffix='.jpg',
+    #                  list_name='tmp.txt',
+    #                  mode='path')  # name of path

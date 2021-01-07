@@ -226,7 +226,7 @@ def array_to_image(arr):
 def classify(net, meta, im):
     out = predict_image(net, im)
     res = []
-    for i in range(meta.classes):
+    for i in range(meta.class_types):
         if altNames is None:
             nameTag = meta.names[i]
         else:
@@ -269,15 +269,15 @@ def detect_image(net, meta, im, thresh=0.5, hier_thresh=.5, nms=.45, debug=False
     num = pnum[0]
     if debug: print("got zeroth index of pnum")
     if nms:
-        do_nms_sort(dets, num, meta.classes, nms)
+        do_nms_sort(dets, num, meta.class_types, nms)
     if debug: print("did sort")
     res = []
     if debug: print("about to range")
     for j in range(num):
         if debug: print("Ranging on " + str(j) + " of " + str(num))
-        if debug: print("Classes: " + str(meta), meta.classes, meta.names)
-        for i in range(meta.classes):
-            if debug: print("Class-ranging on " + str(i) + " of " + str(meta.classes) + "= " + str(dets[j].prob[i]))
+        if debug: print("Classes: " + str(meta), meta.class_types, meta.names)
+        for i in range(meta.class_types):
+            if debug: print("Class-ranging on " + str(i) + " of " + str(meta.class_types) + "= " + str(dets[j].prob[i]))
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
                 if altNames is None:
@@ -350,11 +350,11 @@ def detect_ext(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
 
     # if (nms): do_nms_obj(dets, num, meta.classes, nms)
     if (nms):
-        do_nms_sort(dets, num, meta.classes, nms)
+        do_nms_sort(dets, num, meta.class_types, nms)
 
     res = []
     for j in range(num):
-        for i in range(meta.classes):
+        for i in range(meta.class_types):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
                 b.x /= im.w
@@ -566,7 +566,7 @@ def performBatchDetect(thresh=0.25, configPath="./cfg/yolov3.cfg", weightPath="y
         num = batch_dets[b].num
         dets = batch_dets[b].dets
         if nms:
-            do_nms_obj(dets, num, meta.classes, nms)
+            do_nms_obj(dets, num, meta.class_types, nms)
         boxes = []
         scores = []
         classes = []
@@ -574,7 +574,7 @@ def performBatchDetect(thresh=0.25, configPath="./cfg/yolov3.cfg", weightPath="y
             det = dets[i]
             score = -1
             label = None
-            for c in range(det.classes):
+            for c in range(det.class_types):
                 p = det.prob[c]
                 if p > score:
                     score = p

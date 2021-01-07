@@ -56,7 +56,7 @@ class KalmanFilter(object):
 
         Parameters
         ----------
-        measurement : ndarray
+        measurement : ndarray: center_x, center_y, aspect ratio(width/height), height
             Bounding box coordinates (x, y, a, h) with center position (x, y),
             aspect ratio a, and height h.
 
@@ -108,16 +108,21 @@ class KalmanFilter(object):
             self._std_weight_position * mean[3],
             self._std_weight_position * mean[3],
             1e-2,
-            self._std_weight_position * mean[3]]
+            self._std_weight_position * mean[3]
+        ]
         std_vel = [
             self._std_weight_velocity * mean[3],
             self._std_weight_velocity * mean[3],
             1e-5,
-            self._std_weight_velocity * mean[3]]
+            self._std_weight_velocity * mean[3]
+        ]
         motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
 
-        # mean = np.dot(self._motion_mat, mean)
-        mean = np.dot(mean, self._motion_mat.T)
+        # state transfer equation
+        mean = np.dot(self._motion_mat, mean)
+        # mean = np.dot(mean, self._motion_mat.T)
+
+        # error transfer equation
         covariance = np.linalg.multi_dot((self._motion_mat, covariance, self._motion_mat.T)) + motion_cov
 
         return mean, covariance

@@ -83,9 +83,12 @@ class ArcMargin(nn.Module):
 
         # -------------torch.where(out_i = {x_i if condition_i else y_i) -------------
         # you can use torch.where if your torch.__version__ >= 0.4
-        output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
-        output *= self.s
-        # print(output)
+        try:
+            output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
+            output *= self.s
+            # print(output)
+        except Exception as e:
+            print(e)
 
         return output
 

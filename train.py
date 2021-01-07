@@ -649,7 +649,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=32)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=40)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
@@ -672,14 +672,20 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/tmp.cfg',
+                        default='cfg/yolov4-tiny-3l_no_group_id_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/one_feat_fuse_track_last.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
+
+    # ----- Set weight loading cutoff
+    parser.add_argument('--cutoff',
+                        type=int,
+                        default=0,  # 0, 44
+                        help='cutoff layer index(index start from 0)')
 
     parser.add_argument('--device',
                         default='4',
@@ -698,12 +704,6 @@ if __name__ == '__main__':
                         help='pure_detect, detect or track mode.')
 
     parser.add_argument('--auto-weight', type=bool, default=False, help='whether use auto weight tuning')
-
-    # ----- Set weight loading cutoff
-    parser.add_argument('--cutoff',
-                        type=int,
-                        default=44,  # 0, 44
-                        help='cutoff layer index(index start from 0)')
 
     # ----- Set ReID feature map output layer ids
     parser.add_argument('--feat-out-ids',
@@ -724,11 +724,11 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=1,
+                        default=0,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='tmp',
+                        default='one_feat_fuse',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()

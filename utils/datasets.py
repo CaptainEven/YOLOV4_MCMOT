@@ -384,7 +384,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
         self.max_ids_dict = defaultdict(int)  # cls_id => max track id
 
         self.imgs = [None] * n
-        self.labels = [np.zeros((0, 6), dtype=np.float32)] * n
+        self.labels = [np.zeros((0, 6), dtype=np.float32)] * n  # init labels to zeros
 
         extract_bounding_boxes = False
         create_data_subset = False
@@ -409,7 +409,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                     lb[:, 0] = 0  # force dataset into single-class mode: turn mc to sc
                 self.labels[i] = lb
 
-                # count independant id number for each object class
+                # count independent id number for each object class
                 for item in lb:  # each GT object in the label
                     if item[1] > self.max_ids_dict[int(item[0])]:  # item[0]: cls_id, item[1]: track id
                         self.max_ids_dict[int(item[0])] = int(item[1])
@@ -891,6 +891,13 @@ def load_image(self, index):
 
 
 def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
+    """
+    :param img:
+    :param hgain:
+    :param sgain:
+    :param vgain:
+    :return:
+    """
     r = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
     hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
     dtype = img.dtype  # uint8

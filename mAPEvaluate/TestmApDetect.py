@@ -125,7 +125,7 @@ def batch_analysis(weights_list_file,
         meta = dn.load_meta(meta_file)
         # net = dn.load_net(cfg_file, bytes(weights, 'utf-8'), 0)
 
-        object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.classes)]
+        object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.class_types)]
 
         # @even: tmp modification
         weights_name = 'tmp'  # sub_dir name

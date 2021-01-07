@@ -484,7 +484,7 @@ class MCJDETracker(object):
                                        self.opt.conf_thres,
                                        self.opt.iou_thres,
                                        merge=False,
-                                       classes=self.opt.classes,
+                                       classes=self.opt.class_types,
                                        agnostic=self.opt.agnostic_nms)
             # print(pred)
 
@@ -552,7 +552,7 @@ class MCJDETracker(object):
                                                                          conf_thres=self.opt.conf_thres,
                                                                          iou_thres=self.opt.iou_thres,
                                                                          merge=False,
-                                                                         classes=self.opt.classes,
+                                                                         classes=self.opt.class_types,
                                                                          agnostic=self.opt.agnostic_nms)
                 dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
 
@@ -561,7 +561,7 @@ class MCJDETracker(object):
                                            conf_thres=self.opt.conf_thres,
                                            iou_thres=self.opt.iou_thres,
                                            merge=False,
-                                           classes=self.opt.classes,
+                                           classes=self.opt.class_types,
                                            agnostic=self.opt.agnostic_nms)
 
             # get dets
@@ -804,7 +804,8 @@ class MCJDETracker(object):
                 cls_detections = [
                     MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, cls_id, 30)
                     for (tlbrs, feat) in
-                    zip(cls_dets[:, :5], cls_id_feature)]  # detection of current frame
+                    zip(cls_dets[:, :5], cls_id_feature)
+                ]  # convert detection of current frame to track format
             else:
                 cls_detections = []
 
@@ -883,8 +884,7 @@ class MCJDETracker(object):
 
                 # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_tracks_dict[cls_id].append(
-                    track)  # activated_tarcks_dict may contain track with 'is_activated' False
+                activated_tracks_dict[cls_id].append(track)  # activated_tarcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
             for track in self.lost_tracks_dict[cls_id]:
@@ -1009,7 +1009,7 @@ class JDETracker(object):
                                        self.opt.conf_thres,
                                        self.opt.iou_thres,
                                        merge=False,
-                                       classes=self.opt.classes,
+                                       classes=self.opt.class_types,
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
@@ -1057,7 +1057,7 @@ class JDETracker(object):
                                        self.opt.conf_thres,
                                        self.opt.iou_thres,
                                        merge=False,
-                                       classes=self.opt.classes,
+                                       classes=self.opt.class_types,
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
