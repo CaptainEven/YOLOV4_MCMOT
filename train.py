@@ -351,11 +351,11 @@ def train():
             return
 
         if opt.task == 'track':
-            print(('\n' + '%10s' * 9) % (
-                'Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
+            print(('\n' + '%10s' * 9)
+                  % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'reid', 'total', 'targets', 'img_size'))
         elif opt.task == 'detect' or opt.task == 'pure_detect':
-            print(('\n' + '%10s' * 8) % (
-                'Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'total', 'targets', 'img_size'))
+            print(('\n' + '%10s' * 8)
+                  % ('Epoch', 'gpu_mem', 'GIoU', 'obj', 'cls', 'total', 'targets', 'img_size'))
         else:
             print('[Err]: unrecognized task mode.')
             return
