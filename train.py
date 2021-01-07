@@ -169,7 +169,7 @@ def train():
     print(max_id_dict)
 
 
-    # ---------- load weights(checkpoint)
+    # ---------- Load weights(checkpoint)
     # attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
         chkpt = torch.load(weights, map_location=device)
@@ -202,7 +202,7 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
-    # ---------- freeze weights of some previous layers(freeze detection results)
+    # ---------- Freeze weights of some previous layers(freeze detection results)
     if opt.stop_freeze_layer_idx > 0:
         for layer_i, (name, layer) in enumerate(model.module_list.named_children()):
             if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
@@ -212,7 +212,7 @@ def train():
             else:
                 print('Layer ', name, ' requires grad.')
 
-    # Optimizer definition and model parameters registration
+    # ---------- Optimizer definition and model parameters registration
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
     for k, v in dict(model.named_parameters()).items():
         if '.bias' in k:
@@ -221,13 +221,6 @@ def train():
             pg1 += [v]  # apply weight_decay
         else:
             pg0 += [v]  # all else
-
-    # do not succeed...
-    if opt.auto_weight:
-        if opt.task == 'pure_detect' or opt.task == 'detect':
-            awl = AutomaticWeightedLoss(3)
-        elif opt.task == 'track':
-            awl = AutomaticWeightedLoss(4)
 
     if opt.adam:
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
@@ -241,9 +234,6 @@ def train():
     optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg1),
                                'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': filter(lambda p: p.requires_grad, pg2)})  # add pg2 (biases)
-
-    if opt.auto_weight:
-        optimizer.add_param_group({'params': awl.parameters(), 'weight_decay': 0})  # auto weighted params
 
     del pg0, pg1, pg2
 
@@ -501,9 +491,6 @@ def train():
                 elif len(model.feat_out_ids) == 1:
                     loss, loss_items = compute_loss_one_layer(pred, reid_feat_out, targets, track_ids, model, device)
 
-                if opt.auto_weight:
-                    loss = awl.forward(loss_items[0], loss_items[1], loss_items[2], loss_items[3])
-
                 if not torch.isfinite(loss_items[3]):
                     print('[Warning]: infinite reid loss.')
                     loss_items[3:] = torch.zeros((1, 1), device=device)
@@ -719,8 +706,6 @@ if __name__ == '__main__':
                         type=str,
                         default='track',
                         help='pure_detect, detect or track mode.')
-
-    parser.add_argument('--auto-weight', type=bool, default=False, help='whether use auto weight tuning')
 
     # ----- Set ReID feature map output layer ids
     parser.add_argument('--feat-out-ids',
