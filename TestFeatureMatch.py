@@ -171,6 +171,9 @@ class FeatureMatcher(object):
 
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
+        :param cls_id:
+        :param img_w:
+        :param img_h:
         :param viz_dir:
         :return:
         """

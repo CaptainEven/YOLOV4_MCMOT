@@ -251,6 +251,10 @@ def train():
 
     del pg0, pg1, pg2
 
+    # ---------- Define start epoch and fitness
+    start_epoch = 0
+    best_fitness = 0.0
+
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
@@ -332,9 +336,6 @@ def train():
     ema = torch_utils.ModelEMA(model)
 
     # ---------- Start training
-    start_epoch = 0
-    best_fitness = 0.0
-
     nb = len(data_loader)  # number of batches
     n_burn = max(3 * nb, 500)  # burn-in iterations, max(3 epochs, 500 iterations)
     maps = np.zeros(nc)  # mAP per class
