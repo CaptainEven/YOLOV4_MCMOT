@@ -126,7 +126,7 @@ def train():
     for f in glob.glob('*_batch*.jpg') + glob.glob(results_file):
         os.remove(f)
 
-    # Dataset
+    # ---------- Load dataset
     if opt.task == 'pure_detect':
         dataset = LoadImagesAndLabels(train_path,
                                       img_size,
@@ -146,7 +146,7 @@ def train():
                                        cache_images=opt.cache_images,
                                        single_cls=opt.single_cls)
 
-    # Initialize model
+    # ---------- Define model
     if opt.task == 'pure_detect':
         model = Darknet(cfg=cfg,
                         img_size=img_size,
@@ -173,7 +173,7 @@ def train():
         layers_dict = dict(model.module_list.named_children())
         for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
             if layer_i < opt.stop_freeze_layer_idx:  # cutoff layer idx
-                # traverse each child parameter of the layer
+                ## traverse each child parameter of the layer
                 for param_i, (param_name, param) in enumerate(layer.named_parameters()):
                     param.requires_grad = False
                 # print('Layer ', layer_name, 'frozen.')
@@ -692,9 +692,10 @@ if __name__ == '__main__':
                         default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
                         help='*.cfg path')
 
+    # yolov4-tiny-3l_no_group_id_SE_50000.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/one_feat_fuse_track_last.pt',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
