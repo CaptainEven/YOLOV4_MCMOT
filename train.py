@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.00001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.00000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -125,6 +125,10 @@ def train():
     # Remove previous results
     for f in glob.glob('*_batch*.jpg') + glob.glob(results_file):
         os.remove(f)
+
+    # ---------- Define start epoch and fitness
+    start_epoch = 0
+    best_fitness = 0.0
 
     # ---------- Load dataset
     if opt.task == 'pure_detect':
@@ -264,10 +268,6 @@ def train():
     # load dark-net format weights
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
-
-    # ---------- Define start epoch and fitness
-    start_epoch = 0
-    best_fitness = 0.0
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -703,7 +703,7 @@ if __name__ == '__main__':
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/one_feat_fuse_track_last.pt',  # yolov4-tiny-3l_no_group_id_last.weights
                         help='initial weights path')
     # ----------
 
