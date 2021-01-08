@@ -512,7 +512,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=reduction)
     BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=reduction)
     CE_reid = nn.CrossEntropyLoss()
-    ghm_c = GHMC(bins=30)
+    ghm_c = GHMC(bins=60)
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
@@ -638,13 +638,13 @@ def compute_loss_one_layer(preds, reid_feat_out,
                     elif model.fc_type == 'Arc':
                         ## arc margin FC layer as classifier
                         fc_preds = model.id_classifiers[cls_id].forward(id_vects, tr_ids[inds]).contiguous()
-                        l_reid += CE_reid(fc_preds, tr_ids[inds])
+                        # l_reid += CE_reid(fc_preds, tr_ids[inds])
 
-                        # ## using GHM-C loss for reid classification
-                        # target = torch.zeros_like(fc_preds)
-                        # target.scatter_(1, tr_ids[inds].view(-1, 1).long(), 1)
-                        # label_weight = torch.ones_like(fc_preds)
-                        # l_reid += ghm_c.forward(fc_preds, target, label_weight)
+                        ## using GHM-C loss for reid classification
+                        target = torch.zeros_like(fc_preds)
+                        target.scatter_(1, tr_ids[inds].view(-1, 1).long(), 1)
+                        label_weight = torch.ones_like(fc_preds)
+                        l_reid += ghm_c.forward(fc_preds, target, label_weight)
 
             # Append targets to text file
             # with open('targets.txt', 'a') as file:
@@ -656,7 +656,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     l_obj *= h['obj']
     l_cls *= h['cls']
     # l_reid *= h['reid']
-    l_reid /= float(nb)  # reid loss_funcs normalize by number of GT objects
+    # l_reid /= float(nb)  # reid loss_funcs normalize by number of GT objects
 
     if reduction == 'sum':
         bs = t_obj.shape[0]  # batch size
