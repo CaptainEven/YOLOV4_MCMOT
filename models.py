@@ -203,7 +203,10 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'yolo':
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
-            if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny', 'tmp', 'mobile', 'Mobile', 'enet', 'Enet']):
+            if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny',
+                                      'tmp', 'one_feat', 'three_feat'
+                                      'mobile', 'Mobile',
+                                      'enet', 'Enet']):
                 stride = [32, 16, 8]  # stride order reversed
 
             layers = mdef['from'] if 'from' in mdef else []
@@ -630,10 +633,6 @@ def load_darknet_weights(model, weights, cutoff=0):
         model.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
-    # for debugging...
-    w_f_path = '/mnt/diskb/even/w_ori.txt'
-    f_debug = open(w_f_path, 'w', encoding='utf-8')
-
     ptr = 0
     # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
     for i, (mdef, module) in enumerate(zip(model.module_defs, model.module_list)):
@@ -675,10 +674,8 @@ def load_darknet_weights(model, weights, cutoff=0):
             conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
             ptr += nw
 
-    f_debug.close()
 
-
-def save_weights(self, path='model.weights', cutoff=-1):
+def save_darknet_weights(self, path='model.weights', cutoff=-1):
     # Converts a PyTorch model to Darket format (*.pt to *.weights)
     # Note: Does not work if model.fuse() is applied
     with open(path, 'wb') as f:
@@ -739,7 +736,7 @@ def convert(cfg='cfg/yolov4-pacsp.cfg', weights='weights/yolov4-pacsp.weights'):
     # Load weights and save
     if weights.endswith('.pt'):  # if PyTorch format
         model.load_state_dict(torch.load(weights, map_location='cpu')['model'])
-        save_weights(model, path='converted.weights', cutoff=-1)
+        save_darknet_weights(model, path='converted.weights', cutoff=-1)
         print("Success: converted '%s' to 'converted.weights'" % weights)
 
     elif weights.endswith('.weights'):  # darknet format

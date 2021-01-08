@@ -20,18 +20,18 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--names',
                                  type=str,
-                                 default='data/mcmot.names',
+                                 default='../data/mcmot.names',
                                  help='*.names path')
 
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                                 default='../cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/one_feat_fuse_track_last.weights',
+                                 default='../weights/one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -168,6 +168,23 @@ class FeatureMatcher(object):
         self.num_sim_compute = 0
 
         print('Feature matcher init done.')
+
+    def reset(self):
+        # statistics
+        self.correct_sim_bins_dict = defaultdict(int)
+        self.wrong_sim_bins_dict = defaultdict(int)
+        self.sim_bins_dict = defaultdict(int)
+        for edge in range(0, 100, self.opt.bin_step):
+            self.correct_sim_bins_dict[edge] = 0
+            self.wrong_sim_bins_dict[edge] = 0
+            self.sim_bins_dict[edge] = 0
+
+        # gap of the same object class and different object class
+        self.min_same_class_sim = 1.0  # init to the max
+        self.max_diff_class_sim = -1.0  # init to the min
+
+        self.num_total_match = 0
+        self.num_sim_compute = 0
 
     def run(self, cls_id=0, img_w=1920, img_h=1080, viz_dir=None):
         """
@@ -907,6 +924,10 @@ class FeatureMatcher(object):
         return precision, num_tps
 
 
-if __name__ == '__main__':
+def run_test():
     matcher = FeatureMatcher()
     matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
+
+
+if __name__ == '__main__':
+    run_test()

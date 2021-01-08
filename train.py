@@ -13,7 +13,9 @@ import numpy as np
 from models import *
 from utils.datasets import *
 from utils.utils import *
-from auto_weighted_loss import AutomaticWeightedLoss
+
+# from MOTEvaluate.TestFeatureMatch import run_test
+
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
@@ -36,7 +38,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.00000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -52,21 +54,6 @@ hyp = {
 
 # automatically generate the max_ids_dict
 global max_id_dict
-# max_id_dict = {
-#     0: 341,  # car
-#     1: 103,  # bicycle
-#     2: 104,  # person
-#     3: 329,  # cyclist
-#     4: 48  # tricycle
-# }
-#
-# max_id_dict = {
-#     0: 330,
-#     1: 102,
-#     2: 104,
-#     3: 312,
-#     4: 53
-# }  # previous version
 
 # ----- max_id_dict read from .npy(max_id_dict.npy file)
 max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
@@ -269,6 +256,46 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
+    # ## ----- for debugging...
+    # weight_debug_f_path = '/mnt/diskb/even/weight_debug_new.txt'
+    # with open(weight_debug_f_path, 'w', encoding='utf-8') as f:
+    #     layers_dict = dict(model.module_list.named_children())
+    #     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
+    #             # traverse each child parameter of the layer
+    #             for param_i, (param_name, param) in enumerate(layer.named_parameters()):
+    #                 if len(param.shape) == 4:
+    #                     f.write('Layer {} child {} params named {},'
+    #                             ' shape {}×{}×{}×{}\n'
+    #                             .format(layer_i, param_i, param_name,
+    #                                     param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
+    #                 elif len(param.shape) == 3:
+    #                     f.write('Layer {} child {} params named {},'
+    #                             ' shape {}×{}×{}\n'
+    #                             .format(layer_i, param_i, param_name,
+    #                                     param.shape[0], param.shape[1], param.shape[2]))
+    #                 elif len(param.shape) == 2:
+    #                     f.write('Layer {} child {} params named {},'
+    #                             ' shape {}×{}\n'
+    #                             .format(layer_i, param_i, param_name,
+    #                                     param.shape[0], param.shape[1]))
+    #                 elif len(param.shape) == 1:
+    #                     f.write('Layer {} child {} params named {},'
+    #                             ' shape {}\n'
+    #                             .format(layer_i, param_i, param_name,
+    #                                     param.shape[0]))
+    #                 tmp = param.clone()
+    #                 if tmp.numel() > 64:
+    #                     tmp = tmp.view(1, -1)[0][:64]
+    #                 else:
+    #                     tmp = tmp.view(1, -1)[0]
+    #                 for item_i, item in enumerate(tmp):
+    #                     if item_i != 0 and item_i % 8 == 0:
+    #                         f.write('\n')
+    #                     f.write('{:.5f} '.format(float(item.item())))
+    #                 f.write('\n\n')
+    #             f.write('\n\n')
+    # ## -----
+
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
@@ -363,6 +390,9 @@ def train():
     print('Starting training for %g epochs...' % epochs)
 
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+        # ----- Test Feature matching
+        # run_test()
+
         model.train()  # train mode
 
         # Update image weights (optional)
@@ -476,7 +506,7 @@ def train():
 
                         # Save .weights file
                         wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
+                        save_darknet_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
         elif opt.task == 'track':
@@ -575,7 +605,7 @@ def train():
 
                         # Save .weights file
                         wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
+                        save_darknet_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
@@ -674,7 +704,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=40)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=48)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
@@ -701,9 +731,10 @@ if __name__ == '__main__':
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
+    # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/one_feat_fuse_track_last.pt',  # yolov4-tiny-3l_no_group_id_last.weights
+                        default='./weights/one_feat_fuse_track_last.pt',
                         help='initial weights path')
     # ----------
 
@@ -722,8 +753,8 @@ if __name__ == '__main__':
                              '-1 means do not freeze any layer')
 
     parser.add_argument('--device',
-                        default='2',
-                        help='device id (i.e. 0 or 0,1 or cpu)')
+                        default='3',
+                        help='device id (i.e. 0 or 0, 1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')

@@ -448,7 +448,7 @@ def train():
 
                         # Save .weights file
                         wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
+                        save_darknet_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
         elif opt.task == 'track':
@@ -550,7 +550,7 @@ def train():
 
                         # Save .weights file
                         wei_f_path = w_dir + opt.name + '_' + opt.task + '_last.weights'
-                        save_weights(model, wei_f_path)
+                        save_darknet_weights(model, wei_f_path)
                         print('{:s} saved.'.format(wei_f_path))
 
                 # end batch ------------------------------------------------------------------------------------------------
