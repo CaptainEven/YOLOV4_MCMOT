@@ -522,7 +522,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/one_feat_fuse_track_last.weights',
+                                 default='weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',
                                  help='weights path')
         # ----------
 
@@ -533,7 +533,7 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='/mnt/diskb/even/Pic_2/tmp.txt',  # test1.txt or c5_test or test1.txt or test2.txt
+                                 default='./data/test1.txt',  # test1.txt or c5_test or test1.txt or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
@@ -609,7 +609,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=0,  # 0 or 44, 47
+                                 default=47,  # 0 or 44, 47
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids

@@ -631,8 +631,8 @@ def load_darknet_weights(model, weights, cutoff=0):
         weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
 
     # for debugging...
-    # w_f_path = '/mnt/diskb/even/w_ori.txt'
-    # f = open(w_f_path, 'w', encoding='utf-8')
+    w_f_path = '/mnt/diskb/even/w_ori.txt'
+    f_debug = open(w_f_path, 'w', encoding='utf-8')
 
     ptr = 0
     # for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
@@ -674,6 +674,8 @@ def load_darknet_weights(model, weights, cutoff=0):
             nw = conv.weight.numel()  # number of weights
             conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
             ptr += nw
+
+    f_debug.close()
 
 
 def save_weights(self, path='model.weights', cutoff=-1):

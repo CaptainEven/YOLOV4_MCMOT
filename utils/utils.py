@@ -627,13 +627,13 @@ def compute_loss_one_layer(preds, reid_feat_out,
                     if model.fc_type == 'FC':
                         ## normal FC layer as classifier
                         fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
-                        l_reid += CE_reid(fc_preds, tr_ids[inds])  # using cross entropy loss
+                        # l_reid += CE_reid(fc_preds, tr_ids[inds])  # using cross entropy loss
 
-                        # ## using GHM-C loss for reid classification
-                        # target = torch.zeros_like(fc_preds)
-                        # target.scatter_(1, tr_ids[inds].view(-1, 1).long(), 1)
-                        # label_weight = torch.ones_like(fc_preds)
-                        # l_reid += ghm_c.forward(fc_preds, target, label_weight)
+                        ## using GHM-C loss for reid classification
+                        target = torch.zeros_like(fc_preds)
+                        target.scatter_(1, tr_ids[inds].view(-1, 1).long(), 1)
+                        label_weight = torch.ones_like(fc_preds)
+                        l_reid += ghm_c.forward(fc_preds, target, label_weight)
 
                     elif model.fc_type == 'Arc':
                         ## arc margin FC layer as classifier

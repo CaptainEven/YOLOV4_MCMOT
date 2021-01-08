@@ -36,7 +36,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.00000001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.00001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.00000001,  # final learning rate (with cos scheduler)
     'momentum': 0.937,  # SGD momentum
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -181,7 +181,8 @@ def train():
                 print('Layer ', layer_name, ' requires grad.')
 
     # ---------- Optimizer definition and model parameters registration
-    pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
+    # define optimizer parameter groups 0, 1, 2
+    pg0, pg1, pg2 = [], [], []
 
     # params_dict = dict(model.module_list.named_parameters())
     # for param_i, (param_name, param) in enumerate(params_dict.items()):
@@ -196,6 +197,13 @@ def train():
     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
         # traverse each child parameter of the layer
         for param_i, (param_name, param) in enumerate(layer.named_parameters()):
+            if param.requires_grad:
+                print('Layer {} child {} {} params require grad.'
+                      .format(layer_i, param_i, param_name))
+            else:
+                print('Layer {} child {} {} params do not require grad.'
+                      .format(layer_i, param_i, param_name))
+
             if '.bias' in param_name:
                 pg2 += [param]  # biases
             elif 'Conv2d.weight' in param_name:
@@ -714,7 +722,7 @@ if __name__ == '__main__':
                              '-1 means do not freeze any layer')
 
     parser.add_argument('--device',
-                        default='4',
+                        default='2',
                         help='device id (i.e. 0 or 0,1 or cpu)')
 
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
@@ -742,7 +750,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--fc',
                         type=str,
-                        default='Arc',  # Arc or FC
+                        default='FC',  # Arc or FC
                         help='FC layer type: FC or Arc')
 
     # use debug mode to enforce the parameter of worker number to be 0
