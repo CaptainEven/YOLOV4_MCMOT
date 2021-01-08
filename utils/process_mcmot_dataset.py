@@ -399,6 +399,9 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
         print('[Warning]: empty file list')
         return
 
+    # f_list.sort(key=lambda x: int(os.path.split(x)[1][:-4]))
+    f_list.sort()
+    print(f_list)
     with open(root + '/' + list_name, 'w', encoding='utf-8') as f_h:
         for i, f_path in tqdm(enumerate(f_list)):
             f_name = os.path.split(f_path)[1]
