@@ -926,7 +926,7 @@ class FeatureMatcher(object):
 
 def run_test():
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_one_feat')  # '/mnt/diskc/even/viz_one_feat'
 
 
 if __name__ == '__main__':

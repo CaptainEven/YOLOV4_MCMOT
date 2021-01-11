@@ -99,7 +99,7 @@ def run_detection(opt):
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
-            # # for debugging...
+            ## ----- for debugging...
             # img.cpu().numpy().tofile('/mnt/diskb/even/input.bin')
 
             if img.ndimension() == 3:
@@ -520,6 +520,7 @@ class DemoRunner(object):
                                  default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
+        # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
                                  default='weights/one_feat_fuse_track_last.weights',
@@ -609,7 +610,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--cutoff',
                                  type=int,
-                                 default=47,  # 0 or 44, 47
+                                 default=0,  # 0 or 44, 47
                                  help='cutoff layer index, 0 means all layers loaded.')
 
         # ----- Set ReID feature map output layer ids

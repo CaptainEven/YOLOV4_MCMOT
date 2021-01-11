@@ -40,7 +40,7 @@ hyp = {
     'iou_t': 0.20,  # iou training threshold
     'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.00000001,  # final learning rate (with cos scheduler)
-    'momentum': 0.937,  # SGD momentum
+    'momentum': 0.0,  # SGD momentum: 0.937
     'weight_decay': 0.000484,  # optimizer weight decay
     'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
     'hsv_h': 0.0138,  # image HSV-Hue augmentation (fraction)
@@ -734,7 +734,7 @@ if __name__ == '__main__':
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/one_feat_fuse_track_last.pt',
+                        default='./weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',
                         help='initial weights path')
     # ----------
 

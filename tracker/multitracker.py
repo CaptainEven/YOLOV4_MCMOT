@@ -413,17 +413,59 @@ class MCJDETracker(object):
         # print(self.model)
 
         # Load checkpoint
-        if opt.weights.endswith('.pt'):  # pytorch format
+        if opt.weights.endswith('.pt'):  # py-torch format
             ckpt = torch.load(opt.weights, map_location=device)
             self.model.load_state_dict(ckpt['model'])
             if 'epoch' in ckpt.keys():
                 print('Checkpoint of epoch {} loaded.\n'.format(ckpt['epoch']))
-        else:  # darknet format
+        else:  # dark-net format
             load_darknet_weights(self.model, opt.weights, int(opt.cutoff))
+            print('{} loaded.'.format(opt.weights))
+        # ----------
 
+        # ## ----- for debugging...
+        # weight_debug_f_path = '/mnt/diskb/even/net_wts_new.txt'
+        # with open(weight_debug_f_path, 'w', encoding='utf-8') as f:
+        #     layers_dict = dict(self.model.module_list.named_children())
+        #     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
+        #             # traverse each child parameter of the layer
+        #             for param_i, (param_name, param) in enumerate(layer.named_parameters()):
+        #                 if len(param.shape) == 4:
+        #                     f.write('Layer {} child {} params named {},'
+        #                             ' shape {}×{}×{}×{}\n'
+        #                             .format(layer_i, param_i, param_name,
+        #                                     param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
+        #                 elif len(param.shape) == 3:
+        #                     f.write('Layer {} child {} params named {},'
+        #                             ' shape {}×{}×{}\n'
+        #                             .format(layer_i, param_i, param_name,
+        #                                     param.shape[0], param.shape[1], param.shape[2]))
+        #                 elif len(param.shape) == 2:
+        #                     f.write('Layer {} child {} params named {},'
+        #                             ' shape {}×{}\n'
+        #                             .format(layer_i, param_i, param_name,
+        #                                     param.shape[0], param.shape[1]))
+        #                 elif len(param.shape) == 1:
+        #                     f.write('Layer {} child {} params named {},'
+        #                             ' shape {}\n'
+        #                             .format(layer_i, param_i, param_name,
+        #                                     param.shape[0]))
+        #                 tmp = param.clone()
+        #                 if tmp.numel() > 64:
+        #                     tmp = tmp.view(1, -1)[0][:64]
+        #                 else:
+        #                     tmp = tmp.view(1, -1)[0]
+        #                 for item_i, item in enumerate(tmp):
+        #                     if item_i != 0 and item_i % 8 == 0:
+        #                         f.write('\n')
+        #                     f.write('{:.5f} '.format(float(item.item())))
+        #                 f.write('\n\n')
+        #             f.write('\n\n')
+        # ## -----
+
+        # ----------
         # Put model to device and set eval mode
         self.model.to(device).eval()
-        # ----------
 
         # ----- image pre-processing method
         self.img_proc_method = opt.img_proc_method

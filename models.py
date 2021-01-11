@@ -53,7 +53,8 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
                                              bias=not bn))
 
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
+                # modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.03, eps=1E-5))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.00, eps=1E-5))
 
                 # @even: add BN to route too.
                 routs.append(i)
@@ -205,7 +206,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             stride = [8, 16, 32]  # P5, P4, P3 strides
             if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny',
                                       'tmp', 'one_feat', 'three_feat'
-                                      'mobile', 'Mobile',
+                                                         'mobile', 'Mobile',
                                       'enet', 'Enet']):
                 stride = [32, 16, 8]  # stride order reversed
 
@@ -470,8 +471,11 @@ class Darknet(nn.Module):
                              'FeatureConcat_l',
                              'RouteGroup',
                              'ScaleChannel',
-                             'ScaleChannels',
+                             'ScaleChannels',  # my own implemention
                              'SAM']
+
+        # ----- traverse forward
+
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
             if name in use_output_layers:  # sum, concat
@@ -491,8 +495,9 @@ class Darknet(nn.Module):
             # We need to process a shortcut layer combined with a activation layer
             # followed by a activation layer
             elif name == 'Sequential':
-                for layer in module:
+                for j, layer in enumerate(module):  # for debugging...
                     layer_name = layer.__class__.__name__
+
                     if layer_name in use_output_layers:
                         x = layer.forward(x, out)
                     else:
@@ -505,6 +510,7 @@ class Darknet(nn.Module):
             # ----------- record previous output layers
             out.append(x if self.routs[i] else [])
             # out.append(x)  # for debugging...
+            # f_debug.close()
 
             if verbose:
                 print('%g/%g %s -' % (i, len(self.module_list), name), list(x.shape), str)
@@ -522,10 +528,6 @@ class Darknet(nn.Module):
         # reid_feat_out.append(out[-5])  # the 1st YOLO scale feature map
         # reid_feat_out.append(out[-3])  # the 2nd YOLO scale feature map
         # reid_feat_out.append(out[-1])  # the 3rd YOLO scale feature map
-
-        # reid_feat_out.append(out[-9])  # the 1st YOLO scale sam feature map
-        # reid_feat_out.append(out[-5])  # the 2nd YOLO scale sam feature map
-        # reid_feat_out.append(out[-1])  # the 3rd YOLO scale sam feature map
 
         for out_id in self.feat_out_ids:
             reid_feat_out.append(out[out_id])
@@ -719,10 +721,10 @@ def save_darknet_weights(self, path='model.weights', cutoff=-1):
                         bn_layer.weight.data.cpu().numpy().tofile(f)
                         bn_layer.running_mean.data.cpu().numpy().tofile(f)
                         bn_layer.running_var.data.cpu().numpy().tofile(f)
-                    # Load conv bias
+                    # Save conv bias
                     else:
                         conv_layer.bias.data.cpu().numpy().tofile(f)
-                    # Load conv weights
+                    # Save conv weights
                     conv_layer.weight.data.cpu().numpy().tofile(f)
 
 
