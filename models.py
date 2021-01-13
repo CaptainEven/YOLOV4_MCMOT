@@ -131,6 +131,13 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'avgpool':
             modules = GAP()  # GlobalAvgPool()
 
+        # Add support for local average pooling layer
+        elif mdef['type'] == 'local_avgpool':
+            k = mdef['size']  # kernel size
+            stride = mdef['stride']
+            local_avgpool = nn.AvgPool2d(kernel_size=k, stride=stride, count_include_pad=False)
+            modules = local_avgpool
+
         # Add support for dropout layer
         elif mdef['type'] == 'dropout':
             prob = mdef['probability']
@@ -537,6 +544,7 @@ class Darknet(nn.Module):
         # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
         # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
         # return out[29], out[36], out[43], out[-1]  # for one layer feature map
+        # return out[32], out[39], out[46], out[-1]  # for one layer se
 
         # ----- Output mode
         if self.training:  # train

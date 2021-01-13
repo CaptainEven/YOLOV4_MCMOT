@@ -154,6 +154,7 @@ class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv
     def forward(self, x, outputs):
         a = outputs[self.layers[0]]
         return x.expand_as(a) * a
+        # return torch.mul(a, x)
 
 
 # scaled_channels layer: my implemention
@@ -171,7 +172,7 @@ class ScaleChannels(nn.Module):
 
         layer = outputs[self.layers[0]]
 
-        # assert x.shape[1] == layer.shape[1]
+        # assert x.shape[1] == layer.shape[1]  # make sure channels dim are the same
 
         # Do Scaling: applying broadcasting here
         x = x * layer

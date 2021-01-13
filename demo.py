@@ -517,13 +517,13 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                                 default='cfg/tmp.cfg',
                                  help='*.cfg path')
 
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/one_feat_fuse_track_last.weights',
+                                 default='weights/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
 
@@ -551,7 +551,7 @@ class DemoRunner(object):
         # task mode
         self.parser.add_argument('--task',
                                  type=str,
-                                 default='detect',  # track or detect
+                                 default='track',  # track or detect
                                  help='task mode: track or detect')
 
         self.parser.add_argument('--input-type',

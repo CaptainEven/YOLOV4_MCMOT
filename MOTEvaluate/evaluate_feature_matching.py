@@ -31,7 +31,7 @@ class FeatureMatcher(object):
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/one_feat_fuse_track_last.weights',
+                                 default='../weights/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -926,7 +926,7 @@ class FeatureMatcher(object):
 
 def run_test():
     matcher = FeatureMatcher()
-    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir='/mnt/diskc/even/viz_one_feat')  # '/mnt/diskc/even/viz_one_feat'
+    matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
 
 
 if __name__ == '__main__':
