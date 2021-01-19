@@ -256,46 +256,6 @@ def train():
     elif len(weights) > 0:
         load_darknet_weights(model, weights, opt.cutoff)
 
-    # ## ----- for debugging...
-    # weight_debug_f_path = '/mnt/diskb/even/weight_debug_new.txt'
-    # with open(weight_debug_f_path, 'w', encoding='utf-8') as f:
-    #     layers_dict = dict(model.module_list.named_children())
-    #     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
-    #             # traverse each child parameter of the layer
-    #             for param_i, (param_name, param) in enumerate(layer.named_parameters()):
-    #                 if len(param.shape) == 4:
-    #                     f.write('Layer {} child {} params named {},'
-    #                             ' shape {}×{}×{}×{}\n'
-    #                             .format(layer_i, param_i, param_name,
-    #                                     param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
-    #                 elif len(param.shape) == 3:
-    #                     f.write('Layer {} child {} params named {},'
-    #                             ' shape {}×{}×{}\n'
-    #                             .format(layer_i, param_i, param_name,
-    #                                     param.shape[0], param.shape[1], param.shape[2]))
-    #                 elif len(param.shape) == 2:
-    #                     f.write('Layer {} child {} params named {},'
-    #                             ' shape {}×{}\n'
-    #                             .format(layer_i, param_i, param_name,
-    #                                     param.shape[0], param.shape[1]))
-    #                 elif len(param.shape) == 1:
-    #                     f.write('Layer {} child {} params named {},'
-    #                             ' shape {}\n'
-    #                             .format(layer_i, param_i, param_name,
-    #                                     param.shape[0]))
-    #                 tmp = param.clone()
-    #                 if tmp.numel() > 64:
-    #                     tmp = tmp.view(1, -1)[0][:64]
-    #                 else:
-    #                     tmp = tmp.view(1, -1)[0]
-    #                 for item_i, item in enumerate(tmp):
-    #                     if item_i != 0 and item_i % 8 == 0:
-    #                         f.write('\n')
-    #                     f.write('{:.5f} '.format(float(item.item())))
-    #                 f.write('\n\n')
-    #             f.write('\n\n')
-    # ## -----
-
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
@@ -727,27 +687,27 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                        default='cfg/mobile-yolo-3l_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/yolov4-tiny-3l_no_group_id_SE_50000.weights',
+                        default='./weights/mobile-yolo-3l_last.weights',
                         help='initial weights path')
     # ----------
 
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=47,  # 0, 44, 47
+                        default=90,  # 0, 44, 48, 90
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=48,  # -1, 45, 48
+                        default=91,  # -1, 45, 49, 91
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')

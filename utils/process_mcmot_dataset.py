@@ -418,19 +418,19 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
 
 
 if __name__ == '__main__':
-    # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
-    #                        one_plus=True,
-    #                        dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
-    #                        viz_root=None)
-    #
-    # check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/MCMOT')
-    #
-    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
+    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
+                           one_plus=True,
+                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
+                           viz_root=None)
+
+    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/MCMOT')
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
 
 
 
-    GenerateFileList(root='/mnt/diskb/even/Pic_2/',
-                     suffix='.jpg',
-                     list_name='tmp.txt',
-                     mode='path')  # name of path
+    # GenerateFileList(root='/mnt/diskb/even/Pic_2/',
+    #                  suffix='.jpg',
+    #                  list_name='tmp.txt',
+    #                  mode='path')  # name of path

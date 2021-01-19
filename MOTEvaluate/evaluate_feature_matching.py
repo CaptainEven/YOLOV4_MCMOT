@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                                 default='../cfg/mobile-yolo-3l_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse_track_last.weights',
+                                 default='../weights/one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
         # -----
