@@ -94,7 +94,7 @@ def batch_analysis(meta_file,cfg_file,wgt_file,thresh,nms,src_path,dst_path):
     image_list.sort()
     image_num = len(image_list)
     meta = dn.load_meta(meta_file)
-    object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.class_types)]
+    object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.cls_names)]
     net = dn.load_net(cfg_file,wgt_file,0)
     move_count = 0
     boxes_last = []

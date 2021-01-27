@@ -517,13 +517,13 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/tmp.cfg',
+                                 default='cfg/mobile-yolo-3l_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse_track_last.weights',
+                                 default='weights/one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
 
@@ -575,7 +575,7 @@ class DemoRunner(object):
         # standard output FPS
         self.parser.add_argument('--fps',
                                  type=int,
-                                 default=6,
+                                 default=12,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder

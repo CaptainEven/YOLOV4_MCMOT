@@ -594,7 +594,7 @@ class MCJDETracker(object):
                                                                          conf_thres=self.opt.conf_thres,
                                                                          iou_thres=self.opt.iou_thres,
                                                                          merge=False,
-                                                                         classes=self.opt.class_types,
+                                                                         classes=self.opt.cls_names,
                                                                          agnostic=self.opt.agnostic_nms)
                 dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
 
@@ -1051,7 +1051,7 @@ class JDETracker(object):
                                        self.opt.conf_thres,
                                        self.opt.iou_thres,
                                        merge=False,
-                                       classes=self.opt.class_types,
+                                       classes=self.opt.cls_names,
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here
@@ -1099,7 +1099,7 @@ class JDETracker(object):
                                        self.opt.conf_thres,
                                        self.opt.iou_thres,
                                        merge=False,
-                                       classes=self.opt.class_types,
+                                       classes=self.opt.cls_names,
                                        agnostic=self.opt.agnostic_nms)
 
             dets = pred[0]  # assume batch_size == 1 here

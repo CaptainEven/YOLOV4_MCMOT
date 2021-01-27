@@ -38,8 +38,8 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
-    'lrf': 0.00000001,  # final learning rate (with cos scheduler)
+    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.0,  # SGD momentum: 0.937
     'weight_decay': 0.000484,  # optimizer weight decay
     'fl_gamma': 0.0,  # focal loss_funcs gamma (efficientDet default is gamma=1.5)
@@ -156,7 +156,7 @@ def train():
                         fc=opt.fc,
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
-    print(model)
+    # print(model)
     print(max_id_dict)
 
     # ---------- Freeze weights of some previous layers(freeze detection results)
@@ -170,6 +170,7 @@ def train():
                 # print('Layer ', layer_name, 'frozen.')
             else:
                 print('Layer ', layer_name, ' requires grad.')
+                pass
 
     # ---------- Optimizer definition and model parameters registration
     # define optimizer parameter groups 0, 1, 2
@@ -188,12 +189,12 @@ def train():
     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
         # traverse each child parameter of the layer
         for param_i, (param_name, param) in enumerate(layer.named_parameters()):
-            if param.requires_grad:
-                print('Layer {} child {} {} params require grad.'
-                      .format(layer_i, param_i, param_name))
-            else:
-                print('Layer {} child {} {} params do not require grad.'
-                      .format(layer_i, param_i, param_name))
+            # if param.requires_grad:
+            #     print('Layer {} child {} {} params require grad.'
+            #           .format(layer_i, param_i, param_name))
+            # else:
+            #     print('Layer {} child {} {} params do not require grad.'
+            #           .format(layer_i, param_i, param_name))
 
             if '.bias' in param_name:
                 pg2 += [param]  # biases
@@ -436,7 +437,7 @@ def train():
 
                 # Print
                 m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
-                mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+                mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 s = ('%10s' * 2 + '%10.3g' * 6) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 p_bar.set_description(s)
 
@@ -535,7 +536,7 @@ def train():
 
                 # Print
                 m_loss = (m_loss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
-                mem = '%.3gG' % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+                mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 s = ('%10s' * 2 + '%10.3g' * 7) % ('%g/%g' % (epoch, epochs - 1), mem, *m_loss, len(targets), img_size)
                 p_bar.set_description(s)
 
@@ -581,21 +582,21 @@ def train():
 
         final_epoch = epoch + 1 == epochs
 
-        if not opt.notest or final_epoch:  # Calculate mAP
-            is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
-            results, maps = test.test(cfg,
-                                      data,
-                                      batch_size=batch_size,
-                                      img_size=imgsz_test,
-                                      model=ema.ema,
-                                      save_json=final_epoch and is_coco,
-                                      single_cls=opt.single_cls,
-                                      data_loader=test_loader,
-                                      task=opt.task)
-
-        # Write
-        with open(results_file, 'a') as f:
-            f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+        # if not opt.notest or final_epoch:  # Calculate mAP
+        #     is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
+        #     results, maps = test.test(cfg,
+        #                               data,
+        #                               batch_size=batch_size,
+        #                               img_size=imgsz_test,
+        #                               model=ema.ema,
+        #                               save_json=final_epoch and is_coco,
+        #                               single_cls=opt.single_cls,
+        #                               data_loader=test_loader,
+        #                               task=opt.task)
+        #
+        # # Write
+        # with open(results_file, 'a') as f:
+        #     f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
 
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
@@ -664,7 +665,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=48)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=4)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
@@ -694,29 +695,29 @@ if __name__ == '__main__':
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/mobile-yolo-3l_last.weights',
+                        default='./weights/one_feat_fuse_track_last.pt',
                         help='initial weights path')
     # ----------
 
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=90,  # 0, 44, 48, 90
+                        default=90,  # 0, 44, 48, 90, 164, 161
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=91,  # -1, 45, 49, 91
+                        default=91,  # -1, 45, 49, 91, 165
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')
 
     parser.add_argument('--device',
-                        default='3',
+                        default='4',
                         help='device id (i.e. 0 or 0, 1 or cpu)')
 
-    parser.add_argument('--adam', action='store_true', help='use adam optimizer')
+    parser.add_argument('--adam', action='store_true', default=1, help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
     # Set 3 task mode: pure_detect | detect | track

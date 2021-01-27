@@ -68,7 +68,7 @@ def batch_analysis(weights_list_file, cfg_file, meta_file, image_list_file, thre
     weights_list = LoadFileList(weights_list_file)
     meta = dn.load_meta(meta_file)
     # print(meta.classes)
-    object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.class_types)]
+    object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.cls_names)]
     result = []
     for weights in weights_list:
         weights_name = getFileName(weights)

@@ -655,7 +655,8 @@ class FeatureMatcher(object):
                     TP_yolo_inds_pre = [self.TP_yolo_inds_pre[x] for x in TPs_ids_pre]
                     TP_yolo_inds_cur = [TP_yolo_inds[x] for x in TPs_ids_cur]
 
-                assert len(TPs_pre) == len(TPs_cur)
+                # if len(TPs_pre) != len(TPs_cur):
+                #     print("Current frame's TPs not equal to previous' frame.")
 
                 # ----- update total pairs
                 total += len(TPs_cur)

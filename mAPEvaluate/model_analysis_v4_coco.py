@@ -97,7 +97,7 @@ def batch_analysis(weights_list_file, image_list_file, thresh, iou_thresh,result
         meta = dn.load_meta(meta_file)
         net = dn.load_net(cfg_file,bytes(weights,'utf-8'),0)
 
-        object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.class_types)]
+        object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.cls_names)]
 
         result_path = os.path.join(result_dir,weights_name)
         if not os.path.exists(result_path):

@@ -212,8 +212,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
             if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny',
-                                      'tmp', 'one_feat', 'three_feat'
-                                                         'mobile', 'Mobile',
+                                      'mobile', 'Mobile',
                                       'enet', 'Enet']):
                 stride = [32, 16, 8]  # stride order reversed
 
@@ -542,9 +541,10 @@ class Darknet(nn.Module):
         # for converting... 3(or 2, or 1) YOLO output layers and 3 feature layers
         # return out[36], out[43], out[50], out[-5], out[-3], out[-1]  # for yolov4-tiny-3l
         # return out[69], out[79], out[-3], out[-1]  # for mbv2-2l
-        # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l
+        # return out[69], out[79], out[89], out[-5], out[-3], out[-1]  # for mbv2-3l 3 feat out
         # return out[29], out[36], out[43], out[-1]  # for one layer feature map
         # return out[32], out[39], out[46], out[-1]  # for one layer se
+        # return out[69], out[79], out[89], out[-1]  # # for mbv2-3l 1 feat out
 
         # ----- Output mode
         if self.training:  # train

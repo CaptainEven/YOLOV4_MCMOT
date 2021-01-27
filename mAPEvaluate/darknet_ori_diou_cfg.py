@@ -126,7 +126,7 @@ predict_image_cls.restype = POINTER(c_float)
 def classify(net, meta, im):
     out = predict_image_cls(net, im)
     res = []
-    for i in range(meta.class_types):
+    for i in range(meta.cls_names):
         res.append((meta.names[i].decode('utf-8').strip(), out[i]))
     res = sorted(res, key=lambda x: -x[1])
     return res
@@ -138,11 +138,11 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     predict_image(net, im)
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
-    if (nms): do_nms_obj(dets, num, meta.class_types, nms)
+    if (nms): do_nms_obj(dets, num, meta.cls_names, nms)
 
     res = []
     for j in range(num):
-        for i in range(meta.class_types):
+        for i in range(meta.cls_names):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
                 res.append((meta.names[i], dets[j].prob[i], (b.x, b.y, b.w, b.h)))
@@ -162,11 +162,11 @@ def detect_ext(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
     # if (nms): do_nms_obj(dets, num, meta.classes, nms)
-    if (nms): do_nms_sort(dets, num, meta.class_types, nms)
+    if (nms): do_nms_sort(dets, num, meta.cls_names, nms)
 
     res = []
     for j in range(num):
-        for i in range(meta.class_types):
+        for i in range(meta.cls_names):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
                 b.x /= im.w
@@ -191,8 +191,8 @@ if __name__ == "__main__":
         meta = load_meta(b"/users/maqiao/mq/Data_checked/multiClass/backup_c5/multiClass.data")
         r = detect_ext(net, meta, b"/users/maqiao/mq/Data_checked/multiClass/multiClass0320/JPEGImages_ori/000000.jpg")
         free_net(net)
-        print(meta.class_types)
-        for c in range(meta.class_types):
+        print(meta.cls_names)
+        for c in range(meta.cls_names):
             print(meta.names[c])
         print(r)
 

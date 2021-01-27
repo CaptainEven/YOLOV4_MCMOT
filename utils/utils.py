@@ -534,20 +534,6 @@ def compute_loss_one_layer(preds, reid_feat_out,
         tr_ids = t_track_ids[i]  # track ids
         cls_ids = t_cls[i]
 
-        # # for debugging... check class id range
-        # tmp_inds = torch.where(cls_ids < 0)
-        # tmp_cls_ids = cls_ids[tmp_inds]
-        # if tmp_cls_ids.shape[0] > 0:
-        #     print(tmp_cls_ids)
-        # tmp_inds = torch.where(cls_ids > 4)
-        # tmp_cls_ids = cls_ids[tmp_inds]
-        # if tmp_cls_ids.shape[0] > 0:
-        #     print(tmp_cls_ids)
-        # tmp_inds = torch.where(cls_ids <= 4)
-        # tmp_cls_ids = cls_ids[tmp_inds]
-        # if tmp_cls_ids.shape[0] > 0:
-        #     print(tmp_cls_ids)
-
         t_obj = torch.zeros_like(pred_i[..., 0])  # target obj(confidence score), e.g. 5×3×96×96
         np += t_obj.numel()  # total number of elements
 
@@ -1241,7 +1227,7 @@ def non_max_suppression_debug(predictions,
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero().t()
+            i, j = (x[:, 5:] > conf_thres).nonzero(as_tupe=False).t()
 
             boxes = box[i]
             cls_scores = x[i, j + 5, None]
@@ -1346,7 +1332,7 @@ def non_max_suppression_with_yolo_inds(predictions,
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero().t()
+            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).t()
 
             boxes = box[i]
             cls_scores = x[i, j + 5, None]
@@ -1446,7 +1432,7 @@ def non_max_suppression(predictions,
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero().t()
+            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).t()
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
         else:  # best class only
             conf, j = x[:, 5:].max(1, keepdim=True)
