@@ -26,7 +26,7 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/mobile-yolo-3l_one_feat_fuse.cfg',
+                                 default='../cfg/yolov4_half_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
@@ -161,8 +161,11 @@ class FeatureMatcher(object):
             self.sim_bins_dict[edge] = 0
 
         # gap of the same object class and different object class
-        self.min_same_class_sim = 1.0  # init to the max
-        self.max_diff_class_sim = -1.0  # init to the min
+        self.min_same_id_sim = 1.0  # init to the max
+        self.max_diff_id_sim = -1.0  # init to the min
+
+        self.mean_same_id_sim = 0.0
+        self.mean_diff_id_sim = 0.0
 
         self.num_total_match = 0
         self.num_sim_compute = 0
@@ -180,8 +183,8 @@ class FeatureMatcher(object):
             self.sim_bins_dict[edge] = 0
 
         # gap of the same object class and different object class
-        self.min_same_class_sim = 1.0  # init to the max
-        self.max_diff_class_sim = -1.0  # init to the min
+        self.min_same_id_sim = 1.0  # init to the max
+        self.max_diff_id_sim = -1.0  # init to the min
 
         self.num_total_match = 0
         self.num_sim_compute = 0
@@ -228,17 +231,17 @@ class FeatureMatcher(object):
             precision, num_tps = self.run_a_seq(seq_name, cls_id, img_w, img_h, viz_dir)
             mean_precision += precision
             num_tps_total += num_tps
-            print('Seq {:s} done.\n'.format(video_path))
+            # print('Seq {:s} done.\n'.format(video_path))
 
             valid_seq_cnt += 1
 
         mean_precision /= float(valid_seq_cnt)
 
         # histogram statistics
-        num_correct = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
-        num_wrong = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
-        num_total_correct = sum(num_correct)
-        num_total_wrong = sum(num_wrong)
+        num_correct_list = [self.correct_sim_bins_dict[x] for x in self.correct_sim_bins_dict]
+        num_wrong_list = [self.wrong_sim_bins_dict[x] for x in self.wrong_sim_bins_dict]
+        num_total_correct = sum(num_correct_list)
+        num_total_wrong = sum(num_wrong_list)
         num_total = num_total_correct + num_total_wrong
         # print(num_total_wrong / num_total)
 
@@ -265,8 +268,10 @@ class FeatureMatcher(object):
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
         print('Average precision: {:.3f}%'.format(num_total_correct / self.num_total_match * 100.0))
-        print('Min same ID similarity: {:.3f}'.format(self.min_same_class_sim))
-        print('Max diff ID similarity: {:.3f}'.format(self.max_diff_class_sim))
+        print('Min same ID similarity: {:.3f}'.format(self.min_same_id_sim))
+        print('Max diff ID similarity: {:.3f}'.format(self.max_diff_id_sim))
+        print('Mean same ID similarity: {:.3f}'.format(self.mean_same_id_sim / num_total_correct))
+        print('Mean diff ID similarity: {:.3f}'.format(self.mean_diff_id_sim / num_total_wrong))
 
     def load_gt(self, img_w, img_h, one_plus=True, cls_id=0):
         """
@@ -500,7 +505,8 @@ class FeatureMatcher(object):
 
         # ---------- iterate tracking results of each frame
         total = 0
-        correct = 0
+        num_correct = 0
+        num_wrong = 0
         sim_sum = 0.0
         num_tps = 0
         for fr_id, (path, img, img0, vid_cap) in tqdm(enumerate(self.dataset)):
@@ -708,7 +714,8 @@ class FeatureMatcher(object):
                         # if matching correct
                         if gt_tr_id_pre == gt_tr_id_cur:
                             # update correct number
-                            correct += 1
+                            num_correct += 1
+                            self.mean_same_id_sim += best_sim
                             sim_sum += best_sim
 
                             # if do visualization for correct and wrong match
@@ -719,8 +726,8 @@ class FeatureMatcher(object):
                                                         best_sim)
 
                             # do min similarity statistics of same object class
-                            if best_sim < self.min_same_class_sim:
-                                self.min_same_class_sim = best_sim
+                            if best_sim < self.min_same_id_sim:
+                                self.min_same_id_sim = best_sim
 
                             # do cosine similarity statistics
                             best_sim *= 100.0
@@ -728,6 +735,9 @@ class FeatureMatcher(object):
                             self.correct_sim_bins_dict[edge] += 1
 
                         else:  # visualize the wrong match:
+                            num_wrong += 1
+                            self.mean_diff_id_sim += best_sim
+
                             # wrong match img saving path
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
@@ -736,8 +746,8 @@ class FeatureMatcher(object):
                                                         best_sim)
 
                             # do max similarity statistics of the different object class
-                            if best_sim > self.max_diff_class_sim:
-                                self.max_diff_class_sim = best_sim
+                            if best_sim > self.max_diff_id_sim:
+                                self.max_diff_id_sim = best_sim
 
                             # do cosine similarity statistics
                             best_sim *= 100.0
@@ -837,7 +847,8 @@ class FeatureMatcher(object):
 
                         # update correct
                         if gt_tr_id_pre == gt_tr_id_cur:
-                            correct += 1
+                            num_correct += 1
+                            self.mean_same_id_sim += best_sim
                             sim_sum += best_sim
 
                             # if do visualization for correct and wrong match
@@ -853,6 +864,9 @@ class FeatureMatcher(object):
                             self.correct_sim_bins_dict[edge] += 1
 
                         else:  # if wrong matching
+                            num_wrong += 1
+                            self.mean_diff_id_sim += best_sim
+
                             if viz_dir != None:
                                 save_path = viz_dir + '/' \
                                             + 'wrong_match_{:s}_fr{:d}id{:d}-fr{:d}id{:d}-sim{:.3f}.jpg' \
@@ -918,9 +932,10 @@ class FeatureMatcher(object):
 
             self.img0_pre = img0
 
-        precision = correct / total
-        print('Precision: {:.3f}%, mean cos sim: {:.3f}, num_TPs: {:d}'
-              .format(precision * 100.0, sim_sum / correct, num_tps))
+        # compute precision of this seq
+        precision = num_correct / total
+        print('Precision: {:.3f}%, num_correct: {:d}, num_wrong: {:d} | mean cos sim: {:.3f} | num_TPs: {:d}\n'
+              .format(precision * 100.0, num_correct, num_wrong, sim_sum / num_correct, num_tps))
 
         return precision, num_tps
 

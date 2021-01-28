@@ -38,7 +38,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0001,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0005,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.0,  # SGD momentum: 0.937
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -688,7 +688,7 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/mobile-yolo-3l_one_feat_fuse.cfg',
+                        default='cfg/yolov4_half_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
@@ -702,13 +702,13 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=90,  # 0, 44, 48, 90, 164, 161
+                        default=161,  # 0, 44, 48, 90, 164, 161
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=91,  # -1, 45, 49, 91, 165
+                        default=162,  # -1, 45, 49, 91, 165
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')

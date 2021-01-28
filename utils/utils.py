@@ -512,7 +512,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=reduction)
     BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=reduction)
     CE_reid = nn.CrossEntropyLoss()
-    ghm_c = GHMC(bins=60)
+    ghm_c = GHMC(bins=100)  # 60, 80
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
