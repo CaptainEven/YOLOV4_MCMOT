@@ -497,8 +497,8 @@ def FindFreeGPU():
     """
     :return:
     """
-    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free > tmp')
-    memory_left_gpu = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free > tmp.py')
+    memory_left_gpu = [int(x.split()[2]) for x in open('tmp.py', 'r').readlines()]
 
     most_free_gpu_idx = np.argmax(memory_left_gpu)
     # print(str(most_free_gpu_idx))
@@ -534,13 +534,13 @@ class DemoRunner(object):
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,
-                                 default='./data/test1.txt',  # test1.txt or c5_test or test1.txt or test2.txt
+                                 default='./data/test2.txt',  # test1.txt or c5_test or test1.txt or test2.txt
                                  help='source')
 
         # output detection results as txt file for mMAP computation
         self.parser.add_argument('--output-txt-dir',
                                  type=str,
-                                 default='/users/duanyou/c5/results_new/results_all/tmp')
+                                 default='/users/duanyou/c5/results_new/results_all/tmp.py')
 
         self.parser.add_argument('--save-img-dir',
                                  type=str,
@@ -556,7 +556,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--input-type',
                                  type=str,
-                                 default='txt',
+                                 default='videos',
                                  help='videos or txt')
 
         # output type
@@ -621,7 +621,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--dim',
                                  type=int,
-                                 default=256,  # 128, 256...
+                                 default=128,  # 128, 256...
                                  help='reid feature map output embedding dimension')
 
         self.parser.add_argument('--fc',

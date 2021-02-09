@@ -450,12 +450,12 @@ class MCJDETracker(object):
         #                             ' shape {}\n'
         #                             .format(layer_i, param_i, param_name,
         #                                     param.shape[0]))
-        #                 tmp = param.clone()
-        #                 if tmp.numel() > 64:
-        #                     tmp = tmp.view(1, -1)[0][:64]
+        #                 tmp.py = param.clone()
+        #                 if tmp.py.numel() > 64:
+        #                     tmp.py = tmp.py.view(1, -1)[0][:64]
         #                 else:
-        #                     tmp = tmp.view(1, -1)[0]
-        #                 for item_i, item in enumerate(tmp):
+        #                     tmp.py = tmp.py.view(1, -1)[0]
+        #                 for item_i, item in enumerate(tmp.py):
         #                     if item_i != 0 and item_i % 8 == 0:
         #                         f.write('\n')
         #                     f.write('{:.5f} '.format(float(item.item())))

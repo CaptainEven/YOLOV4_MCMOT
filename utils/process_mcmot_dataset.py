@@ -20,15 +20,26 @@ cls_names = [
 ]  # 5类(不包括背景)
 
 # cls_names = [
-#     'car'
-# ]  # 车辆1类
+#     'car',  # 0
+#     'bicycle',  # 1
+#     'person',  # 2
+#     'cyclist',  # 3
+#     'tricycle',  # 4
+#     'car_plate'  # 5
+# ]  # 6类
+
+# cls_names = [
+#     'car',  # 0
+#     # 'car_plate'  # 1
+# ]  # 1 or 2类
 
 cls2id = {
     'car': 0,
     'bicycle': 1,
     'person': 2,
     'cyclist': 3,
-    'tricycle': 4
+    'tricycle': 4,
+    'car_plate': 5
 }
 
 id2cls = {
@@ -36,8 +47,19 @@ id2cls = {
     1: 'bicycle',
     2: 'person',
     3: 'cyclist',
-    4: 'tricycle'
+    4: 'tricycle',
+    5: 'car_plate'
 }
+
+# cls2id = {
+#     'car': 0,
+#     # 'car_plate': 1
+# }
+#
+# id2cls = {
+#     0: 'car',
+#     # 1: 'car_plate'
+# }
 
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H
@@ -53,6 +75,7 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
     :return:
     """
 
+    global seq_max_id_dict, start_id_dict, fr_cnt, W, H
     global seq_max_id_dict, start_id_dict, fr_cnt, W, H
 
     if W < 0 or H < 0:
@@ -147,10 +170,10 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
 
                 # Nan 判断
                 if math.isnan(class_id) or math.isnan(track_id) \
-                    or math.isnan(bbox_center_x) or math.isnan(bbox_center_y) \
+                        or math.isnan(bbox_center_x) or math.isnan(bbox_center_y) \
                         or math.isnan(bbox_width) or math.isnan(bbox_height):
-                        print('Found nan value, invalid frame, skip frame {}.'.format(fr_id))
-                        break  # 跳出当前帧的循环
+                    print('Found nan value, invalid frame, skip frame {}.'.format(fr_id))
+                    break  # 跳出当前帧的循环
                 else:
                     # class id, track id有效性判断
                     if class_id < 0 or class_id >= len(cls_names) or track_id < 0:
@@ -158,9 +181,9 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
                         break
 
                     if bbox_center_x < 0.0 or bbox_center_x > 1.0 \
-                        or bbox_center_y < 0.0 or bbox_center_y > 1.0 \
-                        or bbox_width < 0.0 or bbox_width > 1.0 \
-                        or bbox_height < 0.0 or bbox_height > 1.0:
+                            or bbox_center_y < 0.0 or bbox_center_y > 1.0 \
+                            or bbox_width < 0.0 or bbox_width > 1.0 \
+                            or bbox_height < 0.0 or bbox_height > 1.0:
                         print('Found illegal value of bbox.',
                               bbox_center_x, bbox_center_y, bbox_width, bbox_height)
                         break
@@ -169,12 +192,12 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
 
                 # 每一帧对应的label中的每一行
                 obj_str = '{:d} {:d} {:.6f} {:.6f} {:.6f} {:.6f}\n'.format(
-                    class_id,                         # class id: 从0开始计算
-                    track_id,                         # track id: 从1开始计算
-                    bbox_center_x,                    # center_x
-                    bbox_center_y,                    # center_y
-                    bbox_width,                       # bbox_w
-                    bbox_height)                      # bbox_h
+                    class_id,  # class id: 从0开始计算
+                    track_id,  # track id: 从1开始计算
+                    bbox_center_x,  # center_x
+                    bbox_center_y,  # center_y
+                    bbox_width,  # bbox_w
+                    bbox_height)  # bbox_h
                 # print(obj_str, end='')
                 fr_label_objs.append(obj_str)
 
@@ -362,6 +385,7 @@ def check_imgs_and_labels(mcmot_root):
     print('Total {} labels do not exists.\n'.format(cnt_no_label))
     print('Reamain {} images and corresponding labels.'.format(cnt))
 
+
 def gen_mcmot_data(img_root, out_f_path):
     """
 
@@ -433,20 +457,22 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
                 f_h.write('\n')
 
 
+# TODO: check each sub-dataset for class id and track id...
+
+
 if __name__ == '__main__':
-    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/MCMOT',
+    DATASET = 'MCMOT'  # MCMOT or PLM
+    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
                            one_plus=True,
-                           dict_path='/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz',
+                           dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
                            viz_root=None)
 
-    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/MCMOT')
+    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET))
 
-    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/MCMOT/JPEGImages',
-                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_mcmot.txt')
-
-
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
 
     # GenerateFileList(root='/mnt/diskb/even/Pic_2/',
     #                  suffix='.jpg',
-    #                  list_name='tmp.txt',
+    #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path

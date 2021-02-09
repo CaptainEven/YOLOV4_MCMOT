@@ -56,7 +56,7 @@ hyp = {
 global max_id_dict
 
 # ----- max_id_dict read from .npy(max_id_dict.npy file)
-max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'
+max_id_dict_file_path = '/mnt/diskb/even/dataset/MCMOT/max_id_dict.npz'  # MCMOT
 if os.path.isfile(max_id_dict_file_path):
     load_dict = np.load(max_id_dict_file_path, allow_pickle=True)
 max_id_dict = load_dict['max_id_dict'][()]
@@ -156,7 +156,7 @@ def train():
                         fc=opt.fc,
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
-    # print(model)
+    print(model)
     print(max_id_dict)
 
     # ---------- Freeze weights of some previous layers(freeze detection results)
@@ -292,7 +292,7 @@ def train():
 
     nw = 0  # for debugging
     if opt.debug == 0:
-        nw = 8  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
+        nw = opt.nw  # min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
         print('nw: ', nw)
 
     data_loader = torch.utils.data.DataLoader(dataset,
@@ -665,7 +665,7 @@ def train():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=4)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
@@ -688,7 +688,7 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_half_one_feat_fuse.cfg',
+                        default='cfg/enet-b0-3l-yolo-SPP_test_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
@@ -702,22 +702,26 @@ if __name__ == '__main__':
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=161,  # 0, 44, 48, 90, 164, 161
+                        default=164,  # 0, 44, 48, 80, 90, 164, 161
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=162,  # -1, 45, 49, 91, 165
+                        default=165,  # -1, 45, 49, 81, 91, 162
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')
 
     parser.add_argument('--device',
-                        default='4',
+                        default='0',
                         help='device id (i.e. 0 or 0, 1 or cpu)')
+    parser.add_argument('--nw',
+                        type=int,
+                        default=8,
+                        help='Number of workers.')
 
-    parser.add_argument('--adam', action='store_true', default=1, help='use adam optimizer')
+    parser.add_argument('--adam', type=int, default=1, help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
 
     # Set 3 task mode: pure_detect | detect | track
@@ -748,7 +752,7 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=1,  # 0 or 1
+                        default=0,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',

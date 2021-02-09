@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import lap
 import numpy as np
 import scipy

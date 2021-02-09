@@ -512,7 +512,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     BCE_cls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=reduction)
     BCE_obj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=reduction)
     CE_reid = nn.CrossEntropyLoss()
-    ghm_c = GHMC(bins=100)  # 60, 80
+    ghm_c = GHMC(bins=100)  # 30, 60, 80, 100
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
@@ -1971,7 +1971,11 @@ class GHMC(nn.Module):
         g = torch.abs(pred.sigmoid().detach() - target)
 
         valid = label_weight > 0
-        tot = max(valid.float().sum().item(), 1.0)
+        try:
+            tot = max(valid.float().sum().item(), 1.0)
+        except Exception as e:
+            print(e)
+
         n = 0  # n valid bins
         for i in range(self.bins):
             inds = (g >= edges[i]) & (g < edges[i + 1]) & valid

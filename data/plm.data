@@ -1,0 +1,4 @@
+classes=2
+train=./data/train_plm.txt
+valid=./data/val_mcmot.txt
+names=data/mcmot.names

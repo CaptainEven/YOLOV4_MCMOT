@@ -9,7 +9,7 @@ from utils.utils import map_resize_back, map_to_orig_coords
 from utils.utils import cos, SSIM
 from tracking_utils import visualization as vis
 from mAPEvaluate.cmp_det_label_sf import box_iou
-from demo import FindFreeGPU
+# from demo import FindFreeGPU
 from utils.datasets import LoadImages
 from tqdm import tqdm
 
@@ -26,7 +26,7 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/yolov4_half_one_feat_fuse.cfg',
+                                 default='../cfg/enet-b0-3l-yolo-SPP_test_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
@@ -124,7 +124,7 @@ class FeatureMatcher(object):
         max_id_dict = load_dict['max_id_dict'][()]
 
         # set device
-        self.opt.device = str(FindFreeGPU())
+        self.opt.device = '3'  # str(FindFreeGPU())
         print('Using gpu: {:s}'.format(self.opt.device))
         device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else self.opt.device)
         self.opt.device = device
@@ -244,9 +244,8 @@ class FeatureMatcher(object):
         num_total_wrong = sum(num_wrong_list)
         num_total = num_total_correct + num_total_wrong
         # print(num_total_wrong / num_total)
-
-        print(self.correct_sim_bins_dict)
-        print(self.wrong_sim_bins_dict)
+        # print(self.correct_sim_bins_dict)
+        # print(self.wrong_sim_bins_dict)
 
         # detailed statistics
         for edge in range(0, 100, self.opt.bin_step):
@@ -268,8 +267,8 @@ class FeatureMatcher(object):
         print('Wrong matched number:   {:d}'.format(num_total_wrong))
         print('Mean precision:    {:.3f}%'.format(mean_precision * 100.0))
         print('Average precision: {:.3f}%'.format(num_total_correct / self.num_total_match * 100.0))
-        print('Min same ID similarity: {:.3f}'.format(self.min_same_id_sim))
-        print('Max diff ID similarity: {:.3f}'.format(self.max_diff_id_sim))
+        print('Min same ID similarity:  {:.3f}'.format(self.min_same_id_sim))
+        print('Max diff ID similarity:  {:.3f}'.format(self.max_diff_id_sim))
         print('Mean same ID similarity: {:.3f}'.format(self.mean_same_id_sim / num_total_correct))
         print('Mean diff ID similarity: {:.3f}'.format(self.mean_diff_id_sim / num_total_wrong))
 

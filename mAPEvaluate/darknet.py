@@ -74,11 +74,11 @@ hasGPU = True
 #         envKeys.append(k)
 #     try:
 #         try:
-#             tmp = os.environ["FORCE_CPU"].lower()
-#             if tmp in ["1", "true", "yes", "on"]:
+#             tmp.py = os.environ["FORCE_CPU"].lower()
+#             if tmp.py in ["1", "true", "yes", "on"]:
 #                 raise ValueError("ForceCPU")
 #             else:
-#                 print("Flag value '"+tmp+"' not forcing CPU mode")
+#                 print("Flag value '"+tmp.py+"' not forcing CPU mode")
 #         except KeyError:
 #             # We never set the flag
 #             if 'CUDA_VISIBLE_DEVICES' in envKeys:

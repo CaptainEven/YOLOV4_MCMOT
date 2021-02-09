@@ -127,8 +127,8 @@ def batch_analysis(weights_list_file,
 
         object_type = [meta.names[i].decode('utf-8').strip() for i in range(meta.classes)]
 
-        # @even: tmp modification
-        weights_name = 'tmp'  # sub_dir name
+        # @even: tmp.py modification
+        weights_name = 'tmp.py'  # sub_dir name
 
         results_dir = os.path.join(result_dir, weights_name)
         if not os.path.exists(results_dir):

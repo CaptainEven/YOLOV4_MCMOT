@@ -481,7 +481,6 @@ class Darknet(nn.Module):
                              'SAM']
 
         # ----- traverse forward
-
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
             if name in use_output_layers:  # sum, concat
@@ -545,6 +544,7 @@ class Darknet(nn.Module):
         # return out[29], out[36], out[43], out[-1]  # for one layer feature map
         # return out[32], out[39], out[46], out[-1]  # for one layer se
         # return out[69], out[79], out[89], out[-1]  # # for mbv2-3l 1 feat out
+        # return out[138], out[149], out[160], out[-1]  # for half_3l 1 feat out
 
         # ----- Output mode
         if self.training:  # train
