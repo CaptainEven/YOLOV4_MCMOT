@@ -28,10 +28,10 @@ cls_names = [
 #     'car_plate'  # 5
 # ]  # 6类
 
-# cls_names = [
-#     'car',  # 0
-#     # 'car_plate'  # 1
-# ]  # 1 or 2类
+cls_names = [
+    'car',  # 0
+    # 'car_plate'  # 1
+]  # 1 or 2类
 
 cls2id = {
     'car': 0,
@@ -51,15 +51,15 @@ id2cls = {
     5: 'car_plate'
 }
 
-# cls2id = {
-#     'car': 0,
-#     # 'car_plate': 1
-# }
-#
-# id2cls = {
-#     0: 'car',
-#     # 1: 'car_plate'
-# }
+cls2id = {
+    'car': 0,
+    # 'car_plate': 1
+}
+
+id2cls = {
+    0: 'car',
+    # 1: 'car_plate'
+}
 
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H
@@ -74,7 +74,6 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
     :param one_plus:
     :return:
     """
-
     global seq_max_id_dict, start_id_dict, fr_cnt, W, H
     global seq_max_id_dict, start_id_dict, fr_cnt, W, H
 

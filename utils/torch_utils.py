@@ -19,6 +19,12 @@ def init_seeds(seed=0):
 
 
 def select_device(device='', apex=False, batch_size=None):
+    """
+    :param device:
+    :param apex:
+    :param batch_size:
+    :return:
+    """
     # device = 'cpu' or '0' or '0,1,2,3'
     cpu_request = device.lower() == 'cpu'
     if device and not cpu_request:  # if device requested other than 'cpu'

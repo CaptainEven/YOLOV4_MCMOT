@@ -211,7 +211,7 @@ def create_modules(module_defs, img_size, cfg, id_classifiers=None):
         elif mdef['type'] == 'yolo':
             yolo_index += 1
             stride = [8, 16, 32]  # P5, P4, P3 strides
-            if any(x in cfg for x in ['yolov4-tiny', 'yolov4_tiny',
+            if any(x in cfg for x in ['tiny',
                                       'mobile', 'Mobile',
                                       'enet', 'Enet']):
                 stride = [32, 16, 8]  # stride order reversed

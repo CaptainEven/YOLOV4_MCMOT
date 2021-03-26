@@ -38,7 +38,7 @@ hyp = {
     'reid': 0.1,  # reid loss_funcs weight
     'obj_pw': 1.0,  # obj BCELoss positive_weight
     'iou_t': 0.20,  # iou training threshold
-    'lr0': 0.0005,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
+    'lr0': 0.0002,  # initial learning rate (SGD=5E-3, Adam=5E-4), default: 0.01
     'lrf': 0.000001,  # final learning rate (with cos scheduler)
     'momentum': 0.0,  # SGD momentum: 0.937
     'weight_decay': 0.000484,  # optimizer weight decay
@@ -156,7 +156,7 @@ def train():
                         fc=opt.fc,
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
-    print(model)
+    # print(model)
     print(max_id_dict)
 
     # ---------- Freeze weights of some previous layers(freeze detection results)
@@ -688,27 +688,27 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/enet-b0-3l-yolo-SPP_test_one_feat_fuse.cfg',
+                        default='cfg/yolov4_half_plm_one_feat_fuse.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/one_feat_fuse_track_last.pt',
+                        default='./weights/yolov4_half_plm_one_feat_fuse_track_last.weights',
                         help='initial weights path')
     # ----------
 
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=164,  # 0, 44, 48, 80, 90, 164, 161
+                        default=161,  # 0, 44, 48, 80, 90, 164, 161
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=165,  # -1, 45, 49, 81, 91, 162
+                        default=162,  # -1, 45, 49, 81, 91, 162
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')
