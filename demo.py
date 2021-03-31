@@ -69,7 +69,7 @@ def run_detection(opt):
         os.makedirs(opt.output_txt_dir)
 
     # set device
-    opt.device = str(FindFreeGPU())
+    opt.device = str(find_free_gpu())
     print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
@@ -235,7 +235,7 @@ def track_videos_txt(opt):
         return
 
     # set device
-    opt.device = str(FindFreeGPU())
+    opt.device = str(find_free_gpu())
     print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
@@ -360,7 +360,7 @@ def track_videos_vid(opt):
         return
 
     # set device
-    opt.device = str(FindFreeGPU())
+    opt.device = str(find_free_gpu())
     print('Using gpu: {:s}'.format(opt.device))
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     opt.device = device
@@ -493,7 +493,7 @@ def track_videos_vid(opt):
         os.system(cmd_str)
 
 
-def FindFreeGPU():
+def find_free_gpu():
     """
     :return:
     """
