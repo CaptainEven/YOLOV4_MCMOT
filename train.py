@@ -5,11 +5,6 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-import test  # import test.py to get mAP after each epoch
-
-import pickle
-import numpy as np
-
 from models import *
 from utils.datasets import *
 from utils.utils import *
@@ -716,6 +711,8 @@ if __name__ == '__main__':
     parser.add_argument('--device',
                         default='7',
                         help='device id (i.e. 0 or 0, 1 or cpu)')
+
+    ## ----- number of workers
     parser.add_argument('--nw',
                         type=int,
                         default=8,
@@ -752,7 +749,7 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,  # 0 or 1
+                        default=1,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
@@ -768,7 +765,9 @@ if __name__ == '__main__':
     opt.img_size.extend([opt.img_size[-1]] * (3 - len(opt.img_size)))  # extend to 3 sizes (min, max, test)
 
     # ----- Set device
-    device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
+    device = str(find_free_gpu())
+    print('Using GPU {:s}.'.format(device))
+    device = torch_utils.select_device(device, mixed_precision, opt.batch_size)
     if device.type == 'cpu':
         mixed_precision = False
 
