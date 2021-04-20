@@ -1,14 +1,13 @@
 # encoding=utf-8
 
-import os
-import time
-import shutil
-import re
+import hashlib
 import math
-import cv2
-import pickle
-import numpy as np
+import os
+import shutil
 from collections import defaultdict
+
+import cv2
+import numpy as np
 from tqdm import tqdm
 
 cls_names = [
@@ -28,10 +27,10 @@ cls_names = [
 #     'car_plate'  # 5
 # ]  # 6类
 
-cls_names = [
-    'car',  # 0
-    # 'car_plate'  # 1
-]  # 1 or 2类
+# cls_names = [
+#     'car',  # 0
+#     # 'car_plate'  # 1
+# ]  # 1 or 2类
 
 cls2id = {
     'car': 0,
@@ -51,15 +50,15 @@ id2cls = {
     5: 'car_plate'
 }
 
-cls2id = {
-    'car': 0,
-    # 'car_plate': 1
-}
-
-id2cls = {
-    0: 'car',
-    # 1: 'car_plate'
-}
+# cls2id = {
+#     'car': 0,
+#     # 'car_plate': 1
+# }
+#
+# id2cls = {
+#     0: 'car',
+#     # 1: 'car_plate'
+# }
 
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H
@@ -456,22 +455,37 @@ def GenerateFileList(root, suffix, list_name, mode='name'):
                 f_h.write('\n')
 
 
-# TODO: check each sub-dataset for class id and track id...
+def test_model_md5(model_path):
+    """
+    :param model_path:
+    :return:
+    """
+    if not os.path.isfile(model_path):
+        print('[Err]: invalid model file path.')
+        return
+
+    with open(model_path, 'rb') as fp:
+        data = fp.read()
+        file_md5= hashlib.md5(data).hexdigest()
+        print(file_md5)
 
 
 if __name__ == '__main__':
-    DATASET = 'MCMOT'  # MCMOT or PLM
-    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
-                           one_plus=True,
-                           dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
-                           viz_root=None)
-
-    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET))
-
-    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
-                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
+    # ## ----------
+    # DATASET = 'MCMOT'  # MCMOT or PLM
+    # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
+    #                        one_plus=True,
+    #                        dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
+    #                        viz_root=None)
+    #
+    # check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET))
+    #
+    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
+    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
+    # ## ---------
 
     # GenerateFileList(root='/mnt/diskb/even/Pic_2/',
     #                  suffix='.jpg',
     #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path
+    test_model_md5(model_path='../weights/enet-b0-3l-yolo-SPP_test_one_feat_fuse_track_last_0413.weights')

@@ -493,17 +493,6 @@ def track_videos_vid(opt):
         os.system(cmd_str)
 
 
-def find_free_gpu():
-    """
-    :return:
-    """
-    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free > tmp.py')
-    memory_left_gpu = [int(x.split()[2]) for x in open('tmp.py', 'r').readlines()]
-
-    most_free_gpu_idx = np.argmax(memory_left_gpu)
-    # print(str(most_free_gpu_idx))
-    return int(most_free_gpu_idx)
-
 
 class DemoRunner(object):
     def __init__(self):
@@ -517,13 +506,13 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_half_one_feat_fuse.cfg',
+                                 default='cfg/enet-b0-3l-yolo-SPP_test_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/yolov4_half_one_feat_fuse_track_last.weights',
+                                 default='weights/enet-b0-3l-yolo-SPP_test_one_feat_fuse_track_last.weights',
                                  help='weights path')
         # ----------
 

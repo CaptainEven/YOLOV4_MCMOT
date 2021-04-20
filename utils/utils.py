@@ -1,3 +1,5 @@
+# encodiung=utf-8
+
 import glob
 import math
 import os
@@ -25,6 +27,18 @@ matplotlib.rc('font', **{'size': 11})
 
 # Prevent OpenCV from multithreading (to use PyTorch DataLoader)
 cv2.setNumThreads(0)
+
+
+def find_free_gpu():
+    """
+    :return:
+    """
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free > tmp.py')
+    memory_left_gpu = [int(x.split()[2]) for x in open('tmp.py', 'r').readlines()]
+
+    most_free_gpu_idx = np.argmax(memory_left_gpu)
+    # print(str(most_free_gpu_idx))
+    return int(most_free_gpu_idx)
 
 
 def cos(vect_1, vect_2):
