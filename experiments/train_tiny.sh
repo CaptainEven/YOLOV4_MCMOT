@@ -1,0 +1,1 @@
+ python3 ./train.py --batch-size 56 --adam 1 --nw 16 --debug 0

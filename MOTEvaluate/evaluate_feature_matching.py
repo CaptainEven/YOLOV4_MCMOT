@@ -26,12 +26,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/enet-b0-3l-yolo-SPP_test_one_feat_fuse.cfg',
+                                 default='../cfg/yolov4_half_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/enet-b0-3l-yolo-SPP_test_one_feat_fuse_track_last_0413.weights',
+                                 default='../weights/mcmot_half_track_last_210508.weights',
                                  help='weights path')
         # ----------
         # -----

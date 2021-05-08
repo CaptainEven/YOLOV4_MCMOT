@@ -74,7 +74,6 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
     :return:
     """
     global seq_max_id_dict, start_id_dict, fr_cnt, W, H
-    global seq_max_id_dict, start_id_dict, fr_cnt, W, H
 
     if W < 0 or H < 0:
         print('[Err]: wrong image WH.')
@@ -96,11 +95,17 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
         for line_i, line in enumerate(r_h.readlines()):
             fr_cnt += 1
 
+            if len(line.split(',')) < 6:
+                continue
+
             # 判断该帧是否合法的标志
             is_fr_valid = False
 
             line = line.split(',')
             fr_id = int(line[0])
+            if fr_id > line_i:  # to avoid darklabel txt file frame id start from 1
+                fr_id -= 1
+
             n_objs = int(line[1])
             # print('\nFrame {:d} in seq {}, total {:d} objects'.format(f_id + 1, seq_name, n_objs))
 
@@ -467,11 +472,11 @@ def test_model_md5(model_path):
     with open(model_path, 'rb') as fp:
         data = fp.read()
         file_md5= hashlib.md5(data).hexdigest()
-        print(file_md5)
+        print('MD5:\n', file_md5)
 
 
 if __name__ == '__main__':
-    # ## ----------
+    ## ----------
     # DATASET = 'MCMOT'  # MCMOT or PLM
     # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
     #                        one_plus=True,
@@ -482,10 +487,10 @@ if __name__ == '__main__':
     #
     # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
     #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
-    # ## ---------
+    ## ---------
 
     # GenerateFileList(root='/mnt/diskb/even/Pic_2/',
     #                  suffix='.jpg',
     #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path
-    test_model_md5(model_path='../weights/enet-b0-3l-yolo-SPP_test_one_feat_fuse_track_last_0413.weights')
+    test_model_md5(model_path='../weights/mcmot_half_track_last_210508.weights')
