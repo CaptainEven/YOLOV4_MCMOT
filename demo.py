@@ -506,13 +506,13 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/MobileNetV2-YOLO_2l_one_feat_fuse.cfg',
+                                 default='cfg/yolov4_new_tiny_mcmot.cfg',
                                  help='*.cfg path')
 
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/mcmot_mobilev2_2l_track_last_210507.weights',
+                                 default='weights/mcmot_new_tiny_track_last.weights',
                                  help='weights path')
         # ----------
 

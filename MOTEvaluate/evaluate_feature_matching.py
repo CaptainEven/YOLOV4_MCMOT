@@ -1,17 +1,19 @@
 # encoding=utf-8
 
-import os
 import argparse
-import cv2
+import os
 from collections import defaultdict
+
+import cv2
+from tqdm import tqdm
+
+from mAPEvaluate.cmp_det_label_sf import box_iou as b_iou
 from models import *
-from utils.utils import map_resize_back, map_to_orig_coords
-from utils.utils import cos, SSIM
 from tracking_utils import visualization as vis
-from mAPEvaluate.cmp_det_label_sf import box_iou
 # from demo import FindFreeGPU
 from utils.datasets import LoadImages
-from tqdm import tqdm
+from utils.utils import cos, SSIM
+from utils.utils import map_resize_back, map_to_orig_coords
 
 
 class FeatureMatcher(object):
@@ -26,12 +28,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/yolov4_half_one_feat_fuse.cfg',
+                                 default='../cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/mcmot_half_track_last_210508.weights',
+                                 default='../weights/mcmot_tiny_track_last_210508.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -424,12 +426,12 @@ class FeatureMatcher(object):
             best_iou = 0
             best_pred_id = -1
             for j, obj_pred in enumerate(objs_pred):  # each pred obj
-                box_gt = obj_gt[:4]
+                box_gt = np.array(obj_gt[:4])
                 box_pred = obj_pred[:4]
-                b_iou = box_iou(box_gt, box_pred)  # compute iou
-                if obj_pred[4] > self.opt.conf and b_iou > best_iou:  # meet the conf thresh
+                iou = b_iou(box_gt, box_pred)  # compute iou
+                if obj_pred[4] > self.opt.conf and iou > best_iou:  # meet the conf thresh
                     best_pred_id = j
-                    best_iou = b_iou
+                    best_iou = iou
 
             # meet the iou thresh and not matched yet
             if best_iou > self.opt.iou and not pred_match_flag[best_pred_id]:

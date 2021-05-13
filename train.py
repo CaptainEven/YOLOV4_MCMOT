@@ -67,7 +67,6 @@ if f:
 # Print focal loss_funcs if gamma > 0
 if hyp['fl_gamma']:
     print('Using FocalLoss(gamma=%g)' % hyp['fl_gamma'])
-print("Learning rate: {:.6f}.".format(hyp['lr0']))
 
 def train():
     global max_id_dict
@@ -197,6 +196,10 @@ def train():
                 pg1 += [param]  # apply weight_decay
             else:
                 pg0 += [param]  # all else
+
+    # Set up learning rate by config
+    hyp['lr0'] = opt.lr
+    print("Learning rate: {:.6f}.".format(hyp['lr0']))
 
     if opt.adam:
         # hyp['lr0'] *= 0.1  # reduce lr (i.e. SGD=5E-3, Adam=5E-4)
@@ -683,27 +686,32 @@ if __name__ == '__main__':
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                        default='cfg/yolov4_new_tiny_mcmot.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/mcmot_tiny_track_last.pt',  # yolov4_half_20000.weights
+                        default='./weights/mcmot_new_tiny_track_last.pt',  # yolov4_half_20000.weights
                         help='initial weights path')
+
+    parser.add_argument('--lr',
+                        type=float,
+                        default=1e-4,
+                        help='Initial learning rate.')
     # ----------
 
     # ----- Set weight loading cutoff
     parser.add_argument('--cutoff',
                         type=int,
-                        default=48,  # 0, 44, 48, 80, 90, 164, 161(half)
+                        default=64,  # 0, 44, 48, 80, 90, 164, 161(half)
                         help='cutoff layer index(index start from 0)')
 
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=49,  # -1, 45, 49, 81, 91, 162
+                        default=65,  # -1, 45, 49, 81, 91, 162
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')
@@ -753,7 +761,7 @@ if __name__ == '__main__':
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='mcmot_tiny',
+                        default='mcmot_new_tiny',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()

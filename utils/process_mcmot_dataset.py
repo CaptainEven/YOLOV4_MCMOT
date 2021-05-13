@@ -493,4 +493,4 @@ if __name__ == '__main__':
     #                  suffix='.jpg',
     #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path
-    test_model_md5(model_path='../weights/mcmot_half_track_last_210508.weights')
+    test_model_md5(model_path='../weights/mcmot_tiny_track_last_210508.weights')
