@@ -6,4 +6,4 @@
                     --adam 1 \
                     --nw 16 \
                     --debug 0 \
-                    --lr 1e-4
+                    --lr 5e-5
