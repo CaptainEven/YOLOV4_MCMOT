@@ -705,7 +705,7 @@ if __name__ == '__main__':
     # ----- Set the layer index from where are not to be frozen
     parser.add_argument('--stop-freeze-layer-idx',
                         type=int,
-                        default=65,  # -1, 45, 49, 81, 91, 162
+                        default=65,  # -1, 45, 49, 81, 91, 162(half)
                         help='The layer index from where the '
                              'subsequent layers are not to be frozen,'
                              '-1 means do not freeze any layer')
