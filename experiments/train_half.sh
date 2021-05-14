@@ -6,4 +6,5 @@
                     --adam 1 \
                     --nw 16 \
                     --debug 0 \
-                    --lr 5.0e-5
+                    --lr 5.0e-5 \
+                    --name mcmot_half
