@@ -79,6 +79,10 @@ def check_git_status():
 
 
 def load_classes(path):
+    """
+    :param path:
+    :return:
+    """
     # Loads *.names file at 'path'
     with open(path, 'r') as f:
         names = f.read().split('\n')

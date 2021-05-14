@@ -2,8 +2,8 @@
                     --weights ./weights/mcmot_new_tiny_track_last.pt \
                     --cutoff 64 \
                     --stop-freeze-layer-idx 65 \
-                    --batch-size 30 \
+                    --batch-size 28 \
                     --adam 1 \
                     --nw 16 \
                     --debug 0 \
-                    --lr 5e-5
+                    --lr 2.5e-5

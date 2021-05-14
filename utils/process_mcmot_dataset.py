@@ -477,20 +477,20 @@ def test_model_md5(model_path):
 
 if __name__ == '__main__':
     ## ----------
-    # DATASET = 'MCMOT'  # MCMOT or PLM
-    # dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
-    #                        one_plus=True,
-    #                        dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
-    #                        viz_root=None)
-    #
-    # check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET))
-    #
-    # gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
-    #                out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
+    DATASET = 'MCMOT'  # MCMOT or PLM
+    dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
+                           one_plus=True,
+                           dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
+                           viz_root=None)
+
+    check_imgs_and_labels(mcmot_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET))
+
+    gen_mcmot_data(img_root='/mnt/diskb/even/dataset/{:s}/JPEGImages'.format(DATASET),
+                   out_f_path='/mnt/diskb/even/YOLOV4/data/train_{:s}.txt'.format(DATASET.lower()))
     ## ---------
 
     # GenerateFileList(root='/mnt/diskb/even/Pic_2/',
     #                  suffix='.jpg',
     #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path
-    test_model_md5(model_path='../weights/mcmot_tiny_track_last_210508.weights')
+    # test_model_md5(model_path='../weights/mcmot_tiny_track_last_210508.weights')

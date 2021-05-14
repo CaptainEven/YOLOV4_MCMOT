@@ -1,19 +1,25 @@
 # encoding=utf-8
+import sys
 
+# sys.path.insert(0, '.')
+sys.path.append('../')  # 加入路径，添加目录
+sys.path.append('.')
 import argparse
 import os
+import numpy as np
 from collections import defaultdict
 
 import cv2
+import torch
+import torch.nn.functional as F
+from models import Darknet, load_darknet_weights
+from utils.datasets import LoadImages
+from utils.utils import load_classes, non_max_suppression, \
+    map_resize_back, cos, find_free_gpu
+from mAPEvaluate.cmp_det_label_sf import box_iou as b_iou
 from tqdm import tqdm
 
-from mAPEvaluate.cmp_det_label_sf import box_iou as b_iou
-from models import *
-from tracking_utils import visualization as vis
-# from demo import FindFreeGPU
-from utils.datasets import LoadImages
-from utils.utils import cos, SSIM
-from utils.utils import map_resize_back, map_to_orig_coords
+from utils import torch_utils
 
 
 class FeatureMatcher(object):
@@ -28,12 +34,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/yolov4-tiny-3l_no_group_id_SE_one_feat_fuse.cfg',
+                                 default='../cfg/yolov4_new_tiny_mcmot.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/mcmot_tiny_track_last_210508.weights',
+                                 default='../weights/mcmot_new_tiny_track_last_210513.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -126,9 +132,10 @@ class FeatureMatcher(object):
         max_id_dict = load_dict['max_id_dict'][()]
 
         # set device
-        self.opt.device = '3'  # str(FindFreeGPU())
+        self.opt.device = str(find_free_gpu())
         print('Using gpu: {:s}'.format(self.opt.device))
-        device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else self.opt.device)
+        os.environ['CUDA_VISIBLE_DEVICES'] = self.opt.device
+        device = torch_utils.select_device(device='cpu' if not torch.cuda.is_available() else self.opt.device)
         self.opt.device = device
 
         # build model in track mode(do detection and reid feature vector extraction)
@@ -139,7 +146,7 @@ class FeatureMatcher(object):
                              emb_dim=self.opt.dim,
                              feat_out_ids=self.opt.feat_out_ids,
                              mode=self.opt.task).to(self.opt.device)
-        print(self.model)
+        # print(self.model)
 
         # Load checkpoint
         if self.opt.weights.endswith('.pt'):  # py-torch format

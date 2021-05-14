@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import argparse
 
 import torch.distributed as dist
@@ -169,15 +171,6 @@ def train():
     # ---------- Optimizer definition and model parameters registration
     # define optimizer parameter groups 0, 1, 2
     pg0, pg1, pg2 = [], [], []
-
-    # params_dict = dict(model.module_list.named_parameters())
-    # for param_i, (param_name, param) in enumerate(params_dict.items()):
-    #     if '.bias' in param_name:
-    #         pg2 += [param]  # biases
-    #     elif 'Conv2d.weight' in param_name:
-    #         pg1 += [param]  # apply weight_decay
-    #     else:
-    #         pg0 += [param]  # all else
 
     layers_dict = dict(model.module_list.named_children())
     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
@@ -574,6 +567,7 @@ def train():
 
         # Update scheduler
         scheduler.step()
+        print('Current learning rate: {:.3e}.'.format(optimizer.param_groups[0]["lr"]))
 
         # Process epoch results
         ema.update_attr(model)
