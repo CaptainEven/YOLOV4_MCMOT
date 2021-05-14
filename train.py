@@ -567,7 +567,7 @@ def train():
 
         # Update scheduler
         scheduler.step()
-        print('Current learning rate: {:.3e}.'.format(optimizer.param_groups[0]["lr"]))
+        print('Epoch {:d} learning rate: {:.3e}.'.format(epoch, optimizer.param_groups[0]["lr"]))
 
         # Process epoch results
         ema.update_attr(model)
