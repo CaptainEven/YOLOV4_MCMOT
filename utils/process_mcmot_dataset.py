@@ -27,10 +27,10 @@ cls_names = [
 #     'car_plate'  # 5
 # ]  # 6类
 
-# cls_names = [
-#     'car',  # 0
-#     # 'car_plate'  # 1
-# ]  # 1 or 2类
+cls_names = [
+    'car',  # 0
+    # 'car_plate'  # 1
+]  # 1 or 2类
 
 cls2id = {
     'car': 0,
@@ -50,15 +50,15 @@ id2cls = {
     5: 'car_plate'
 }
 
-# cls2id = {
-#     'car': 0,
-#     # 'car_plate': 1
-# }
-#
-# id2cls = {
-#     0: 'car',
-#     # 1: 'car_plate'
-# }
+cls2id = {
+    'car': 0,
+    # 'car_plate': 1
+}
+
+id2cls = {
+    0: 'car',
+    # 1: 'car_plate'
+}
 
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H

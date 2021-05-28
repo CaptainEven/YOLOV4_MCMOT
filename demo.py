@@ -512,7 +512,7 @@ class DemoRunner(object):
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/mcmot_new_tiny_track_last.weights',
+                                 default='weights/mcmot_new_tiny_track_last_210514.weights',
                                  help='weights path')
         # ----------
 
