@@ -27,11 +27,6 @@ cls_names = [
 #     'car_plate'  # 5
 # ]  # 6类
 
-cls_names = [
-    'car',  # 0
-    # 'car_plate'  # 1
-]  # 1 or 2类
-
 cls2id = {
     'car': 0,
     'bicycle': 1,
@@ -50,15 +45,20 @@ id2cls = {
     5: 'car_plate'
 }
 
-cls2id = {
-    'car': 0,
-    # 'car_plate': 1
-}
+# cls_names = [
+#     'car',  # 0
+#     # 'car_plate'  # 1
+# ]  # 1 or 2类
 
-id2cls = {
-    0: 'car',
-    # 1: 'car_plate'
-}
+# cls2id = {
+#     'car': 0,
+#     # 'car_plate': 1
+# }
+#
+# id2cls = {
+#     0: 'car',
+#     # 1: 'car_plate'
+# }
 
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H
@@ -281,8 +281,13 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
         print('total {} frames for {}.'.format(len(img_paths), seq_name))
 
         # 读取视频的第0帧, 获取真实的帧宽高
-        img_tmp = cv2.imread(img_paths[0])
-        H, W = img_tmp.shape[:2]
+        try:
+            img_tmp = cv2.imread(img_paths[0])
+            H, W = img_tmp.shape[:2]
+        except Exception as e:
+            print(e)
+            print('[Err]: the first frame load failed!')
+            continue
 
         # 为该视频seq创建label目录
         seq_label_dir = label_root + '/' + seq_name

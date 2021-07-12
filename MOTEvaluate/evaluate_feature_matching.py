@@ -535,7 +535,7 @@ class FeatureMatcher(object):
                     pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
 
                     t2 = torch_utils.time_synchronized()
-                    if fr_id % 20 == 0:
+                    if fr_id % 100 == 0:
                         print('Frame %d done, time: %.3fms' % (fr_id, 1000.0 * (t2 - t1)))
 
                     # ----- get reid feature map: reid_feat_out: GPU -> CPU and L2 normalize

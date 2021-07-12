@@ -1983,7 +1983,7 @@ class GHMC(nn.Module):
         target, label_weight = target.float(), label_weight.float()
         edges = self.edges
         mmt = self.momentum
-        weights = torch.zeros_like(pred)
+        weights = torch.zeros_like(pred, dtype=torch.float32).cuda()
 
         # gradient length
         g = torch.abs(pred.sigmoid().detach() - target)

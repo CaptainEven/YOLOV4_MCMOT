@@ -687,7 +687,7 @@ if __name__ == '__main__':
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/mcmot_new_tiny_track_last.pt',  # yolov4_half_20000.weights
+                        default='./weights/mcmot_new_tiny_track_last_210514.pt',  # yolov4_half_20000.weights
                         help='initial weights path')
 
     parser.add_argument('--lr',
@@ -717,7 +717,7 @@ if __name__ == '__main__':
     ## ----- number of workers
     parser.add_argument('--nw',
                         type=int,
-                        default=8,
+                        default=0,
                         help='Number of workers.')
 
     parser.add_argument('--adam', type=int, default=1, help='use adam optimizer')
