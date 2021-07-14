@@ -2,7 +2,7 @@
                     --weights ./weights/mobile_207000.weights \
                     --cutoff 80 \
                     --stop-freeze-layer-idx 81 \
-                    --batch-size 48 \
+                    --batch-size 40 \
                     --adam 1 \
                     --nw 8 \
                     --debug 0 \
