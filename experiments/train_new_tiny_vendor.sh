@@ -1,5 +1,6 @@
- python3 ./train.py --cfg ./cfg/yolov4_new_tiny_mcmot.cfg \
-                    --weights ./weights/mcmot_new_tiny_track_last.pt \
+ python3 ./train.py --cfg ./cfg/yolov4_new_tiny_vendor_one_feat.cfg \
+                    --weights ./weights/yolov4_new_tiny_52000.weights \
+                    --data ./data/mcmot_vendor.data \
                     --cutoff 64 \
                     --stop-freeze-layer-idx 65 \
                     --batch-size 60 \
@@ -7,4 +8,4 @@
                     --nw 16 \
                     --debug 0 \
                     --lr 1e-4 \
-                    --name mcmot_new_tiny
+                    --name mcmot_new_tiny_vendor

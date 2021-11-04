@@ -423,7 +423,7 @@ class MCJDETracker(object):
             print('{} loaded.'.format(opt.weights))
         # ----------
 
-        # ## ----- for debugging...
+        ### ----- for debugging...
         # weight_debug_f_path = '/mnt/diskb/even/net_wts_new.txt'
         # with open(weight_debug_f_path, 'w', encoding='utf-8') as f:
         #     layers_dict = dict(self.model.module_list.named_children())

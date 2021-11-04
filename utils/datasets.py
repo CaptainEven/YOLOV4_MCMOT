@@ -319,12 +319,15 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
         """
         path = str(Path(path))  # os-agnostic
         assert os.path.isfile(path), 'File not found %s. See %s' % (path, help_url)
+        print("path: ", path)
+
         with open(path, 'r') as f:
             self.img_files = [x.replace('/', os.sep) for x in f.read().splitlines()  # os-agnostic
                               if os.path.splitext(x)[-1].lower() in img_formats]
 
         n = len(self.img_files)
         assert n > 0, 'No images found in %s. See %s' % (path, help_url)
+
         bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
         nb = bi[-1] + 1  # number of batches
 
@@ -389,7 +392,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
         extract_bounding_boxes = False
         create_data_subset = False
         p_bar = tqdm(self.label_files, desc='Caching labels')
-        nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
+        nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, data-subset, duplicate
         for i, file in enumerate(p_bar):
             try:
                 with open(file, 'r') as f:

@@ -117,6 +117,11 @@ class Concat(nn.Module):
 
 class RouteGroup(nn.Module):
     def __init__(self, layers, groups, group_id):
+        """
+        :param layers:
+        :param groups:
+        :param group_id:
+        """
         super(RouteGroup, self).__init__()
         self.layers = layers
         self.multi = len(layers) > 1
@@ -124,6 +129,11 @@ class RouteGroup(nn.Module):
         self.group_id = group_id
 
     def forward(self, x, outputs):
+        """
+        :param x:
+        :param outputs:
+        :return:
+        """
         if self.multi:
             outs = []
             for layer in self.layers:
@@ -148,10 +158,18 @@ class SAM(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/
 
 class ScaleChannel(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
     def __init__(self, layers):
+        """
+        :param layers:
+        """
         super(ScaleChannel, self).__init__()
         self.layers = layers  # layer indices
 
     def forward(self, x, outputs):
+        """
+        :param x:
+        :param outputs:
+        :return:
+        """
         a = outputs[self.layers[0]]
         return x.expand_as(a) * a
         # return torch.mul(a, x)
@@ -183,10 +201,17 @@ class ScaleChannels(nn.Module):
 # Dropout layer
 class Dropout(nn.Module):
     def __init__(self, prob):
+        """
+        :param prob:
+        """
         super(Dropout, self).__init__()
         self.prob = float(prob)
 
     def forward(self, x):
+        """
+        :param x:
+        :return:
+        """
         return F.dropout(x, p=self.prob)
 
 
@@ -210,27 +235,47 @@ class GAP(nn.Module):
 
 class FeatureConcat(nn.Module):
     def __init__(self, layers):
+        """
+        :param layers:
+        """
         super(FeatureConcat, self).__init__()
         self.layers = layers  # layer indices
         self.multiple = len(layers) > 1  # multiple layers flag
 
     def forward(self, x, outputs):
+        """
+        :param x:
+        :param outputs:
+        :return:
+        """
         return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
 
 
 class FeatureConcat_l(nn.Module):
     def __init__(self, layers):
+        """
+        :param layers:
+        """
         super(FeatureConcat_l, self).__init__()
         self.layers = layers  # layer indices
         self.multiple = len(layers) > 1  # multiple layers flag
 
     def forward(self, x, outputs):
+        """
+        :param x:
+        :param outputs:
+        :return:
+        """
         return torch.cat([outputs[i][:, :outputs[i].shape[1] // 2, :, :] for i in self.layers], 1) if self.multiple else \
             outputs[self.layers[0]][:, :outputs[self.layers[0]].shape[1] // 2, :, :]
 
 
 class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
     def __init__(self, layers, weight=False):
+        """
+        :param layers:
+        :param weight:
+        """
         super(WeightedFeatureFusion, self).__init__()
         self.layers = layers  # layer indices
         self.weight = weight  # apply weights boolean
@@ -239,6 +284,11 @@ class WeightedFeatureFusion(nn.Module):  # weighted sum of 2 or more layers http
             self.w = nn.Parameter(torch.zeros(self.n), requires_grad=True)  # layer weights
 
     def forward(self, x, outputs):
+        """
+        :param x:
+        :param outputs:
+        :return:
+        """
         # Weights
         if self.weight:
             w = torch.sigmoid(self.w) * (2 / self.n)  # sigmoid weights (0-1)
@@ -291,6 +341,15 @@ class MixConv2d(nn.Module):  # MixConv: Mixed Depthwise Convolutional Kernels ht
 
 class MixDeConv2d(nn.Module):  # MixDeConv: Mixed Depthwise DeConvolutional Kernels https://arxiv.org/abs/1907.09595
     def __init__(self, in_ch, out_ch, k=(3, 5, 7), stride=1, dilation=1, bias=True, method='equal_params'):
+        """
+        :param in_ch:
+        :param out_ch:
+        :param k:
+        :param stride:
+        :param dilation:
+        :param bias:
+        :param method:
+        """
         super(MixDeConv2d, self).__init__()
 
         groups = len(k)
@@ -314,6 +373,10 @@ class MixDeConv2d(nn.Module):  # MixDeConv: Mixed Depthwise DeConvolutional Kern
                                                    bias=bias) for g in range(groups)])
 
     def forward(self, x):
+        """
+        :param x:
+        :return:
+        """
         return torch.cat([m(x) for m in self.m], 1)
 
 

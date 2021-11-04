@@ -71,6 +71,9 @@ if hyp['fl_gamma']:
     print('Using FocalLoss(gamma=%g)' % hyp['fl_gamma'])
 
 def train():
+    """
+    :return:
+    """
     global max_id_dict
 
     print('Task mode: {}'.format(opt.task))
@@ -293,31 +296,31 @@ def train():
                                               pin_memory=True,
                                               collate_fn=dataset.collate_fn)
 
-    # Test loader
-    if opt.task == 'pure_detect':
-        test_loader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
-                                                                      imgsz_test,
-                                                                      batch_size,
-                                                                      hyp=hyp,
-                                                                      rect=True,  # True
-                                                                      cache_images=opt.cache_images,
-                                                                      single_cls=opt.single_cls),
-                                                  batch_size=batch_size,
-                                                  num_workers=nw,
-                                                  pin_memory=True,
-                                                  collate_fn=dataset.collate_fn)
-    else:
-        test_loader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
-                                                                       imgsz_test,
-                                                                       batch_size,
-                                                                       hyp=hyp,
-                                                                       rect=True,
-                                                                       cache_images=opt.cache_images,
-                                                                       single_cls=opt.single_cls),
-                                                  batch_size=batch_size,
-                                                  num_workers=nw,
-                                                  pin_memory=True,
-                                                  collate_fn=dataset.collate_fn)
+    # # Test loader
+    # if opt.task == 'pure_detect':
+    #     test_loader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path,
+    #                                                                   imgsz_test,
+    #                                                                   batch_size,
+    #                                                                   hyp=hyp,
+    #                                                                   rect=True,  # True
+    #                                                                   cache_images=opt.cache_images,
+    #                                                                   single_cls=opt.single_cls),
+    #                                               batch_size=batch_size,
+    #                                               num_workers=nw,
+    #                                               pin_memory=True,
+    #                                               collate_fn=dataset.collate_fn)
+    # else:
+    #     test_loader = torch.utils.data.DataLoader(LoadImgsAndLbsWithID(test_path,
+    #                                                                    imgsz_test,
+    #                                                                    batch_size,
+    #                                                                    hyp=hyp,
+    #                                                                    rect=True,
+    #                                                                    cache_images=opt.cache_images,
+    #                                                                    single_cls=opt.single_cls),
+    #                                               batch_size=batch_size,
+    #                                               num_workers=nw,
+    #                                               pin_memory=True,
+    #                                               collate_fn=dataset.collate_fn)
 
     # Define model parameters
     model.nc = nc  # attach number of classes to model
@@ -373,8 +376,7 @@ def train():
 
         p_bar = tqdm(enumerate(data_loader), total=nb)  # progress bar
         if opt.task == 'pure_detect' or opt.task == 'detect':
-            for batch_i, (imgs, targets, paths,
-                          shape) in p_bar:  # batch -------------------------------------------------------------
+            for batch_i, (imgs, targets, paths, shape) in p_bar:  # batch -------------------------------------------------------------
                 ni = batch_i + nb * epoch  # number integrated batches (since train start)
                 imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
                 targets = targets.to(device)
@@ -656,38 +658,60 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=200)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=8)  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument('--multi-scale', action='store_true', help='adjust (67%% - 150%%) img_size every 10 batches')
+
+    parser.add_argument('--epochs',
+                        type=int,
+                        default=100)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--batch-size',
+                        type=int,
+                        default=60)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--multi-scale',
+                        action='store_true',
+                        help='adjust (67%% - 150%%) img_size every 10 batches')
     parser.add_argument('--img-size',
                         nargs='+',
                         type=int,
                         default=[384, 832, 768],
                         help='[min_train, max-train, test]')  # [320, 640]
-    parser.add_argument('--rect', action='store_true', help='rectangular training')
-    parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
-    parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
-    parser.add_argument('--notest', action='store_true', help='only test final epoch')
-    parser.add_argument('--evolve', action='store_true', help='evolve hyper parameters')
-    parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
-    parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
+    parser.add_argument('--rect',
+                        action='store_true',
+                        help='rectangular training')
+    parser.add_argument('--resume',
+                        action='store_true',
+                        help='resume training from last.pt')
+    parser.add_argument('--nosave',
+                        action='store_true',
+                        help='only save final checkpoint')
+    parser.add_argument('--notest',
+                        action='store_true',
+                        help='only test final epoch')
+    parser.add_argument('--evolve',
+                        action='store_true',
+                        help='evolve hyper parameters')
+    parser.add_argument('--bucket',
+                        type=str,
+                        default='',
+                        help='gsutil bucket')
+    parser.add_argument('--cache-images',
+                        action='store_true',
+                        help='cache images for faster training')
 
     parser.add_argument('--data',
                         type=str,
-                        default='data/mcmot.data',
+                        default='data/mcmot_vendor.data',
                         help='*.data path')
 
     # ---------- weights and cfg file
     parser.add_argument('--cfg',
                         type=str,
-                        default='cfg/yolov4_new_tiny_mcmot.cfg',
+                        default='cfg/yolov4_new_tiny_vendor_one_feat.cfg',
                         help='*.cfg path')
 
     # yolov4-tiny-3l_no_group_id_SE_50000.weights
     # yolov4-tiny-3l_no_group_id_last.weights
     parser.add_argument('--weights',
                         type=str,
-                        default='./weights/mcmot_new_tiny_track_last_210514.pt',  # yolov4_half_20000.weights
+                        default='./weights/yolov4_new_tiny_52000.weights',  # yolov4_half_20000.weights
                         help='initial weights path')
 
     parser.add_argument('--lr',
@@ -720,8 +744,13 @@ if __name__ == '__main__':
                         default=0,
                         help='Number of workers.')
 
-    parser.add_argument('--adam', type=int, default=1, help='use adam optimizer')
-    parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
+    parser.add_argument('--adam',
+                        type=int,
+                        default=1,
+                        help='use adam optimizer')
+    parser.add_argument('--single-cls',
+                        action='store_true',
+                        help='train as single-class dataset')
 
     # Set 3 task mode: pure_detect | detect | track
     # pure detect means the dataset do not contains ID info.
@@ -751,11 +780,11 @@ if __name__ == '__main__':
     # use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=1,  # 0 or 1
+                        default=0,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
-                        default='mcmot_new_tiny',
+                        default='mcmot_new_tiny_vendor',
                         help='renames results.txt to results_name.txt if supplied')
 
     opt = parser.parse_args()

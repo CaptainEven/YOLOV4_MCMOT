@@ -278,7 +278,7 @@ def track_videos_txt(opt):
         result_f_name = opt.save_img_dir + '/' + name + '_results_fps{:d}.txt'.format(out_fps)
 
         # set dict to store tracking results for txt output
-        results_dict = defaultdict(list)
+        res_dict = defaultdict(list)
 
         # set sampled frame count
         fr_cnt = 0
@@ -314,7 +314,7 @@ def track_videos_txt(opt):
 
                 # collect result
                 for cls_id in range(opt.num_classes):
-                    results_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
+                    res_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
             else:
                 if fr_id % opt.interval == 0:  # skip some frames
                     online_targets_dict = tracker.update_tracking(img, img0)
@@ -336,7 +336,7 @@ def track_videos_txt(opt):
 
                     # collect result
                     for cls_id in range(opt.num_classes):
-                        results_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
+                        res_dict[cls_id].append((fr_cnt + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
 
                     # update sampled frame count
                     fr_cnt += 1
@@ -347,7 +347,7 @@ def track_videos_txt(opt):
             print('Total {:d} frames.'.format(fr_cnt))
 
         # output track/detection results as txt(MOT16 format)
-        write_results_dict(result_f_name, results_dict, data_type)  # write txt to opt.save_img_dir
+        write_results_dict(result_f_name, res_dict, data_type)  # write txt to opt.save_img_dir
 
 
 def track_videos_vid(opt):
@@ -366,7 +366,7 @@ def track_videos_vid(opt):
     opt.device = device
 
     # set result output
-    frame_dir = opt.save_img_dir + '/frame'
+    frame_dir = opt.save_img_dir + '/tmp'
     if not os.path.isdir(frame_dir):
         os.makedirs(frame_dir)
     else:
@@ -506,13 +506,13 @@ class DemoRunner(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='cfg/yolov4_new_tiny_mcmot.cfg',
+                                 default='cfg/yolov4_half_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/mcmot_new_tiny_track_last_210514.weights',
+                                 default='weights/mcmot_half_track_last_210518.weights',
                                  help='weights path')
         # ----------
 
@@ -564,7 +564,7 @@ class DemoRunner(object):
         # standard output FPS
         self.parser.add_argument('--fps',
                                  type=int,
-                                 default=6,
+                                 default=24,
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder

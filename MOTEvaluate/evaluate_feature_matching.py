@@ -34,12 +34,12 @@ class FeatureMatcher(object):
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
                                  type=str,
-                                 default='../cfg/yolov4_new_tiny_mcmot.cfg',
+                                 default='../cfg/yolov4_half_one_feat_fuse.cfg',
                                  help='*.cfg path')
 
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='../weights/mcmot_new_tiny_track_last_210513.weights',
+                                 default='../weights/mcmot_half_track_last_210518.weights',
                                  help='weights path')
         # ----------
         # -----
@@ -949,6 +949,9 @@ class FeatureMatcher(object):
 
 
 def run_test():
+    """
+    :return:
+    """
     matcher = FeatureMatcher()
     matcher.run(cls_id=0, img_w=1920, img_h=1080, viz_dir=None)  # '/mnt/diskc/even/viz_one_feat'
 

@@ -1,0 +1,4 @@
+classes=3
+train=./data/train_mcmot_vendor.txt
+valid=./data/val_mcmot.txt
+names=data/mcmot_vendor.names

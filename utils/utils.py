@@ -42,6 +42,11 @@ def find_free_gpu():
 
 
 def cos(vect_1, vect_2):
+    """
+    :param vect_1:
+    :param vect_2:
+    :return:
+    """
     norm1 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_1))))
     norm2 = math.sqrt(sum(list(map(lambda x: math.pow(x, 2), vect_2))))
     return sum([vect_1[i] * vect_2[i] for i in range(0, len(vect_1))]) / (norm1 * norm2)
@@ -90,6 +95,11 @@ def load_classes(path):
 
 
 def labels_to_class_weights(labels, nc=80):
+    """
+    :param labels:
+    :param nc:
+    :return:
+    """
     # Get class weights (inverse frequency) from training labels
     if labels[0] is None:  # no labels loaded
         return torch.Tensor()
@@ -1925,7 +1935,8 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from evaluate_utils.eval
 
 
 class GHMC(nn.Module):
-    """GHM Classification Loss.
+    """
+    GHM Classification Loss.
     Details of the theorem can be viewed in the paper
     "Gradient Harmonized Single-stage Detector".
     https://arxiv.org/abs/1811.05181
@@ -1935,7 +1946,6 @@ class GHMC(nn.Module):
         use_sigmoid (bool): Can only be true for BCE based loss now.
         loss_weight (float): The weight of the total GHM-C loss.
     """
-
     def __init__(
             self,
             bins=10,

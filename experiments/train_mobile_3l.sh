@@ -1,0 +1,11 @@
+ python3 ./train.py --cfg ./cfg/mobile_v2_3l.cfg \
+                    --weights ./weights/mobile_3l_155000.weights \
+                    --data ./data/mcmot.data \
+                    --cutoff 89 \
+                    --stop-freeze-layer-idx 90 \
+                    --batch-size 32 \
+                    --adam 1 \
+                    --nw 4 \
+                    --debug 0 \
+                    --lr 1e-4 \
+                    --name mcmot_mbv2_3l

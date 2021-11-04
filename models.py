@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 from utils.google_utils import *
 from utils.layers import *
 from utils.parse_config import *
@@ -279,6 +281,11 @@ class YOLOLayer(nn.Module):
             self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
 
     def create_grids(self, ng=(13, 13), device='cpu'):
+        """
+        :param ng:
+        :param device:
+        :return:
+        """
         self.nx, self.ny = ng  # x and y grid size
         self.ng = torch.tensor(ng, dtype=torch.float)
 
@@ -426,6 +433,12 @@ class Darknet(nn.Module):
         self.info(verbose) if not ONNX_EXPORT else None  # print model description
 
     def forward(self, x, augment=False, verbose=False):
+        """
+        :param x:
+        :param augment:
+        :param verbose:
+        :return:
+        """
         if not augment:
             return self.forward_once(x, verbose=verbose)
 
@@ -456,6 +469,12 @@ class Darknet(nn.Module):
             return y, None
 
     def forward_once(self, x, augment=False, verbose=False):
+        """
+        :param x:
+        :param augment:
+        :param verbose:
+        :return:
+        """
         img_size = x.shape[-2:]  # height, width
         yolo_out, out, reid_feat_out = [], [], []  # 3(or 2) yolo laers correspond to 3(or 2) reid feature map layers
         if verbose:
@@ -510,7 +529,7 @@ class Darknet(nn.Module):
 
             # run module directly, i.e. mtype = 'upsample', 'maxpool', 'batchnorm2d' etc.
             else:
-                x = module(x)
+                x = module.forward(x)
 
             # ----------- record previous output layers
             out.append(x if self.routs[i] else [])
@@ -590,6 +609,9 @@ class Darknet(nn.Module):
                 return None
 
     def fuse(self):
+        """
+        :return:
+        """
         # Fuse Conv2d + BatchNorm2d layers throughout model
         print('Fusing layers...')
         fused_list = nn.ModuleList()
@@ -611,6 +633,10 @@ class Darknet(nn.Module):
         self.info() if not ONNX_EXPORT else None  # yolov3-spp reduced from 225 to 152 layers
 
     def info(self, verbose=False):
+        """
+        :param verbose:
+        :return:
+        """
         torch_utils.model_info(self, verbose)
 
 

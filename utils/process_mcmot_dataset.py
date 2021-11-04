@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-cls_names = [
+class_types = [
     'car',  # 0
     'bicycle',  # 1
     'person',  # 2
@@ -33,7 +33,7 @@ cls2id = {
     'person': 2,
     'cyclist': 3,
     'tricycle': 4,
-    'car_plate': 5
+    # 'car_plate': 5
 }
 
 id2cls = {
@@ -42,14 +42,14 @@ id2cls = {
     2: 'person',
     3: 'cyclist',
     4: 'tricycle',
-    5: 'car_plate'
+    # 5: 'car_plate'
 }
 
 # cls_names = [
 #     'car',  # 0
 #     # 'car_plate'  # 1
 # ]  # 1 or 2类
-
+#
 # cls2id = {
 #     'car': 0,
 #     # 'car_plate': 1
@@ -60,12 +60,36 @@ id2cls = {
 #     # 1: 'car_plate'
 # }
 
+
+## ---------- 摊贩
+# class_types = {
+#     "triPed",
+#     "twoPed",
+#     "fouPed",
+# }
+#
+# cls2id = {
+#     "triPed": 0,
+#     "twoPed": 1,
+#     "fouPed": 2,
+# }
+#
+# id2cls = {
+#     0: "triPed",
+#     1: "twoPed",
+#     2: "fouPed",
+# }
+
 # 视频训练数据图片的宽高是固定的(并不是固定的)
 global W, H
 W, H = -1, -1
 
+print(class_types)
+print(cls2id)
+print(id2cls)
 
-def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
+
+def genLbsForASeq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
     """
     :param dark_txt_path:
     :param seq_label_dir:
@@ -103,7 +127,7 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
 
             line = line.split(',')
             fr_id = int(line[0])
-            if fr_id > line_i:  # to avoid darklabel txt file frame id start from 1
+            if fr_id > line_i:  # to avoid dark-label txt file frame id start from 1
                 fr_id -= 1
 
             n_objs = int(line[1])
@@ -113,9 +137,11 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
             fr_label_objs = []
 
             # 遍历该帧的每一个object
+            # if line_i == 33:
+            #     print("Pause.")
             for cur in range(2, len(line), 6):  # cursor
                 class_name = line[cur + 5].strip()
-                if class_name not in cls_names:
+                if class_name not in class_types:
                     continue  # 跳过不在指定object class中的目标
 
                 class_id = cls2id[class_name]  # class name => class id
@@ -212,7 +238,7 @@ def gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
                         w_h.write(obj)
                 # print('{} written\n'.format(label_f_path))
             else:
-                return None, 0
+                continue
 
             lb_cnt += 1
 
@@ -257,7 +283,7 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
     # 为视频seq的每个检测类别设置[起始]track id
     global start_id_dict
     start_id_dict = defaultdict(int)  # str => int
-    for class_type in cls_names:  # 初始化
+    for class_type in class_types:  # 初始化
         start_id_dict[class_type] = 0
 
     # 记录每一个视频seq各类最大的track id
@@ -278,6 +304,9 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
 
         # 读取正确的image width and image height(W, H)
         img_paths = [seq_dir + '/' + x for x in os.listdir(seq_dir) if x.endswith('.jpg')]
+        if len(img_paths) == 0:
+            print("[Err]: Zero frames found!")
+            exit(-1)
         print('total {} frames for {}.'.format(len(img_paths), seq_name))
 
         # 读取视频的第0帧, 获取真实的帧宽高
@@ -298,12 +327,19 @@ def dark_label2mcmot_label(data_root, one_plus=True, dict_path=None, viz_root=No
             os.makedirs(seq_label_dir)
 
         dark_txt_path = seq_dir + '/' + seq_name + '_gt.txt'
-        if not os.path.isfile(dark_txt_path):
-            print('[Warning]: invalid dark label file.')
-            continue
+        # dark_txt_path = seq_dir + '/' + seq_name + '.txt'
+
+        # txt_path_list = [seq_dir + '/' + seq_name + '_gt.txt', seq_dir + '/' + seq_name + '.txt']
+        # if os.path.isfile(txt_path_list[0]):
+        #     dark_txt_path = txt_path_list[0]
+        # elif os.path.isfile(txt_path_list[1]):
+        #     dark_txt_path = txt_path_list[1]
+        # else:
+        #     print('[Warning]: invalid dark label file.')
+        #     continue
 
         # ---------- 当前seq生成labels
-        id_set_dict, lb_cnt = gen_lbs_for_a_seq(dark_txt_path, seq_label_dir, cls_names, one_plus)
+        id_set_dict, lb_cnt = genLbsForASeq(dark_txt_path, seq_label_dir, class_types, one_plus)
         if id_set_dict == None:
             print('Skip video seq {} because of wrong label.'.format(seq_name))
             continue
@@ -482,9 +518,9 @@ def test_model_md5(model_path):
 
 if __name__ == '__main__':
     ## ----------
-    DATASET = 'MCMOT'  # MCMOT or PLM
+    DATASET = 'MCMOT'  # MCMOT or PLM or MCMOT_Vendor
     dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
-                           one_plus=True,
+                           one_plus=False,
                            dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
                            viz_root=None)
 
@@ -498,4 +534,5 @@ if __name__ == '__main__':
     #                  suffix='.jpg',
     #                  list_name='tmp.py.txt',
     #                  mode='path')  # name of path
+
     # test_model_md5(model_path='../weights/mcmot_tiny_track_last_210508.weights')
