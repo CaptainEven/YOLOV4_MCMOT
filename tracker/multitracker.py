@@ -654,12 +654,7 @@ class MCJDETracker(object):
             # t1 = torch_utils.time_synchronized()
 
             # ----- get dets and ReID feature-map in net input(net_w, net_h) scale
-            pred = None
-            if len(self.model.feat_out_ids) == 3:
-                pred, pred_orig, reid_feat_out, yolo_inds = self.model.forward(img, augment=self.opt.augment)
-
-            elif len(self.model.feat_out_ids) == 1:
-                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
 
             # ----- apply NMS
             pred = non_max_suppression(predictions=pred,
