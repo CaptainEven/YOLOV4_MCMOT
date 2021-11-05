@@ -702,6 +702,7 @@ class MCJDETracker(object):
                 # up-zip det
                 x1, y1, x2, y2, conf, cls_id = det  # 6
 
+                # put into a dict into dict
                 dets_dict[int(cls_id)].append(det)
 
                 # get center point
