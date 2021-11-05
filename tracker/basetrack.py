@@ -12,8 +12,11 @@ class TrackState(object):
     Removed = 3
 
 
-# TODO: Create a multi-object class BaseTrack class
+# Create a multi-object class BaseTrack class
 class MCBaseTrack(object):
+    """
+    Multi-class Base track
+    """
     _count_dict = defaultdict(int)  # the MCBaseTrack class owns this dict
 
     track_id = 0
@@ -33,6 +36,9 @@ class MCBaseTrack(object):
 
     @property
     def end_frame(self):
+        """
+        :return:
+        """
         return self.frame_id
 
     # @even: reset track id
@@ -47,26 +53,52 @@ class MCBaseTrack(object):
 
     @staticmethod
     def next_id(cls_id):
+        """
+        :param cls_id:
+        :return:
+        """
         MCBaseTrack._count_dict[cls_id] += 1
         return MCBaseTrack._count_dict[cls_id]
 
     @staticmethod
     def reset_track_count(cls_id):
+        """
+        :param cls_id:
+        :return:
+        """
         MCBaseTrack._count_dict[cls_id] = 0
 
     def activate(self, *args):
+        """
+        :param args:
+        :return:
+        """
         raise NotImplementedError
 
     def predict(self):
+        """
+        :return:
+        """
         raise NotImplementedError
 
     def update(self, *args, **kwargs):
+        """
+        :param args:
+        :param kwargs:
+        :return:
+        """
         raise NotImplementedError
 
     def mark_lost(self):
+        """
+        :return:
+        """
         self.state = TrackState.Lost
 
     def mark_removed(self):
+        """
+        :return:
+        """
         self.state = TrackState.Removed
 
 

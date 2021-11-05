@@ -149,6 +149,10 @@ class LoadImages:  # for inference
         return path, img, img0, self.cap
 
     def new_video(self, path):
+        """
+        :param path:
+        :return:
+        """
         self.frame = 0
         self.cap = cv2.VideoCapture(path)
         self.nframes = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))

@@ -164,12 +164,16 @@ def xyxy2xywh(x):
 
 
 def xywh2xyxy(x):
-    # Transform box coordinates from [x, y, w, h] to [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right)
+    """
+    Transform box coordinates from [x, y, w, h] to [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right)
+    :param x:
+    :return:
+    """
     y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
-    y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
-    y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
-    y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
-    y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
+    y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x: x_center - 0.5 * w
+    y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y: y_center - 0.5 * h
+    y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x: x_Center + 0.5 * w
+    y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y: y_center + 0.5 * h
     return y
 
 
@@ -1423,10 +1427,17 @@ def non_max_suppression(predictions,
                         merge=False,
                         classes=None,
                         agnostic=False):
-    """Performs Non-Maximum Suppression (NMS) on inference results
-
+    """
+    Performs Non-Maximum Suppression (NMS) on inference results
     Returns:
          detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
+    :param predictions:
+    :param conf_thres:
+    :param iou_thres:
+    :param merge:
+    :param classes:
+    :param agnostic:
+    :return:
     """
     if predictions.dtype is torch.float16:
         predictions = predictions.float()  # to FP32
@@ -1463,7 +1474,7 @@ def non_max_suppression(predictions,
             i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).t()
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
         else:  # best class only
-            conf, j = x[:, 5:].max(1, keepdim=True)
+            conf, j = x[:, 5:].max(1, keepdim=True)  # 只取概率最大的类别作为最终的类别
             x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class
@@ -1507,6 +1518,10 @@ def non_max_suppression(predictions,
 
 
 def get_yolo_layers(model):
+    """
+    :param model:
+    :return:
+    """
     bool_vec = [x['type'] == 'yolo' for x in model.module_defs]
     return [i for i, x in enumerate(bool_vec) if x]  # [82, 94, 106] for yolov3
 

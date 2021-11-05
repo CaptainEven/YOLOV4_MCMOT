@@ -1,5 +1,10 @@
 # encoding=utf-8
 
+import sys
+
+sys.path.append('/mnt/diskc/even/ByteTrack')
+sys.path.append('.')
+from yolox.tracker.byte_tracker import BYTETracker
 
 import math
 import numpy as np
@@ -16,7 +21,7 @@ from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
 from models import *
 
 
-# TODO: Multi-class Track class
+# Multi-class Track class
 class MCTrack(MCBaseTrack):
     shared_kalman = KalmanFilter()
 
@@ -50,6 +55,10 @@ class MCTrack(MCBaseTrack):
         self.alpha = 0.9
 
     def update_features(self, feat):
+        """
+        :param feat:
+        :return:
+        """
         # L2 normalizing
         feat /= np.linalg.norm(feat)
 
@@ -65,6 +74,9 @@ class MCTrack(MCBaseTrack):
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
     def predict(self):
+        """
+        :return:
+        """
         mean_state = self.mean.copy()
         if self.state != TrackState.Tracked:
             mean_state[7] = 0
@@ -72,6 +84,10 @@ class MCTrack(MCBaseTrack):
 
     @staticmethod
     def multi_predict(tracks):
+        """
+        :param tracks:
+        :return:
+        """
         if len(tracks) > 0:
             multi_mean = np.asarray([track.mean.copy() for track in tracks])
             multi_covariance = np.asarray([track.covariance for track in tracks])
@@ -87,10 +103,18 @@ class MCTrack(MCBaseTrack):
                 tracks[i].covariance = cov
 
     def reset_track_id(self):
+        """
+        :return:
+        """
         self.reset_track_count(self.cls_id)
 
     def activate(self, kalman_filter, frame_id):
-        """Start a new track"""
+        """
+        Start a new track
+        :param kalman_filter:
+        :param frame_id:
+        :return:
+        """
         self.kalman_filter = kalman_filter  # assign a filter to each track?
 
         # update track id for the object class
@@ -109,6 +133,12 @@ class MCTrack(MCBaseTrack):
         self.start_frame = frame_id
 
     def re_activate(self, new_track, frame_id, new_id=False):
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :return:
+        """
         # kalman update
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
@@ -165,8 +195,10 @@ class MCTrack(MCBaseTrack):
     @property
     # @jit(nopython=True)
     def tlbr(self):
-        """Convert bounding box to format `(min x, min y, max x, max y)`, i.e.,
+        """
+        Convert bounding box to format `(min x, min y, max x, max y)`, i.e.,
         `(top left, bottom right)`.
+        :return:
         """
         ret = self.tlwh.copy()
         ret[2:] += ret[:2]
@@ -175,8 +207,11 @@ class MCTrack(MCBaseTrack):
     @staticmethod
     # @jit(nopython=True)
     def tlwh_to_xyah(tlwh):
-        """Convert bounding box to format `(center x, center y, aspect ratio,
+        """
+        Convert bounding box to format `(center x, center y, aspect ratio,
         height)`, where the aspect ratio is `width / height`.
+        :param tlwh:
+        :return:
         """
         ret = np.asarray(tlwh).copy()
         ret[:2] += ret[2:] / 2
@@ -184,11 +219,18 @@ class MCTrack(MCBaseTrack):
         return ret
 
     def to_xyah(self):
+        """
+        :return:
+        """
         return self.tlwh_to_xyah(self.tlwh)
 
     @staticmethod
     # @jit(nopython=True)
     def tlbr_to_tlwh(tlbr):
+        """
+        :param tlbr:
+        :return:
+        """
         ret = np.asarray(tlbr).copy()  # numpy中的.copy()是深拷贝
         ret[2:] -= ret[:2]
         return ret
@@ -196,11 +238,19 @@ class MCTrack(MCBaseTrack):
     @staticmethod
     # @jit(nopython=True)
     def tlwh_to_tlbr(tlwh):
+        """
+        :param tlwh:
+        :return:
+        """
         ret = np.asarray(tlwh).copy()
         ret[2:] += ret[:2]
         return ret
 
     def __repr__(self):
+        """
+        返回一个对象的 string 格式。
+        :return:
+        """
         return 'OT_({}-{})_({}-{})'.format(self.cls_id, self.track_id, self.start_frame, self.end_frame)
 
 
@@ -230,6 +280,10 @@ class Track(BaseTrack):
         self.alpha = 0.9
 
     def update_features(self, feat):
+        """
+        :param feat:
+        :return:
+        """
         # L2 normalizing
         feat /= np.linalg.norm(feat)
 
@@ -243,6 +297,9 @@ class Track(BaseTrack):
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
     def predict(self):
+        """
+        :return:
+        """
         mean_state = self.mean.copy()
         if self.state != TrackState.Tracked:
             mean_state[7] = 0
@@ -268,7 +325,12 @@ class Track(BaseTrack):
         self.reset_track_count()
 
     def activate(self, kalman_filter, frame_id):
-        """Start a new tracklet"""
+        """
+        Start a new tracklet
+        :param kalman_filter:
+        :param frame_id:
+        :return:
+        """
         self.kalman_filter = kalman_filter  # assign a filter to each tracklet?
 
         # update the track id
@@ -287,6 +349,12 @@ class Track(BaseTrack):
         self.start_frame = frame_id
 
     def re_activate(self, new_track, frame_id, new_id=False):
+        """
+        :param new_track:
+        :param frame_id:
+        :param new_id:
+        :return:
+        """
         self.mean, self.covariance = self.kalman_filter.update(self.mean,
                                                                self.covariance,
                                                                self.tlwh_to_xyah(new_track.tlwh))
@@ -384,6 +452,9 @@ from train import max_id_dict
 
 class MCJDETracker(object):
     def __init__(self, opt):
+        """
+        :param opt:
+        """
         self.opt = opt
 
         # set device
@@ -406,6 +477,7 @@ class MCJDETracker(object):
                                  fc=opt.fc,
                                  feat_out_ids=opt.feat_out_ids,
                                  mode=opt.task).to(device)
+
         elif self.opt.task == 'detect':
             self.model = Darknet(cfg=opt.cfg,
                                  img_size=opt.img_size,
@@ -422,46 +494,6 @@ class MCJDETracker(object):
             load_darknet_weights(self.model, opt.weights, int(opt.cutoff))
             print('{} loaded.'.format(opt.weights))
         # ----------
-
-        ### ----- for debugging...
-        # weight_debug_f_path = '/mnt/diskb/even/net_wts_new.txt'
-        # with open(weight_debug_f_path, 'w', encoding='utf-8') as f:
-        #     layers_dict = dict(self.model.module_list.named_children())
-        #     for layer_i, (layer_name, layer) in enumerate(layers_dict.items()):
-        #             # traverse each child parameter of the layer
-        #             for param_i, (param_name, param) in enumerate(layer.named_parameters()):
-        #                 if len(param.shape) == 4:
-        #                     f.write('Layer {} child {} params named {},'
-        #                             ' shape {}×{}×{}×{}\n'
-        #                             .format(layer_i, param_i, param_name,
-        #                                     param.shape[0], param.shape[1], param.shape[2], param.shape[3]))
-        #                 elif len(param.shape) == 3:
-        #                     f.write('Layer {} child {} params named {},'
-        #                             ' shape {}×{}×{}\n'
-        #                             .format(layer_i, param_i, param_name,
-        #                                     param.shape[0], param.shape[1], param.shape[2]))
-        #                 elif len(param.shape) == 2:
-        #                     f.write('Layer {} child {} params named {},'
-        #                             ' shape {}×{}\n'
-        #                             .format(layer_i, param_i, param_name,
-        #                                     param.shape[0], param.shape[1]))
-        #                 elif len(param.shape) == 1:
-        #                     f.write('Layer {} child {} params named {},'
-        #                             ' shape {}\n'
-        #                             .format(layer_i, param_i, param_name,
-        #                                     param.shape[0]))
-        #                 tmp.py = param.clone()
-        #                 if tmp.py.numel() > 64:
-        #                     tmp.py = tmp.py.view(1, -1)[0][:64]
-        #                 else:
-        #                     tmp.py = tmp.py.view(1, -1)[0]
-        #                 for item_i, item in enumerate(tmp.py):
-        #                     if item_i != 0 and item_i % 8 == 0:
-        #                         f.write('\n')
-        #                     f.write('{:.5f} '.format(float(item.item())))
-        #                 f.write('\n\n')
-        #             f.write('\n\n')
-        # ## -----
 
         # ----------
         # Put model to device and set eval mode
@@ -549,6 +581,47 @@ class MCJDETracker(object):
 
         return dets
 
+    def update_track_byte(self, img, img0):
+        """
+        :param img:
+        :param img0:
+        :return:
+        """
+        # update frame id
+        self.frame_id += 1
+
+        with torch.no_grad():
+            # t1 = torch_utils.time_synchronized()
+
+            #@ ----- get dets
+            pred = None
+
+            if len(self.model.feat_out_ids) == 1:
+                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+
+            if len(self.model.feat_out_ids) == 1:
+                pred = non_max_suppression(predictions=pred,
+                                           conf_thres=self.opt.conf_thres,
+                                           iou_thres=self.opt.iou_thres,
+                                           merge=False,
+                                           classes=self.opt.classes,
+                                           agnostic=self.opt.agnostic_nms)
+
+            # get dets
+            dets = pred[0]  # assume batch_size == 1 here
+            # dets = dets.detach().cpu().numpy()
+
+            if dets is None:
+                print('[Warning]: no objects detected.')
+                return None
+
+            ## ----- get image size and net size
+            b, c, net_h, net_w = img.shape  # net input img size: BCHW
+            img_h, img_w, _ = img0.shape    # img0: H×W×C
+
+            online_targets = tracker.update(dets, [img_h, img_w], (new_h,net_w))
+
+
     def update_tracking(self, img, img0):
         """
         Update tracking result of the frame
@@ -588,150 +661,77 @@ class MCJDETracker(object):
                 pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
 
             # ----- apply NMS
-            if len(self.model.feat_out_ids) == 3:
-                pred, pred_yolo_ids = non_max_suppression_with_yolo_inds(predictions=pred,
-                                                                         yolo_inds=yolo_inds,
-                                                                         conf_thres=self.opt.conf_thres,
-                                                                         iou_thres=self.opt.iou_thres,
-                                                                         merge=False,
-                                                                         classes=self.opt.cls_names,
-                                                                         agnostic=self.opt.agnostic_nms)
-                dets_yolo_ids = pred_yolo_ids[0]  # # assume batch_size == 1 here
+            pred = non_max_suppression(predictions=pred,
+                                       conf_thres=self.opt.conf_thres,
+                                       iou_thres=self.opt.iou_thres,
+                                       merge=False,
+                                       classes=self.opt.classes,
+                                       agnostic=self.opt.agnostic_nms)
 
-            elif len(self.model.feat_out_ids) == 1:
-                pred = non_max_suppression(predictions=pred,
-                                           conf_thres=self.opt.conf_thres,
-                                           iou_thres=self.opt.iou_thres,
-                                           merge=False,
-                                           classes=self.opt.classes,
-                                           agnostic=self.opt.agnostic_nms)
-
-            # get dets
+            ## get dets
             dets = pred[0]  # assume batch_size == 1 here
-            # dets = dets.detach().cpu().numpy()
-
             if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
 
-            # t2 = torch_utils.time_synchronized()
-            # print('run time (%.3fs)' % (t2 - t1))
-
-            # ----- Get reid feature vector for each detection
-            b, c, net_h, net_w = img.shape  # net input img size
-            id_vects_dict = defaultdict(list)
-
-            # # for debugging...
-            # id_vect_list = []
-
-            # get reid map
-            if len(self.model.feat_out_ids) == 1:
-                reid_feat_map = reid_feat_out[0]  # for one layer feature map
-
-                # L2 normalize the feature map(feature map scale(1/4 of net input size))
-                reid_feat_map = F.normalize(reid_feat_map, dim=1)
-
-                # GPU -> CPU
-                reid_feat_map = reid_feat_map.detach().cpu().numpy()
-
-                for det in dets:
-                    # up-zip det
-                    x1, y1, x2, y2, conf, cls_id = det
-
-                    # get feature map's size
-                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
-                    # assert b == 1  # make sure batch size is 1
-
-                    # get center point
-                    center_x = (x1 + x2) * 0.5
-                    center_y = (y1 + y2) * 0.5
-
-                    # map center point from net scale to feature map scale(1/4 of net input size)
-                    center_x = center_x / float(net_w)
-                    center_x = center_x * float(feat_map_w)
-                    center_y = center_y / float(net_h)
-                    center_y = center_y * float(feat_map_h)
-
-                    # center_x *= float(feat_map_w) / float(net_w)
-                    # center_y *= float(feat_map_h) / float(net_h)
-
-                    # convert to int64 for indexing
-                    # rounding and converting to int64 for indexing
-                    center_x += 0.5
-                    center_y += 0.5
-                    center_x = center_x.long()
-                    center_y = center_y.long()
-
-                    # to avoid the object center out of reid feature map's range
-                    center_x.clamp_(0, feat_map_w - 1)
-                    center_y.clamp_(0, feat_map_h - 1)
-
-                    # get reid feature vector and put into a dict
-                    id_feat_vect = reid_feat_map[0, :, center_y, center_x]
-
-                    # # for debugging...
-                    # id_vect_list.append(id_feat_vect)
-
-                    id_feat_vect = id_feat_vect.squeeze()
-                    id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
-
-            elif len(self.model.feat_out_ids) == 3:
-                for det, yolo_id in zip(dets, dets_yolo_ids):
-                    # up-zip det
-                    x1, y1, x2, y2, conf, cls_id = det
-
-                    # get reid map for this bbox(corresponding yolo idx)
-                    reid_feat_map = reid_feat_out[yolo_id]
-
-                    # L2 normalize the feature map(feature map scale)
-                    reid_feat_map = F.normalize(reid_feat_map, dim=1)
-
-                    # GPU -> CPU
-                    reid_feat_map = reid_feat_map.detach().cpu().numpy()
-
-                    # get feature map's size
-                    b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
-                    # assert b == 1  # make sure batch size is 1
-
-                    # get center point
-                    center_x = (x1 + x2) * 0.5
-                    center_y = (y1 + y2) * 0.5
-
-                    # map center point from net scale to feature map scale(1/4 of net input size)
-                    center_x = center_x / float(net_w)
-                    center_x = center_x * float(feat_map_w)
-                    center_y = center_y / float(net_h)
-                    center_y = center_y * float(feat_map_h)
-
-                    # rounding and converting to int64 for indexing
-                    center_x += 0.5
-                    center_y += 0.5
-                    center_x = center_x.long()
-                    center_y = center_y.long()
-
-                    # to avoid the object center out of reid feature map's range
-                    center_x.clamp_(0, feat_map_w - 1)
-                    center_y.clamp_(0, feat_map_h - 1)
-
-                    # get reid feature vector and put into a dict
-                    id_feat_vect = reid_feat_map[0, :, center_y, center_x]
-
-                    # # for debugging...
-                    # id_vect_list.append(id_feat_vect)
-
-                    id_feat_vect = id_feat_vect.squeeze()
-                    id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
-
-            # ----- Rescale boxes from net size to img size
-            # dets[:, :4] = scale_coords(img.shape[2:], dets[:, :4], img0.shape).round()
-            # dets = map_to_orig_coords(dets, net_w, net_h, img_W, img_h)
-
+            ## ----- Rescale boxes from net size to img size
             if self.opt.img_proc_method == 'resize':
                 dets = map_resize_back(dets, self.net_w, self.net_h, img_w, img_h)
             elif self.opt.img_proc_method == 'letterbox':
                 dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
-        # # for debugging...
+            ## ----- Get dets dict and reid feature dict
+            b, c, net_h, net_w = img.shape  # net input img size
+            id_vects_dict = defaultdict(list)  # feature dict
+            dets_dict = defaultdict(list)      # dets dict
+
+            # get reid map
+            reid_feat_map = reid_feat_out[0]  # for one layer feature map
+
+            # L2 normalize the feature map(feature map scale(1/4 of net input size))
+            reid_feat_map = F.normalize(reid_feat_map, dim=1)
+
+            # GPU -> CPU
+            reid_feat_map = reid_feat_map.detach().cpu().numpy()
+
+            # get feature map's size
+            b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+
+            dets = dets.detach().cpu().numpy()
+            for det in dets:
+                # up-zip det
+                x1, y1, x2, y2, conf, cls_id = det  # 6
+
+                dets_dict[int(cls_id)].append(det)
+
+                # get center point
+                center_x = (x1 + x2) * 0.5
+                center_y = (y1 + y2) * 0.5
+
+                # map center point from net scale to feature map scale(1/4 of net input size)
+                center_x = center_x / float(net_w)
+                center_x = center_x * float(feat_map_w)
+                center_y = center_y / float(net_h)
+                center_y = center_y * float(feat_map_h)
+
+                # rounding and converting to int64 for indexing
+                center_x += 0.5
+                center_y += 0.5
+                center_x = int(center_x)
+                center_y = int(center_y)
+
+                # to avoid the object center out of reid feature map's range
+                center_x = center_x if center_x >= 0 else 0
+                center_x = center_x if center_x < feat_map_w else feat_map_w - 1
+                center_y = center_y if center_y >= 0 else 0
+                center_y = center_y if center_y < feat_map_h else feat_map_h - 1
+
+                # get reid feature vector and put into a dict
+                id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+                id_feat_vect = id_feat_vect.squeeze()
+                id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+
+        ## ----- for debugging...
         # debug_f_path = '/mnt/diskb/even/debug_{:d}.txt'.format(self.frame_id)
         # f = open(debug_f_path, 'w', encoding='utf-8')
         # dets = dets[dets[:, 5] == 0]
@@ -834,11 +834,10 @@ class MCJDETracker(object):
         ## ---------- Process each object class
 
         for cls_id in range(self.opt.num_classes):
-            cls_inds = torch.where(dets[:, -1] == cls_id)
-            cls_dets = dets[cls_inds]  # n_objs × 6(x1, y1, x2, y2, score, cls_id)
-            cls_id_feature = id_vects_dict[cls_id]  # n_objs × 128
+            cls_dets = dets_dict[cls_id]
+            cls_dets = np.array(cls_dets)
 
-            cls_dets = cls_dets.detach().cpu().numpy()
+            cls_id_feature = id_vects_dict[cls_id]  # n_objs × 128
             cls_id_feature = np.array(cls_id_feature)
 
             if len(cls_dets) > 0:
@@ -926,7 +925,8 @@ class MCJDETracker(object):
 
                 # tracked but not activated
                 track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_tracks_dict[cls_id].append(track)  # activated_tarcks_dict may contain track with 'is_activated' False
+                activated_tracks_dict[cls_id].append(
+                    track)  # activated_tarcks_dict may contain track with 'is_activated' False
 
             """ Step 5: Update state"""
             for track in self.lost_tracks_dict[cls_id]:

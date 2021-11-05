@@ -410,6 +410,9 @@ def track_videos_vid(opt):
 
         # iterate tracking results of each frame
         for fr_id, (path, img, img0, vid_cap) in enumerate(dataset):
+            ## -----
+            # img0: original image data(read from opencv and HWC)
+
             img = torch.from_numpy(img).to(opt.device)
             img = img.float()  # uint8 to fp32
             img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -512,7 +515,7 @@ class DemoRunner(object):
         # yolov4-tiny-3l_no_group_id_SE_50000.weights or one_feat_fuse_track_last.weights
         self.parser.add_argument('--weights',
                                  type=str,
-                                 default='weights/mcmot_half_track_last_210518.weights',
+                                 default='weights/mcmot_half_track_last_211014.weights',
                                  help='weights path')
         # ----------
 
@@ -618,7 +621,9 @@ class DemoRunner(object):
                                  default='Arc',  # Arc
                                  help='FC layer type: FC or Arc')
 
-        self.parser.add_argument('--fourcc', type=str, default='mp4v',
+        self.parser.add_argument('--fourcc',
+                                 type=str,
+                                 default='mp4v',
                                  help='output video codec (verify ffmpeg support)')
         self.parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
         self.parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1) or cpu')
@@ -632,6 +637,9 @@ class DemoRunner(object):
         self.opt = self.parser.parse_args()
 
     def run(self):
+        """
+        :return:
+        """
         if self.opt.task == 'track':
             print('Run tracking...')
             if self.opt.output_type == 'txts':
