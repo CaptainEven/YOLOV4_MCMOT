@@ -45,6 +45,7 @@ class MCTrack(MCBaseTrack):
         self.score = score
         self.track_len = 0
 
+        ## ----- features
         self.smooth_feat = None
         self.update_features(temp_feat)
 
@@ -53,6 +54,12 @@ class MCTrack(MCBaseTrack):
 
         # fusion factor
         self.alpha = 0.9
+
+    def reset_track_id(self):
+        """
+        :return:
+        """
+        self.reset_track_count(self.cls_id)
 
     def update_features(self, feat):
         """
@@ -96,17 +103,11 @@ class MCTrack(MCBaseTrack):
                 if st.state != TrackState.Tracked:
                     multi_mean[i][7] = 0
 
-            multi_mean, multi_covariance = Track.shared_kalman.multi_predict(multi_mean, multi_covariance)
+            multi_mean, multi_covariance = MCTrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
 
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
                 tracks[i].mean = mean
                 tracks[i].covariance = cov
-
-    def reset_track_id(self):
-        """
-        :return:
-        """
-        self.reset_track_count(self.cls_id)
 
     def activate(self, kalman_filter, frame_id):
         """
@@ -125,7 +126,6 @@ class MCTrack(MCBaseTrack):
         self.track_len = 0
         self.state = TrackState.Tracked  # set flag 'tracked'
 
-        # self.is_activated = True
         if frame_id == 1:  # to record the first frame's detection result
             self.is_activated = True
 
@@ -156,6 +156,8 @@ class MCTrack(MCBaseTrack):
         if new_id:  # update track id for the object class
             self.track_id = self.next_id(self.cls_id)
 
+        self.score = new_track.score
+
     def update(self, new_track, frame_id, update_feature=True):
         """
         Update a matched track
@@ -168,9 +170,7 @@ class MCTrack(MCBaseTrack):
         self.track_len += 1
 
         new_tlwh = new_track.tlwh
-        self.mean, self.covariance = self.kalman_filter.update(self.mean,
-                                                               self.covariance,
-                                                               self.tlwh_to_xyah(new_tlwh))
+        self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
         self.state = TrackState.Tracked  # set flag 'tracked'
         self.is_activated = True  # set flag 'activated'
 
@@ -380,9 +380,7 @@ class Track(BaseTrack):
         self.track_len += 1
 
         new_tlwh = new_track.tlwh
-        self.mean, self.covariance = self.kalman_filter.update(self.mean,
-                                                               self.covariance,
-                                                               self.tlwh_to_xyah(new_tlwh))
+        self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
         self.state = TrackState.Tracked  # set flag 'tracked'
         self.is_activated = True  # set flag 'activated'
 
@@ -647,7 +645,7 @@ class MCJDETracker(object):
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
 
-        # ----- do detection and reid feature extraction
+        ## ---------- do detection and reid feature extraction
         # only get aggregated result, not original YOLO output
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
@@ -683,7 +681,7 @@ class MCJDETracker(object):
             ## ----- Get dets dict and reid feature dict
             b, c, net_h, net_w = img.shape  # net input img size
             vects_dict = defaultdict(list)  # feature dict
-            dets_dict = defaultdict(list)      # dets dict
+            dets_dict = defaultdict(list)   # dets dict
 
             # get reid map
             reid_feat_map = reid_feat_out[0]  # for one layer feature map
@@ -731,6 +729,7 @@ class MCJDETracker(object):
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+        ## ----------
 
         ## ---------- Process each object class
         for cls_id in range(self.opt.num_classes):
