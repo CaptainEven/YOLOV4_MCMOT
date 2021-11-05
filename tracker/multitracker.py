@@ -504,9 +504,9 @@ class MCJDETracker(object):
         self.net_h, self.net_w = self.opt.net_h, self.opt.net_w
 
         # Define tracks dict
-        self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
-        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
-        self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
+        self.lost_tracks_dict = defaultdict(list)     # value type: dict(int, list[Track])
+        self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
 
         # init frame index
         self.frame_id = 0

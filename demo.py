@@ -266,7 +266,7 @@ def track_videos_txt(opt):
     # tracking each input video
     for video_i, video_path in enumerate(video_path_list):
         # set MCMOT tracker
-        if video_i > 0:
+        if video_i > 0:  # reset tracker for each in-dependant video
             tracker.reset()
 
         # set dataset
