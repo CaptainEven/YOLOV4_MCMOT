@@ -682,7 +682,7 @@ class MCJDETracker(object):
 
             ## ----- Get dets dict and reid feature dict
             b, c, net_h, net_w = img.shape  # net input img size
-            id_vects_dict = defaultdict(list)  # feature dict
+            vects_dict = defaultdict(list)  # feature dict
             dets_dict = defaultdict(list)      # dets dict
 
             # get reid map
@@ -730,7 +730,7 @@ class MCJDETracker(object):
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
-                id_vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+                vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
 
         ## ----- for debugging...
         # debug_f_path = '/mnt/diskb/even/debug_{:d}.txt'.format(self.frame_id)
@@ -838,7 +838,7 @@ class MCJDETracker(object):
             cls_dets = dets_dict[cls_id]
             cls_dets = np.array(cls_dets)
 
-            cls_id_feature = id_vects_dict[cls_id]  # n_objs × 128
+            cls_id_feature = vects_dict[cls_id]  # n_objs × 128
             cls_id_feature = np.array(cls_id_feature)
 
             if len(cls_dets) > 0:
