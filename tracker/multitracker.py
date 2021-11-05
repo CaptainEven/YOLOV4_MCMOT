@@ -638,6 +638,9 @@ class MCJDETracker(object):
         # Get image size
         img_h, img_w, _ = img0.shape  # H×W×C
 
+        # Get net size
+        b, c, net_h, net_w = img.shape  # B×C×H×W
+
         # record tracking states of the current frame
         activated_tracks_dict = defaultdict(list)
         refined_tracks_dict = defaultdict(list)
@@ -679,7 +682,6 @@ class MCJDETracker(object):
                 dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
             ## ----- Get dets dict and reid feature dict
-            b, c, net_h, net_w = img.shape  # net input img size
             vects_dict = defaultdict(list)  # feature dict
             dets_dict = defaultdict(list)   # dets dict
 
