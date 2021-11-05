@@ -253,9 +253,10 @@ def track_videos_txt(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # Set MCMOT tracker
-    # tracker = JDETracker(opt)  # Joint detection and embedding
+    ## Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
+
+    ## TODO: Set Byte_MCMOT tracker...
 
     out_fps = int(opt.fps / opt.interval)
     data_type = 'mot'
@@ -295,6 +296,7 @@ def track_videos_txt(opt):
             if opt.interval == 1:
                 # ---------- Update tracking results of current frame
                 online_targets_dict = tracker.update_tracking(img, img0)
+
                 # ----------
 
                 if online_targets_dict is None:

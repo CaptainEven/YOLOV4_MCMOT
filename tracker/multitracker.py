@@ -746,7 +746,7 @@ class MCJDETracker(object):
             else:
                 cls_detections = []
 
-            ''' Add newly detected tracks(current frame) to tracked_tracks'''
+            '''Add newly detected tracks(current frame) to tracked_tracks'''
             unconfirmed_dict = defaultdict(list)
             tracked_tracks_dict = defaultdict(list)
             for track in self.tracked_tracks_dict[cls_id]:
@@ -756,7 +756,7 @@ class MCJDETracker(object):
                     tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
             ''' Step 2: First association, with embedding'''
-            # build track pool for the current frame by joining tracked_tracks and lost tracks
+            ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
             track_pool_dict = defaultdict(list)
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
@@ -764,12 +764,14 @@ class MCJDETracker(object):
             # for track in track_pool:
 
             # kalman prediction for track_pool
-            Track.multi_predict(track_pool_dict[cls_id])
+            MCTrack.multi_predict(track_pool_dict[cls_id])
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.92)  # thresh=0.7
-            for i_tracked, i_det in matches:  # process matched pairs between track pool and current frame detection
+
+            # --- process matched pairs between track pool and current frame detection
+            for i_tracked, i_det in matches:
                 track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
                 if track.state == TrackState.Tracked:
@@ -1121,16 +1123,24 @@ class JDETracker(object):
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
                     refined_tracks_dict[cls_id].append(track)
-            for it in u_track:  # process unmatched tracks for two rounds
+
+            # process unmatched tracks for two rounds
+            for it in u_track:
                 track = r_tracked_tracks[it]
                 if not track.state == TrackState.Lost:
-                    track.mark_lost()  # mark unmatched track as lost track
+                    # mark unmatched track as lost track
+                    track.mark_lost()
                     lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
-            cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
-            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)  # iou matching
+            # current frame's unmatched detection
+            cls_detections = [cls_detections[i] for i in u_detection]
+
+            # iou matching
+            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)
+
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+
             for i_tracked, i_det in matches:
                 unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
