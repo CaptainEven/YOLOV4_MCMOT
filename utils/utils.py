@@ -52,10 +52,20 @@ def cos(vect_1, vect_2):
 
 
 def euclidean(vect_1, vect_2):
+    """
+    :param vect_1:
+    :param vect_2:
+    :return:
+    """
     return np.sqrt(np.sum((vect_1 - vect_2) ** 2))
 
 
 def SSIM(vect_1, vect_2):
+    """
+    :param vect_1:
+    :param vect_2:
+    :return:
+    """
     u_true = np.mean(vect_1)
     u_pred = np.mean(vect_2)
     var_true = np.var(vect_1)
@@ -70,12 +80,19 @@ def SSIM(vect_1, vect_2):
 
 
 def init_seeds(seed=0):
+    """
+    :param seed:
+    :return:
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch_utils.init_seeds(seed=seed)
 
 
 def check_git_status():
+    """
+    :return:
+    """
     # Suggest 'git pull' if repo is out of date
     s = subprocess.check_output('if [ -d .git ]; then git fetch && git status -uno; fi', shell=True).decode('utf-8')
     if 'Your branch is behind' in s:
@@ -118,6 +135,12 @@ def labels_to_class_weights(labels, nc=80):
 
 
 def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
+    """
+    :param labels:
+    :param nc:
+    :param class_weights:
+    :return:
+    """
     # Produces image weights based on class mAPs
     n = len(labels)
     class_counts = np.array([np.bincount(labels[i][:, 0].astype(np.int), minlength=nc) for i in range(n)])
@@ -127,6 +150,9 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
 
 
 def coco_class_weights():  # frequency of each class in coco train2014
+    """
+    :return:
+    """
     n = [187437, 4955, 30920, 6033, 3838, 4332, 3160, 7051, 7677, 9167, 1316, 1372, 833, 6757, 7355, 3302, 3776, 4671,
          6769, 5706, 3908, 903, 3686, 3596, 6200, 7920, 8779, 4505, 4272, 1862, 4698, 1962, 4403, 6659, 2402, 2689,
          4012, 4175, 3411, 17048, 5637, 14553, 3923, 5539, 4289, 10084, 7018, 4314, 3099, 4638, 4939, 5543, 2038, 4004,
@@ -141,6 +167,9 @@ def coco_class_weights():  # frequency of each class in coco train2014
 
 
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
+    """
+    :return:
+    """
     # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
     # a = np.loadtxt('data/coco.names', dtype='str', delimiter='\n')
     # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
@@ -153,6 +182,10 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
 
 
 def xyxy2xywh(x):
+    """
+    :param x:
+    :return:
+    """
     # Transform box coordinates from [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right) to [x, y, w, h] 
     y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
     y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
@@ -265,6 +298,13 @@ def map_to_orig_coords(dets, net_w, net_h, orig_w, orig_h):
 
 # 坐标系转换
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
+    """
+    :param img1_shape:
+    :param coords:
+    :param img0_shape:
+    :param ratio_pad:
+    :return:
+    """
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
         gain = max(img1_shape) / max(img0_shape)  # gain  = old / new
@@ -395,6 +435,15 @@ def compute_ap(recall, precision):
 
 
 def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
+    """
+    :param box1:
+    :param box2:
+    :param x1y1x2y2:
+    :param GIoU:
+    :param DIoU:
+    :param CIoU:
+    :return:
+    """
     # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
     box2 = box2.t()
 
@@ -441,6 +490,11 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
 
 
 def box_iou(box1, box2):
+    """
+    :param box1:
+    :param box2:
+    :return:
+    """
     # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
     """
     Return intersection-over-union (Jaccard index) of boxes.
@@ -511,6 +565,10 @@ class FocalLoss(nn.Module):
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
+    """
+    :param eps:
+    :return:
+    """
     # return positive, negative label smoothing BCE targets
     return 1.0 - 0.5 * eps, 0.5 * eps
 
@@ -1892,6 +1950,10 @@ def plot_targets_txt():  # from evaluate_utils.evaluate_utils import *; plot_tar
 
 
 def plot_evolution_results(hyp):  # from evaluate_utils.evaluate_utils import *; plot_evolution_results(hyp)
+    """
+    :param hyp:
+    :return:
+    """
     # Plot hyperparameter evolution results in evolve.txt
     x = np.loadtxt('evolve.txt', ndmin=2)
     f = fitness(x)
@@ -1912,6 +1974,11 @@ def plot_evolution_results(hyp):  # from evaluate_utils.evaluate_utils import *;
 
 
 def plot_results_overlay(start=0, stop=0):  # from evaluate_utils.evaluate_utils import *; plot_results_overlay()
+    """
+    :param start:
+    :param stop:
+    :return:
+    """
     # Plot training results files 'results*.txt', overlaying train and val losses
     s = ['train', 'train', 'train', 'Precision', 'mAP@0.5', 'val', 'val', 'val', 'Recall', 'F1']  # legends
     t = ['GIoU', 'Objectness', 'Classification', 'P-R', 'mAP-F1']  # titles
@@ -1935,6 +2002,13 @@ def plot_results_overlay(start=0, stop=0):  # from evaluate_utils.evaluate_utils
 
 
 def plot_results(start=0, stop=0, bucket='', id=()):  # from evaluate_utils.evaluate_utils import *; plot_results()
+    """
+    :param start:
+    :param stop:
+    :param bucket:
+    :param id:
+    :return:
+    """
     # Plot training 'results*.txt' as seen in https://github.com/ultralytics/yolov3#training
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
     ax = ax.ravel()
@@ -2141,9 +2215,9 @@ def cmpTwoVideos(src_root, dst_root,
             print("{:s} saved.".format(res_sv_path))
 
         ## ---------- 输出视频结果
-        vid_sv_path = dst_root + "/" + vid_name[:-len(ext)] + "_cmp" + ext
-        cmd_str = 'ffmpeg -f image2 -r {:d} -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
-            .format(12, tmp_dir, vid_sv_path)
+        vid_sv_path = dst_root + "/" + vid_name[:-len(ext)] + "cmp" + ext
+        cmd_str = 'ffmpeg -f image2 -r 6 -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
+            .format(tmp_dir, vid_sv_path)
         print(cmd_str)
         os.system(cmd_str)
 

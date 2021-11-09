@@ -786,6 +786,7 @@ class MCJDETracker(object):
             for i_tracked, i_det in matches:
                 track = track_pool_dict[cls_id][i_tracked]
                 det = cls_detections[i_det]
+
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
@@ -805,6 +806,7 @@ class MCJDETracker(object):
             for i_tracked, i_det in matches:  # process matched tracks
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
+
                 if track.state == TrackState.Tracked:
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
