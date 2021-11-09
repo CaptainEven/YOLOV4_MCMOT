@@ -653,7 +653,7 @@ class MCJDETracker(object):
         # Get net size
         b, c, net_h, net_w = img.shape  # B×C×H×W
 
-        # record tracking states of the current frame
+        ## Current frame: Record tracking states
         activated_tracks_dict = defaultdict(list)
         refined_tracks_dict = defaultdict(list)
         lost_tracks_dict = defaultdict(list)
@@ -816,21 +816,29 @@ class MCJDETracker(object):
                     refined_tracks_dict[cls_id].append(track)
 
             ## ----- mark lost if two matching rounds failed
-            for it in u_track:
-                track = r_tracked_tracks[it]
+            for i in u_track:
+                track = r_tracked_tracks[i]
                 if not track.state == TrackState.Lost:
                     track.mark_lost()  # mark unmatched track as lost track
                     lost_tracks_dict[cls_id].append(track)
 
             '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
-            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)  # iou matching
+
+            ## ----- compute iou matching cost
+            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
+
+            ## ----- matched
             for i_tracked, i_det in matches:
-                unconfirmed_dict[cls_id][i_tracked].update(cls_detections[i_det], self.frame_id)
-                activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
-            for it in u_unconfirmed:
-                track = unconfirmed_dict[cls_id][it]
+                unconfirmed_det = cls_detections[i_det]
+                unconfirmed_track = unconfirmed_dict[cls_id][i_tracked]
+                unconfirmed_track.update(cls_detections[i_det], self.frame_id)
+                activated_tracks_dict[cls_id].append(unconfirmed_track)
+
+            ## ----- process the un-matched tracks
+            for i in u_unconfirmed:
+                track = unconfirmed_dict[cls_id][i]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
 
