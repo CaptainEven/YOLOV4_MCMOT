@@ -1,12 +1,17 @@
 # encoding=utf-8
 
 import os
+
+from ByteTracker.byte_tracker import BYTETracker
+
 import threading
 import torch
 import argparse
+from easydict import EasyDict as edict
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
+import utils.torch_utils as torch_utils
 from tracker.multitracker import JDETracker, MCJDETracker
 from tracking_utils import visualization as vis
 from tracking_utils.io import write_results_dict
@@ -256,8 +261,6 @@ def track_videos_txt(opt):
     ## Set MCMOT tracker
     tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
 
-    ## TODO: Set Byte_MCMOT tracker...
-
     out_fps = int(opt.fps / opt.interval)
     data_type = 'mot'
     video_path_list = [opt.videos + '/' + x for x in os.listdir(opt.videos) if x.endswith('.mp4')]
@@ -383,8 +386,22 @@ def track_videos_vid(opt):
         id2cls[cls_id] = cls_name
         cls2id[cls_name] = cls_id
 
-    # Set MCMOT tracker
-    tracker = MCJDETracker(opt)  # Multi-class joint detection & embedding
+    # Set MCMOT tracker: Multi-class joint detection & embedding
+    tracker = MCJDETracker(opt)  #
+
+    ## ---------- Set ByteTrack backend
+    byte_args = {
+        "mot20": False,
+        "match_thresh": 0.8,
+        "n_classes": 5,
+        "track_buffer": 30,
+        "track_thresh": 0.5
+    }
+    byte_args = edict(byte_args)
+    # print(byte_args.track_buffer)
+    tracker.backend = BYTETracker(byte_args, frame_rate=30)
+    print(tracker.backend)
+    ## ----------
 
     out_fps = int(float(opt.fps) / float(opt.interval))
     data_type = 'mot'
@@ -395,6 +412,8 @@ def track_videos_vid(opt):
     for video_i, video_path in enumerate(video_path_list):
         if video_i > 0:
             tracker.reset()
+            if tracker.backend is not None:
+                tracker.backend.reset()
 
         # set dataset
         dataset = LoadImages(video_path, opt.img_proc_method, net_w=opt.net_w, net_h=opt.net_h)
@@ -421,11 +440,15 @@ def track_videos_vid(opt):
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
-            # update tracking result of this frame
+            # Update tracking result of this frame
             if opt.interval == 1:
 
-                # ----- update tracking result of current frame
-                online_targets_dict = tracker.update_tracking(img, img0)
+                # ----- Update tracking result of current frame
+                # online_targets_dict = tracker.update_tracking(img, img0)
+                # -----
+
+                # ----- Using ByteTrack backend
+                online_targets_dict = tracker.update_track_byte(img, img0)
                 # -----
 
                 if online_targets_dict is None:

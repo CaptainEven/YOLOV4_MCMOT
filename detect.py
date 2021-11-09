@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import argparse
 from sys import platform
 
@@ -7,6 +9,10 @@ from utils.utils import *
 
 
 def detect(save_img=False):
+    """
+    :param save_img:
+    :return:
+    """
     img_size = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
     web_cam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')

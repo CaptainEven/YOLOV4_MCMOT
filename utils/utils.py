@@ -1,24 +1,23 @@
-# encodiung=utf-8
+# encoding=utf-8
 
+import cv2
 import glob
 import math
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import random
 import shutil
 import subprocess
-from pathlib import Path
-
-import cv2
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from pathlib import Path
 from tqdm import tqdm
 
-from . import torch_utils  # , google_utils
+# import torch_utils as torch_utils  # , google_utils
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -1739,6 +1738,13 @@ def print_mutation(hyp, results, bucket=''):
 
 
 def apply_classifier(x, model, img, im0):
+    """
+    :param x:
+    :param model:
+    :param img:
+    :param im0:
+    :return:
+    """
     # applies a second stage classifier to yolo outputs
     im0 = [im0] if isinstance(im0, np.ndarray) else im0
     for i, d in enumerate(x):  # per image
@@ -1774,6 +1780,10 @@ def apply_classifier(x, model, img, im0):
 
 
 def fitness(x):
+    """
+    :param x:
+    :return:
+    """
     # Returns fitness (for use with results.txt or evolve.txt)
     w = [0.0, 0.01, 0.99, 0.00]  # weights for [P, R, mAP, F1]@0.5 or [P, R, mAP@0.5, mAP@0.5:0.95]
     return (x[:, :4] * w).sum(1)
@@ -1781,6 +1791,14 @@ def fitness(x):
 
 # Plotting functions ---------------------------------------------------------------------------------------------------
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
+    """
+    :param x:
+    :param img:
+    :param color:
+    :param label:
+    :param line_thickness:
+    :return:
+    """
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
@@ -1961,6 +1979,7 @@ class GHMC(nn.Module):
         use_sigmoid (bool): Can only be true for BCE based loss now.
         loss_weight (float): The weight of the total GHM-C loss.
     """
+
     def __init__(
             self,
             bins=10,
@@ -2037,3 +2056,97 @@ class GHMC(nn.Module):
         loss = F.binary_cross_entropy_with_logits(pred, target, weights, reduction='sum') / tot
 
         return loss * self.loss_weight
+
+
+## ---------- File operations
+def cmpTwoVideos(src_root, dst_root,
+                 ext=".mp4", flag1="old", flag2="new"):
+    """
+    :param src_root:
+    :param dst_root:
+    :param ext:
+    :param flag1:
+    :param flag2:
+    :return:
+    """
+    if not os.path.isdir(src_root):
+        print("[Err]: invalid src root!")
+        return
+
+    parent_dir = os.path.abspath(os.path.join(src_root, ".."))
+    tmp_dir = parent_dir + "/tmp"
+    if os.path.isdir(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    os.makedirs(tmp_dir)  # 每次跑, tmp清空
+
+    if dst_root is None:
+        # os.makedirs(dst_root)
+        # print("{:s} made.".format(dst_root))
+        dst_root = src_root
+
+    videos1 = [src_root + "/" + x for x in os.listdir(src_root) if x.endswith(ext) and flag1 in x]
+    videos2 = [src_root + "/" + x for x in os.listdir(src_root) if x.endswith(ext) and flag2 in x]
+
+    assert len(videos1) == len(videos2)
+
+    videos1.sort()
+    videos2.sort()
+
+    for vid1_path in videos1:
+        vid2_path = vid1_path.replace(flag1, flag2)
+        if not (os.path.isfile(vid1_path) and os.path.isfile(vid2_path)):
+            print("[Warning]: invalid file path.")
+            continue
+
+        vid1_name = os.path.split(vid1_path)[-1]
+        vid_name = vid1_name.replace(flag1, "")
+
+        ## ----- 读取视频
+        cap1 = cv2.VideoCapture(vid1_path)
+        cap2 = cv2.VideoCapture(vid2_path)
+
+        # 获取视频所有帧数
+        FRAME_NUM1 = int(cap1.get(cv2.CAP_PROP_FRAME_COUNT))
+        FRAME_NUM2 = int(cap2.get(cv2.CAP_PROP_FRAME_COUNT))
+        assert FRAME_NUM1 == FRAME_NUM2
+        print('Total {:d} frames'.format(FRAME_NUM1))
+
+        if FRAME_NUM1 == 0:
+            break
+
+        for i in range(0, FRAME_NUM1):
+            success1, frame1 = cap1.read()
+            success2, frame2 = cap1.read()
+
+            if not (success1 and success2):  # 判断当前帧是否存在
+                print("[Warning]: read frame-pair failed @frame{:d}!".format(i))
+                break
+
+            assert frame1.shape == frame2.shape
+
+            ## ----- 设置输出帧
+            H, W, C = frame1.shape
+            if W >= H:
+                res = np.zeros((H * 2, W, 3), dtype=np.uint8)
+                res[:H, :, :] = frame1
+                res[H:2 * H, :, :] = frame2
+            else:
+                res = np.zeros((H, W * 2, 3), dtype=np.uint8)
+                res[:, :W, :] = frame1
+                res[:, W:2 * W, :] = frame2
+
+            ## ----- 输出到tmp目录
+            res_sv_path = tmp_dir + "/{:04d}.jpg".format(i)
+            cv2.imwrite(res_sv_path, res)
+            print("{:s} saved.".format(res_sv_path))
+
+        ## ---------- 输出视频结果
+        vid_sv_path = dst_root + "/" + vid_name[:-len(ext)] + "_cmp" + ext
+        cmd_str = 'ffmpeg -f image2 -r {:d} -i {:s}/%04d.jpg -b 5000k -c:v mpeg4 {}' \
+            .format(12, tmp_dir, vid_sv_path)
+        print(cmd_str)
+        os.system(cmd_str)
+
+
+if __name__ == "__main__":
+    cmpTwoVideos(src_root="../output/", dst_root=None)

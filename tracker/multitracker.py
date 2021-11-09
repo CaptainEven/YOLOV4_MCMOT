@@ -4,7 +4,7 @@ import sys
 
 sys.path.append('/mnt/diskc/even/ByteTrack')
 sys.path.append('.')
-from yolox.tracker.byte_tracker import BYTETracker
+from ByteTracker.byte_tracker import BYTETracker
 
 import math
 import numpy as np
@@ -521,6 +521,9 @@ class MCJDETracker(object):
         # init kalman filter(to stabilize tracking)
         self.kalman_filter = KalmanFilter()
 
+        ## ----- backend
+        self.backend = None
+
     def reset(self):
         """
         :return:
@@ -605,19 +608,27 @@ class MCJDETracker(object):
                                            classes=self.opt.classes,
                                            agnostic=self.opt.agnostic_nms)
 
-            # get dets
-            dets = pred[0]  # assume batch_size == 1 here
-            # dets = dets.detach().cpu().numpy()
+            ## ----- Get dets results
+            dets_results = pred[0]  # assume batch_size == 1 here
 
-            if dets is None:
+            if dets_results is None:
                 print('[Warning]: no objects detected.')
                 return None
 
-            ## ----- get image size and net size
+            ## ----- Get image size and net size
             b, c, net_h, net_w = img.shape  # net input img size: BCHW
             img_h, img_w, _ = img0.shape    # img0: H×W×C
 
-            online_targets = tracker.update(dets, [img_h, img_w], (new_h,net_w))
+            ## ----- Rescale boxes from net size to img size
+            if self.opt.img_proc_method == 'resize':
+                dets_results = map_resize_back(dets_results, self.net_w, self.net_h, img_w, img_h)
+            elif self.opt.img_proc_method == 'letterbox':
+                dets_results = map_to_orig_coords(dets_results, self.net_w, self.net_h, img_w, img_h)
+
+            ## ----- Update tracking results of this frame
+            online_targets = self.backend.update_mcmot(dets_results)
+
+        return online_targets
 
 
     def update_tracking(self, img, img0):

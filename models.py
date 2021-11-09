@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+import utils.torch_utils as torch_utils
 from utils.google_utils import *
 from utils.layers import *
 from utils.parse_config import *

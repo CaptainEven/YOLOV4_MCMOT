@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import math
 import os
 import time
@@ -10,6 +12,10 @@ import torch.nn.functional as F
 
 
 def init_seeds(seed=0):
+    """
+    :param seed:
+    :return:
+    """
     torch.manual_seed(seed)
 
     # Remove randomness (may be slower on Tesla GPUs) # https://pytorch.org/docs/stable/notes/randomness.html

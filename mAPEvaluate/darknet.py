@@ -121,6 +121,10 @@ def network_width(net):
 
 
 def network_height(net):
+    """
+    :param net:
+    :return:
+    """
     return lib.network_height(net)
 
 

@@ -1,4 +1,5 @@
-# This file contains google evaluate_utils: https://cloud.google.com/storage/docs/reference/libraries
+# This file contains google evaluate_utils: https://cloud.google.com/stor
+# age/docs/reference/libraries
 # pip install --upgrade google-cloud-storage
 
 import os
