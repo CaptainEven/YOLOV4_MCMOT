@@ -803,7 +803,8 @@ class MCJDETracker(object):
             dists = matching.iou_distance(r_tracked_tracks, cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
 
-            for i_tracked, i_det in matches:  # process matched tracks
+            ## ----- process matched tracks
+            for i_tracked, i_det in matches:
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
 
@@ -814,7 +815,8 @@ class MCJDETracker(object):
                     track.re_activate(det, self.frame_id, new_id=False)
                     refined_tracks_dict[cls_id].append(track)
 
-            for it in u_track:  # process unmatched tracks for two rounds
+            ## ----- mark lost if two matching rounds failed
+            for it in u_track:
                 track = r_tracked_tracks[it]
                 if not track.state == TrackState.Lost:
                     track.mark_lost()  # mark unmatched track as lost track
