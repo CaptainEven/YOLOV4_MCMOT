@@ -444,11 +444,11 @@ def track_videos_vid(opt):
             if opt.interval == 1:
 
                 # ----- Update tracking result of current frame
-                # online_targets_dict = tracker.update_tracking(img, img0)
+                online_targets_dict = tracker.update_tracking(img, img0)
                 # -----
 
                 # ----- Using ByteTrack backend
-                online_targets_dict = tracker.update_track_byte(img, img0)
+                # online_targets_dict = tracker.update_track_byte(img, img0)
                 # -----
 
                 if online_targets_dict is None:
@@ -592,7 +592,7 @@ class DemoRunner(object):
         # standard output FPS
         self.parser.add_argument('--fps',
                                  type=int,
-                                 default=24,
+                                 default=12,  # 12, 24
                                  help='The FPS of output video.')
 
         self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
