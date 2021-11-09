@@ -106,7 +106,7 @@ class MCTrack(MCBaseTrack):
 
     def activate(self, kalman_filter, frame_id):
         """
-        Start a new track
+        Start a new track: the initial activation
         :param kalman_filter:
         :param frame_id:
         :return:
@@ -836,31 +836,33 @@ class MCJDETracker(object):
                 unconfirmed_track.update(cls_detections[i_det], self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_track)
 
-            ## ----- process the un-matched tracks
+            ## ----- process the [un-matched tracks]
             for i in u_unconfirmed:
                 track = unconfirmed_dict[cls_id][i]
                 track.mark_removed()
                 removed_tracks_dict[cls_id].append(track)
 
             """ Step 4: Init new tracks"""
-            for i_new in u_detection:  # current frame's unmatched detection
+            ## ----- process the frame's [un-matched detections]
+            for i_new in u_detection:
                 track = cls_detections[i_new]
                 if track.score < self.det_thresh:
                     continue
 
-                # tracked but not activated: activate do not set 'is_activated' to be True
+                # initial activation: tracked state
                 track.activate(self.kalman_filter, self.frame_id)
 
                 # activated_tarcks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
 
-            """ Step 5: Update state"""
+            """ Step 5: Update state for lsot tracks: remove some lost tracks"""
             for track in self.lost_tracks_dict[cls_id]:
                 if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
             # print('Remained match {} s'.format(t4-t3))
 
+            """Final: Post processing"""
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
                                                 t.state == TrackState.Tracked]
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
