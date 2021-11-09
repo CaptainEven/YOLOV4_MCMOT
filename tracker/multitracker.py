@@ -1,24 +1,19 @@
 # encoding=utf-8
 
-import sys
-
-sys.path.append('/mnt/diskc/even/ByteTrack')
-sys.path.append('.')
-from ByteTracker.byte_tracker import BYTETracker
-
 import math
 import numpy as np
+import sys
 import torch
 import torch.nn.functional as F
-
 from collections import deque, defaultdict
-from tracker import matching
-from tracking_utils.kalman_filter import KalmanFilter
-from tracking_utils.utils import *
-from tracking_utils.log import logger
-from utils.utils import non_max_suppression  # , cos
-from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
+
 from models import *
+from tracker import matching
+from tracker.basetrack import BaseTrack, MCBaseTrack, TrackState
+from tracking_utils.kalman_filter import KalmanFilter
+from tracking_utils.log import logger
+from tracking_utils.utils import *
+from utils.utils import non_max_suppression  # , cos
 
 
 # Multi-class Track class
@@ -307,6 +302,10 @@ class Track(BaseTrack):
 
     @staticmethod
     def multi_predict(tracks):
+        """
+        :param tracks:
+        :return:
+        """
         if len(tracks) > 0:
             multi_mean = np.asarray([track.mean.copy() for track in tracks])
             multi_covariance = np.asarray([track.covariance for track in tracks])
@@ -322,6 +321,9 @@ class Track(BaseTrack):
                 tracks[i].covariance = cov
 
     def reset_track_id(self):
+        """
+        :return:
+        """
         self.reset_track_count()
 
     def activate(self, kalman_filter, frame_id):
@@ -505,7 +507,7 @@ class MCJDETracker(object):
 
         # Define tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
-        self.lost_tracks_dict = defaultdict(list)     # value type: dict(int, list[Track])
+        self.lost_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
         self.removed_tracks_dict = defaultdict(list)  # value type: dict(int, list[Track])
 
         # init frame index
@@ -594,7 +596,7 @@ class MCJDETracker(object):
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
-            #@ ----- get dets
+            # @ ----- get dets
             pred = None
 
             if len(self.model.feat_out_ids) == 1:
@@ -617,7 +619,7 @@ class MCJDETracker(object):
 
             ## ----- Get image size and net size
             b, c, net_h, net_w = img.shape  # net input img size: BCHW
-            img_h, img_w, _ = img0.shape    # img0: H×W×C
+            img_h, img_w, _ = img0.shape  # img0: H×W×C
 
             ## ----- Rescale boxes from net size to img size
             if self.opt.img_proc_method == 'resize':
@@ -629,7 +631,6 @@ class MCJDETracker(object):
             online_targets = self.backend.update_mcmot(dets_results)
 
         return online_targets
-
 
     def update_tracking(self, img, img0):
         """
@@ -689,7 +690,7 @@ class MCJDETracker(object):
 
             ## ----- Get dets dict and reid feature dict
             vects_dict = defaultdict(list)  # feature dict
-            dets_dict = defaultdict(list)   # dets dict
+            dets_dict = defaultdict(list)  # dets dict
 
             # get reid map
             reid_feat_map = reid_feat_out[0]  # for one layer feature map
@@ -779,7 +780,7 @@ class MCJDETracker(object):
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.92)  # thresh=0.7
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
 
             # --- process matched pairs between track pool and current frame detection
             for i_tracked, i_det in matches:
@@ -797,8 +798,10 @@ class MCJDETracker(object):
             cls_detections = [cls_detections[i] for i in u_detection]
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+
             dists = matching.iou_distance(r_tracked_tracks, cls_detections)
             matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
+
             for i_tracked, i_det in matches:  # process matched tracks
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detections[i_det]
@@ -832,10 +835,11 @@ class MCJDETracker(object):
                 if track.score < self.det_thresh:
                     continue
 
-                # tracked but not activated
-                track.activate(self.kalman_filter, self.frame_id)  # Note: activate do not set 'is_activated' to be True
-                activated_tracks_dict[cls_id].append(
-                    track)  # activated_tarcks_dict may contain track with 'is_activated' False
+                # tracked but not activated: activate do not set 'is_activated' to be True
+                track.activate(self.kalman_filter, self.frame_id)
+
+                # activated_tarcks_dict may contain track with 'is_activated' False
+                activated_tracks_dict[cls_id].append(track)
 
             """ Step 5: Update state"""
             for track in self.lost_tracks_dict[cls_id]:

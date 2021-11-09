@@ -444,11 +444,11 @@ def track_videos_vid(opt):
             if opt.interval == 1:
 
                 # ----- Update tracking result of current frame
-                online_targets_dict = tracker.update_tracking(img, img0)
+                # online_targets_dict = tracker.update_tracking(img, img0)
                 # -----
 
                 # ----- Using ByteTrack backend
-                # online_targets_dict = tracker.update_track_byte(img, img0)
+                online_targets_dict = tracker.update_track_byte(img, img0)
                 # -----
 
                 if online_targets_dict is None:
@@ -613,8 +613,14 @@ class DemoRunner(object):
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
-        self.parser.add_argument('--conf-thres', type=float, default=0.2, help='object confidence threshold')
-        self.parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+        self.parser.add_argument('--conf-thres',
+                                 type=float,
+                                 default=0.2,
+                                 help='object confidence threshold')
+        self.parser.add_argument('--iou-thres',
+                                 type=float,
+                                 default=0.45,
+                                 help='IOU threshold for NMS')
         # ----------
 
         # ---------- Input image Pre-processing method
