@@ -2149,9 +2149,9 @@ def cmpTwoVideos(src_root, dst_root,
 
     parent_dir = os.path.abspath(os.path.join(src_root, ".."))
     tmp_dir = parent_dir + "/tmp"
-    if os.path.isdir(tmp_dir):
-        shutil.rmtree(tmp_dir)
-    os.makedirs(tmp_dir)  # 每次跑, tmp清空
+    tmp_dir = os.path.abspath(tmp_dir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
 
     if dst_root is None:
         # os.makedirs(dst_root)
@@ -2172,6 +2172,10 @@ def cmpTwoVideos(src_root, dst_root,
             print("[Warning]: invalid file path.")
             continue
 
+        cmd_str = "rm -rf {:s}/*.jpg".format(tmp_dir)
+        print(cmd_str)
+        os.system(cmd_str)
+
         vid1_name = os.path.split(vid1_path)[-1]
         vid_name = vid1_name.replace(flag1, "")
 
@@ -2190,7 +2194,7 @@ def cmpTwoVideos(src_root, dst_root,
 
         for i in range(0, FRAME_NUM1):
             success1, frame1 = cap1.read()
-            success2, frame2 = cap1.read()
+            success2, frame2 = cap2.read()
 
             if not (success1 and success2):  # 判断当前帧是否存在
                 print("[Warning]: read frame-pair failed @frame{:d}!".format(i))

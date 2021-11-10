@@ -892,13 +892,6 @@ class MCJDETracker(object):
             # logger.debug('Removed: {}'.format(
             #     [track.track_id for track in removed_tracks_dict[cls_id]]))
 
-        # # for debugging...
-        # self.last_dets = dets
-        # self.last_feat_list = id_vect_list
-        # f.close()
-        # print('{:s} written.'.format(debug_f_path))
-        # # print('Frame {:d} done.'.format(self.frame_id))
-
         return output_tracks_dict
 
 
