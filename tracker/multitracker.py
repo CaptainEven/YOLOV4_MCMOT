@@ -600,7 +600,7 @@ class MCJDETracker(object):
             pred = None
 
             if len(self.model.feat_out_ids) == 1:
-                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=False)
 
             if len(self.model.feat_out_ids) == 1:
                 pred = non_max_suppression(predictions=pred,

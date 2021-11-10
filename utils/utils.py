@@ -2227,4 +2227,5 @@ def cmpTwoVideos(src_root, dst_root,
 
 
 if __name__ == "__main__":
-    cmpTwoVideos(src_root="../output/", dst_root=None)
+    cmpTwoVideos(src_root="../output/", dst_root=None,
+                 flag1="fair", flag2="byte")
