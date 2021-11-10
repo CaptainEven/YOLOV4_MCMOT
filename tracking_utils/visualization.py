@@ -148,7 +148,7 @@ def plot_tracks(image,
                         (int(x1), int(y1)),
                         cv2.FONT_HERSHEY_PLAIN,
                         text_scale,
-                        (255, 0, 0),  # cls_id: yellow
+                        (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
 
             txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
@@ -160,7 +160,7 @@ def plot_tracks(image,
                         (int(x1), int(y1) - txt_h),
                         cv2.FONT_HERSHEY_PLAIN,
                         text_scale * 1.2,
-                        (255, 0, 0),  # cls_id: yellow
+                        (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
 
     return img

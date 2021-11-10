@@ -35,6 +35,8 @@ class MCTrack(MCBaseTrack):
         self._tlwh = np.asarray(tlwh, dtype=np.float)
         self.kalman_filter = None
         self.mean, self.covariance = None, None
+
+        ## ----- init is_activated to be False
         self.is_activated = False
 
         self.score = score
@@ -832,7 +834,8 @@ class MCJDETracker(object):
                     track.mark_lost()  # mark unmatched track as lost track
                     lost_tracks_dict[cls_id].append(track)
 
-            '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+            '''The 3rd matching(The final matching round):
+             Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
             cls_detections = [cls_detections[i] for i in u_detection]  # current frame's unmatched detection
 
             ## ----- compute iou matching cost
