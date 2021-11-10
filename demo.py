@@ -514,7 +514,7 @@ def track_videos_vid(opt):
 
         # output tracking result as video: read and write opt.save_img_dir
         print('Zip to mp4 in fps: {:d}'.format(out_fps))
-        result_video_path = opt.save_img_dir + '/' + vid_name\
+        result_video_path = opt.save_img_dir + '/' + vid_name \
                             + '_track' + '_fps' + str(out_fps) + "_" + opt.name + '.' + ext
         cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
             .format(out_fps, frame_dir, result_video_path)
@@ -532,7 +532,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="byte",  # fair or byte
+                                 default="fair",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file

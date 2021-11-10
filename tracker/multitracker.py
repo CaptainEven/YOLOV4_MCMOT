@@ -146,6 +146,8 @@ class MCTrack(MCBaseTrack):
         self.frame_id = frame_id
 
         self.state = TrackState.Tracked  # set flag 'tracked'
+
+        # set flag 'activated'
         self.is_activated = True
 
         if new_id:  # update track id for the object class
@@ -167,7 +169,9 @@ class MCTrack(MCBaseTrack):
         new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
         self.state = TrackState.Tracked  # set flag 'tracked'
-        self.is_activated = True  # set flag 'activated'
+
+        # set flag 'activated'
+        self.is_activated = True
 
         self.score = new_track.score
         if update_feature:
@@ -654,14 +658,18 @@ class MCJDETracker(object):
         b, c, net_h, net_w = img.shape  # B×C×H×W
 
         ## Current frame: Record tracking states
+        unconfirmed_dict = defaultdict(list)
+        tracked_tracks_dict = defaultdict(list)
+        track_pool_dict = defaultdict(list)
         activated_tracks_dict = defaultdict(list)
-        refined_tracks_dict = defaultdict(list)
+        refind_tracks_dict = defaultdict(list)
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
 
         ## ---------- do detection and reid feature extraction
         # only get aggregated result, not original YOLO output
+        ## ----- Start with context
         with torch.no_grad():
             # t1 = torch_utils.time_synchronized()
 
@@ -738,7 +746,7 @@ class MCJDETracker(object):
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
-        ## ----------
+        ## ----- End with context----------
 
         ## ---------- Process each object class
         for cls_id in range(self.opt.num_classes):
@@ -759,8 +767,8 @@ class MCJDETracker(object):
                 cls_detections = []
 
             '''Add newly detected tracks(current frame) to tracked_tracks'''
-            unconfirmed_dict = defaultdict(list)
-            tracked_tracks_dict = defaultdict(list)
+            ## 分类: 将历史的tracked_tracks按照是否activated分为
+            # 当前帧的unconfirmed和tracked
             for track in self.tracked_tracks_dict[cls_id]:
                 if not track.is_activated:
                     unconfirmed_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
@@ -769,7 +777,6 @@ class MCJDETracker(object):
 
             '''Step 2: First association, with embedding'''
             ## ----- build current frame's track pool by joining tracked_tracks and lost tracks
-            track_pool_dict = defaultdict(list)
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
             # Predict the current location with KF
@@ -792,7 +799,7 @@ class MCJDETracker(object):
                     activated_tracks_dict[cls_id].append(track)  # for multi-class
                 else:  # re-activate the lost track
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                    refind_tracks_dict[cls_id].append(track)
 
             '''Step 3: Second association, with IOU'''
             # match between track pool and unmatched detection in current frame
@@ -813,9 +820,9 @@ class MCJDETracker(object):
                     activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                    refind_tracks_dict[cls_id].append(track)
 
-            ## ----- mark lost if two matching rounds failed
+            ## ----- mark the track lost if two matching rounds failed
             for i in u_track:
                 track = r_tracked_tracks[i]
                 if not track.state == TrackState.Lost:
@@ -829,14 +836,15 @@ class MCJDETracker(object):
             dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detections)
             matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)  # thresh=0.7
 
-            ## ----- matched
+            ## ----- process the matched
             for i_tracked, i_det in matches:
                 unconfirmed_det = cls_detections[i_det]
                 unconfirmed_track = unconfirmed_dict[cls_id][i_tracked]
+
                 unconfirmed_track.update(cls_detections[i_det], self.frame_id)
                 activated_tracks_dict[cls_id].append(unconfirmed_track)
 
-            ## ----- process the [un-matched tracks]
+            ## ----- process the frame's [un-matched tracks]
             for i in u_unconfirmed:
                 track = unconfirmed_dict[cls_id][i]
                 track.mark_removed()
@@ -858,10 +866,10 @@ class MCJDETracker(object):
             """ Step 5: Update state for lost tracks: 
             remove some lost tracks that lost more than max_time(30 frames by default)
             """
-            for track in self.lost_tracks_dict[cls_id]:
-                if self.frame_id - track.end_frame > self.max_time_lost:
-                    track.mark_removed()
-                    removed_tracks_dict[cls_id].append(track)
+            for lost_track in self.lost_tracks_dict[cls_id]:
+                if self.frame_id - lost_track.end_frame > self.max_time_lost:
+                    lost_track.mark_removed()
+                    removed_tracks_dict[cls_id].append(lost_track)
             # print('Remained match {} s'.format(t4-t3))
 
             """Final: Post processing"""
@@ -870,12 +878,11 @@ class MCJDETracker(object):
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
                                                            activated_tracks_dict[cls_id])  # add activated track
             self.tracked_tracks_dict[cls_id] = join_tracks(self.tracked_tracks_dict[cls_id],
-                                                           refined_tracks_dict[cls_id])  # add refined track
+                                                           refind_tracks_dict[cls_id])  # add refined track
             self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
                                                        self.tracked_tracks_dict[cls_id])  # update lost tracks
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
-            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id],
-                                                       self.removed_tracks_dict[cls_id])
+            self.lost_tracks_dict[cls_id] = sub_tracks(self.lost_tracks_dict[cls_id], self.removed_tracks_dict[cls_id])
             self.removed_tracks_dict[cls_id].extend(removed_tracks_dict[cls_id])
             self.tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id] = remove_duplicate_tracks(
                 self.tracked_tracks_dict[cls_id],
