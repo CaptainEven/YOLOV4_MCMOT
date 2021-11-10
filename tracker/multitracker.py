@@ -653,7 +653,7 @@ class MCJDETracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_count(self.opt.num_classes)
+            MCTrack.init_id(self.opt.num_classes)
         # -----
 
         # Get image size

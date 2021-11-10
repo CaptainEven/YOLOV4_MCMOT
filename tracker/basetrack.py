@@ -43,7 +43,7 @@ class MCBaseTrack(object):
 
     # @even: reset track id
     @staticmethod
-    def init_count(num_classes):
+    def init_id(num_classes):
         """
         Initiate _count for all object classes
         :param num_classes:
