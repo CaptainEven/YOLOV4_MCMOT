@@ -145,7 +145,8 @@ class MCTrack(MCBaseTrack):
         self.track_len = 0
         self.frame_id = frame_id
 
-        self.state = TrackState.Tracked  # set flag 'tracked'
+        # set flag 'tracked'
+        self.state = TrackState.Tracked
 
         # set flag 'activated'
         self.is_activated = True
@@ -168,7 +169,9 @@ class MCTrack(MCBaseTrack):
 
         new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
-        self.state = TrackState.Tracked  # set flag 'tracked'
+
+        # set flag 'tracked'
+        self.state = TrackState.Tracked
 
         # set flag 'activated'
         self.is_activated = True
