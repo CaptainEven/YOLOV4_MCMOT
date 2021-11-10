@@ -662,7 +662,7 @@ class MCJDETracker(object):
         # Get net size
         b, c, net_h, net_w = img.shape  # B×C×H×W
 
-        ## Current frame: Record tracking states
+        ## ---------- Current frame: Record tracking states
         unconfirmed_dict = defaultdict(list)
         tracked_tracks_dict = defaultdict(list)
         track_pool_dict = defaultdict(list)
