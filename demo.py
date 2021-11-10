@@ -532,7 +532,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="fair",  # fair or byte
+                                 default="byte",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file
