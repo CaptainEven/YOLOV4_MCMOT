@@ -56,7 +56,7 @@ class MCTrack(MCBaseTrack):
         """
         :return:
         """
-        self.reset_track_count(self.cls_id)
+        self.reset_track_id(self.cls_id)
 
     def update_features(self, feat):
         """
