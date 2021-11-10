@@ -632,7 +632,7 @@ class MCJDETracker(object):
 
         return online_targets
 
-    def update_tracking(self, img, img0):
+    def update_track_fair(self, img, img0):
         """
         Update tracking result of the frame
         :param img:
@@ -666,7 +666,7 @@ class MCJDETracker(object):
             # t1 = torch_utils.time_synchronized()
 
             # ----- get dets and ReID feature-map in net input(net_w, net_h) scale
-            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=self.opt.augment)
+            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=False)
 
             # ----- apply NMS
             pred = non_max_suppression(predictions=pred,
@@ -767,8 +767,8 @@ class MCJDETracker(object):
                 else:
                     tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
-            ''' Step 2: First association, with embedding'''
-            ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
+            '''Step 2: First association, with embedding'''
+            ## ----- build current frame's track pool by joining tracked_tracks and lost tracks
             track_pool_dict = defaultdict(list)
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
@@ -794,7 +794,7 @@ class MCJDETracker(object):
                     track.re_activate(det, self.frame_id, new_id=False)
                     refined_tracks_dict[cls_id].append(track)
 
-            ''' Step 3: Second association, with IOU'''
+            '''Step 3: Second association, with IOU'''
             # match between track pool and unmatched detection in current frame
             cls_detections = [cls_detections[i] for i in u_detection]
             r_tracked_tracks = [track_pool_dict[cls_id][i]
@@ -855,7 +855,9 @@ class MCJDETracker(object):
                 # activated_tarcks_dict may contain track with 'is_activated' False
                 activated_tracks_dict[cls_id].append(track)
 
-            """ Step 5: Update state for lsot tracks: remove some lost tracks"""
+            """ Step 5: Update state for lost tracks: 
+            remove some lost tracks that lost more than max_time(30 frames by default)
+            """
             for track in self.lost_tracks_dict[cls_id]:
                 if self.frame_id - track.end_frame > self.max_time_lost:
                     track.mark_removed()
@@ -1248,6 +1250,11 @@ def join_tracks(tracks_a, tracks_b):
 
 
 def sub_tracks(tracks_a, tracks_b):
+    """
+    :param tracks_a:
+    :param tracks_b:
+    :return:
+    """
     tracks = {}
 
     for t in tracks_a:
@@ -1261,6 +1268,11 @@ def sub_tracks(tracks_a, tracks_b):
 
 
 def remove_duplicate_tracks(tracks_a, tracks_b):
+    """
+    :param tracks_a:
+    :param tracks_b:
+    :return:
+    """
     p_dist = matching.iou_distance(tracks_a, tracks_b)
     pairs = np.where(p_dist < 0.15)
     dup_a, dup_b = list(), list()

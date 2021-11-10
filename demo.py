@@ -1,20 +1,19 @@
 # encoding=utf-8
 
+import argparse
 import os
-
-from ByteTracker.byte_tracker import BYTETracker
-
 import threading
 import torch
-import argparse
 from easydict import EasyDict as edict
-from models import *  # set ONNX_EXPORT in models.py
-from utils.datasets import *
-from utils.utils import *
+
 import utils.torch_utils as torch_utils
+from ByteTracker.byte_tracker import BYTETracker
+from models import *  # set ONNX_EXPORT in models.py
 from tracker.multitracker import JDETracker, MCJDETracker
 from tracking_utils import visualization as vis
 from tracking_utils.io import write_results_dict
+from utils.datasets import *
+from utils.utils import *
 
 
 def format_output(dets, w, h):
@@ -298,7 +297,7 @@ def track_videos_txt(opt):
             # update tracking result of this frame
             if opt.interval == 1:
                 # ---------- Update tracking results of current frame
-                online_targets_dict = tracker.update_tracking(img, img0)
+                online_targets_dict = tracker.update_track_fair(img, img0)
 
                 # ----------
 
@@ -322,7 +321,7 @@ def track_videos_txt(opt):
                     res_dict[cls_id].append((fr_id + 1, online_tlwhs_dict[cls_id], online_ids_dict[cls_id]))
             else:
                 if fr_id % opt.interval == 0:  # skip some frames
-                    online_targets_dict = tracker.update_tracking(img, img0)
+                    online_targets_dict = tracker.update_track_fair(img, img0)
 
                     if online_targets_dict is None:
                         print('[Warning]: Skip frame {:d}.'.format(fr_cnt))
@@ -394,8 +393,8 @@ def track_videos_vid(opt):
         "mot20": False,
         "match_thresh": 0.8,  # 0.8
         "n_classes": 5,
-        "track_buffer": 120,  # 30
-        "track_thresh": 0.5  # 0.5
+        "track_buffer": 30,  # 30
+        "track_thresh": 0.2  # 0.5
     }
     byte_args = edict(byte_args)
     # print(byte_args.track_buffer)
@@ -420,7 +419,7 @@ def track_videos_vid(opt):
 
         # get video name
         src_name = os.path.split(video_path)[-1]
-        name, suffix = src_name.split('.')
+        vid_name, ext = src_name.split('.')
 
         # set sampled frame count
         fr_cnt = 0
@@ -442,14 +441,15 @@ def track_videos_vid(opt):
 
             # Update tracking result of this frame
             if opt.interval == 1:
+                if opt.name == "fair":
+                    # ----- Update tracking result of current frame
+                    online_targets_dict = tracker.update_track_fair(img, img0)
+                    # -----
 
-                # ----- Update tracking result of current frame
-                # online_targets_dict = tracker.update_tracking(img, img0)
-                # -----
-
-                # ----- Using ByteTrack backend
-                online_targets_dict = tracker.update_track_byte(img, img0)
-                # -----
+                elif opt.name == "byte":
+                    # ----- Using ByteTrack backend
+                    online_targets_dict = tracker.update_track_byte(img, img0)
+                    # -----
 
                 if online_targets_dict is None:
                     print('[Warning]: Skip frame {:d}.'.format(fr_id))
@@ -479,7 +479,7 @@ def track_videos_vid(opt):
                 if fr_id % opt.interval == 0:  # skip some frames
 
                     # ----- update tracking result of current frame
-                    online_targets_dict = tracker.update_tracking(img, img0)
+                    online_targets_dict = tracker.update_track_fair(img, img0)
                     # -----
 
                     if online_targets_dict is None:
@@ -514,12 +514,12 @@ def track_videos_vid(opt):
 
         # output tracking result as video: read and write opt.save_img_dir
         print('Zip to mp4 in fps: {:d}'.format(out_fps))
-        result_video_path = opt.save_img_dir + '/' + name + '_track' + '_fps' + str(out_fps) + '.' + suffix
+        result_video_path = opt.save_img_dir + '/' + vid_name\
+                            + '_track' + '_fps' + str(out_fps) + "_" + opt.name + '.' + ext
         cmd_str = 'ffmpeg -f image2 -r {:d} -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}' \
             .format(out_fps, frame_dir, result_video_path)
         print(cmd_str)
         os.system(cmd_str)
-
 
 
 class DemoRunner(object):
@@ -530,6 +530,10 @@ class DemoRunner(object):
                                  type=str,
                                  default='data/mcmot.names',
                                  help='*.names path')
+        self.parser.add_argument("--name",
+                                 type=str,
+                                 default="fair",
+                                 help="")
 
         # ---------- cfg and weights file
         self.parser.add_argument('--cfg',
@@ -595,12 +599,24 @@ class DemoRunner(object):
                                  default=12,  # 12, 24
                                  help='The FPS of output video.')
 
-        self.parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
+        self.parser.add_argument('--output',
+                                 type=str,
+                                 default='output',
+                                 help='output folder')  # output folder
 
         # ---------- Set net input image width and height
-        self.parser.add_argument('--img-size', type=int, default=768, help='Image size')
-        self.parser.add_argument('--net_w', type=int, default=768, help='inference size (pixels)')
-        self.parser.add_argument('--net_h', type=int, default=448, help='inference size (pixels)')
+        self.parser.add_argument('--img-size',
+                                 type=int,
+                                 default=768,
+                                 help='Image size')
+        self.parser.add_argument('--net_w',
+                                 type=int,
+                                 default=768,
+                                 help='inference size (pixels)')
+        self.parser.add_argument('--net_h',
+                                 type=int,
+                                 default=448,
+                                 help='inference size (pixels)')
 
         self.parser.add_argument('--num-classes',
                                  type=int,
@@ -609,7 +625,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=120,  # 30, 60, 90, 120...
+                                 default=30,  # 30, 60, 90, 120...
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
@@ -652,18 +668,22 @@ class DemoRunner(object):
                                  default='Arc',  # Arc
                                  help='FC layer type: FC or Arc')
 
-        self.parser.add_argument('--fourcc',
-                                 type=str,
-                                 default='mp4v',
-                                 help='output video codec (verify ffmpeg support)')
-        self.parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-        self.parser.add_argument('--device', default='7', help='device id (i.e. 0 or 0,1) or cpu')
-        self.parser.add_argument('--view-img', action='store_true', help='display results')
-        self.parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-        self.parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
-        self.parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-        self.parser.add_argument('--show-image', type=bool, default=True, help='whether to show results.')
-        self.parser.add_argument('--augment', action='store_true', help='augmented inference')
+        self.parser.add_argument('--device',
+                                 default='7',
+                                 help='device id (i.e. 0 or 0,1) or cpu')
+        self.parser.add_argument('--view-img',
+                                 action='store_true',
+                                 help='display results')
+        self.parser.add_argument('--save-txt',
+                                 action='store_true',
+                                 help='save results to *.txt')
+        self.parser.add_argument('--classes',
+                                 nargs='+',
+                                 type=int,
+                                 help='filter by class')
+        self.parser.add_argument('--agnostic-nms',
+                                 action='store_true',
+                                 help='class-agnostic NMS')
 
         self.opt = self.parser.parse_args()
 
