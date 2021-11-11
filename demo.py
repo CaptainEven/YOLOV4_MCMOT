@@ -551,7 +551,7 @@ class DemoRunner(object):
         # input file/folder, 0 for webcam
         self.parser.add_argument('--videos',
                                  type=str,
-                                 default='/mnt/diskb/even/YOLOV4/data/videos',
+                                 default='/mnt/diskb/even/YOLOV4/data/videos',  # videos, test_videos
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,

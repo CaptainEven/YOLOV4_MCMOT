@@ -312,6 +312,12 @@ def build_targets_max(target, anchor_wh, nA, nC, nGh, nGw):
 
 
 def generate_anchor(nGh, nGw, anchor_wh):
+    """
+    :param nGh:
+    :param nGw:
+    :param anchor_wh:
+    :return:
+    """
     nA = len(anchor_wh)
     yy, xx = torch.meshgrid(torch.arange(nGh), torch.arange(nGw))
     xx, yy = xx.cuda(), yy.cuda()

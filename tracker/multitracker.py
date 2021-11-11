@@ -593,6 +593,54 @@ class MCJDETracker(object):
 
         return dets
 
+    def update_track_byte_with_emb(self, img, img0):
+        """
+        :param img:
+        :param img0:
+        :return:
+        """
+        # update frame id
+        self.frame_id += 1
+
+        with torch.no_grad():
+            # t1 = torch_utils.time_synchronized()
+
+            # @ ----- get dets
+            pred = None
+
+            if len(self.model.feat_out_ids) == 1:
+                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=False)
+
+            if len(self.model.feat_out_ids) == 1:
+                pred = non_max_suppression(predictions=pred,
+                                           conf_thres=self.opt.conf_thres,
+                                           iou_thres=self.opt.iou_thres,
+                                           merge=False,
+                                           classes=self.opt.classes,
+                                           agnostic=self.opt.agnostic_nms)
+
+            ## ----- Get dets results
+            dets_results = pred[0]  # assume batch_size == 1 here
+
+            if dets_results is None:
+                print('[Warning]: no objects detected.')
+                return None
+
+            ## ----- Get image size and net size
+            b, c, net_h, net_w = img.shape  # net input img size: BCHW
+            img_h, img_w, _ = img0.shape  # img0: H×W×C
+
+            ## ----- Rescale boxes from net size to img size
+            if self.opt.img_proc_method == 'resize':
+                dets_results = map_resize_back(dets_results, self.net_w, self.net_h, img_w, img_h)
+            elif self.opt.img_proc_method == 'letterbox':
+                dets_results = map_to_orig_coords(dets_results, self.net_w, self.net_h, img_w, img_h)
+
+            ## ----- Update tracking results of this frame
+            online_targets = self.backend.update_byte_mcmot1(dets_results)
+
+        return online_targets
+
     def update_track_byte(self, img, img0):
         """
         :param img:
@@ -637,7 +685,7 @@ class MCJDETracker(object):
                 dets_results = map_to_orig_coords(dets_results, self.net_w, self.net_h, img_w, img_h)
 
             ## ----- Update tracking results of this frame
-            online_targets = self.backend.update_mcmot(dets_results)
+            online_targets = self.backend.update_byte_mcmot1(dets_results)
 
         return online_targets
 
@@ -653,7 +701,7 @@ class MCJDETracker(object):
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
-            MCTrack.init_id(self.opt.num_classes)
+            MCTrack.init_id_dict(self.opt.num_classes)
         # -----
 
         # Get image size
@@ -702,7 +750,7 @@ class MCJDETracker(object):
                 dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
             ## ----- Get dets dict and reid feature dict
-            vects_dict = defaultdict(list)  # feature dict
+            feats_dict = defaultdict(list)  # feature dict
             dets_dict = defaultdict(list)  # dets dict
 
             # get reid map
@@ -750,7 +798,7 @@ class MCJDETracker(object):
                 # get reid feature vector and put into a dict
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
-                vects_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+                feats_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
         ## ----- End with context----------
 
         ## ---------- Process each object class
@@ -758,7 +806,7 @@ class MCJDETracker(object):
             cls_dets = dets_dict[cls_id]
             cls_dets = np.array(cls_dets)
 
-            cls_id_feature = vects_dict[cls_id]  # n_objs × 128
+            cls_id_feature = feats_dict[cls_id]  # n_objs × 128
             cls_id_feature = np.array(cls_id_feature)
 
             if len(cls_dets) > 0:
