@@ -687,11 +687,13 @@ class MCJDETracker(object):
                 id_feat_vect = reid_feat_map[0, :, center_y, center_x]
                 id_feat_vect = id_feat_vect.squeeze()
                 feats_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+
         ## ----- End with context----------
 
-        # ----- Update tracking results of this frame
+        ## ----- Update tracking results of this frame
         online_targets = self.backend.update_byte_mcmot_emb(boxes_dict, scores_dict, feats_dict)
 
+        ## return the frame's tracking results
         return online_targets
 
     def update_track_byte(self, img, img0):
@@ -862,15 +864,15 @@ class MCJDETracker(object):
             cls_dets = dets_dict[cls_id]
             cls_dets = np.array(cls_dets)
 
-            cls_id_feature = feats_dict[cls_id]  # n_objs × 128
-            cls_id_feature = np.array(cls_id_feature)
+            cls_id_feat = feats_dict[cls_id]  # n_objs × 128
+            cls_id_feat = np.array(cls_id_feat)
 
             if len(cls_dets) > 0:
                 '''Detections, tlbrs: top left bottom right score'''
                 cls_detections = [
                     MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, cls_id, 30)
                     for (tlbrs, feat) in
-                    zip(cls_dets[:, :5], cls_id_feature)
+                    zip(cls_dets[:, :5], cls_id_feat)
                 ]  # convert detection of current frame to track format
             else:
                 cls_detections = []
