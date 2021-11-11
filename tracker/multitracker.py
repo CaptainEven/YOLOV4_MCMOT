@@ -638,7 +638,7 @@ class MCJDETracker(object):
             boxes_dict = defaultdict(list)    # dets dict
             scores_dict = defaultdict(list)  # scores dict
 
-            # get reid map
+            # ----- Get reid map
             reid_feat_map = reid_feat_out[0]  # for one layer feature map
 
             # L2 normalize the feature map(feature map scale(1/4 of net input size))
@@ -650,7 +650,7 @@ class MCJDETracker(object):
             # get feature map's size
             b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
 
-            # fill discts
+            # ----- Fill the dicts
             for det in dets:
                 # up-zip det
                 x1, y1, x2, y2, score, cls_id = det  # 6
@@ -690,7 +690,7 @@ class MCJDETracker(object):
         ## ----- End with context----------
 
         # ----- Update tracking results of this frame
-        online_targets = self.backend.update_byte_mcmot2(boxes_dict, scores_dict, feats_dict)
+        online_targets = self.backend.update_byte_mcmot_emb(boxes_dict, scores_dict, feats_dict)
 
         return online_targets
 
@@ -741,7 +741,7 @@ class MCJDETracker(object):
             dets_results = dets_results.cpu().numpy()
 
             ## ----- Update tracking results of this frame
-            online_targets = self.backend.update_byte_mcmot1(dets_results)
+            online_targets = self.backend.update_byte_mcmot(dets_results)
 
         return online_targets
 
