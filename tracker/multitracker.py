@@ -593,7 +593,7 @@ class MCJDETracker(object):
 
         return dets
 
-    def update_track_byte_with_emb(self, img, img0):
+    def update_track_byte_emb(self, img, img0):
         """
         :param img:
         :param img0:
@@ -602,14 +602,10 @@ class MCJDETracker(object):
         # update frame id
         self.frame_id += 1
 
+        ## ----- Start with context
         with torch.no_grad():
-            # t1 = torch_utils.time_synchronized()
-
-            # @ ----- get dets
-            pred = None
-
-            if len(self.model.feat_out_ids) == 1:
-                pred, pred_orig, reid_feat_out = self.model.forward(img, augment=False)
+            # ----- get dets and ReID feature-map in net input(net_w, net_h) scale
+            pred, pred_orig, reid_feat_out = self.model.forward(img, augment=False)
 
             if len(self.model.feat_out_ids) == 1:
                 pred = non_max_suppression(predictions=pred,
@@ -620,11 +616,12 @@ class MCJDETracker(object):
                                            agnostic=self.opt.agnostic_nms)
 
             ## ----- Get dets results
-            dets_results = pred[0]  # assume batch_size == 1 here
+            dets = pred[0]  # assume batch_size == 1 here
 
-            if dets_results is None:
+            if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
+            dets = dets.detach().cpu().numpy()
 
             ## ----- Get image size and net size
             b, c, net_h, net_w = img.shape  # net input img size: BCHW
@@ -632,12 +629,68 @@ class MCJDETracker(object):
 
             ## ----- Rescale boxes from net size to img size
             if self.opt.img_proc_method == 'resize':
-                dets_results = map_resize_back(dets_results, self.net_w, self.net_h, img_w, img_h)
+                dets = map_resize_back(dets, self.net_w, self.net_h, img_w, img_h)
             elif self.opt.img_proc_method == 'letterbox':
-                dets_results = map_to_orig_coords(dets_results, self.net_w, self.net_h, img_w, img_h)
+                dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
-            ## ----- Update tracking results of this frame
-            online_targets = self.backend.update_byte_mcmot1(dets_results)
+            ## ----- Get dets dict and reid feature dict
+            feats_dict = defaultdict(list)   # feature dict
+            boxes_dict = defaultdict(list)    # dets dict
+            scores_dict = defaultdict(list)  # scores dict
+
+            # get reid map
+            reid_feat_map = reid_feat_out[0]  # for one layer feature map
+
+            # L2 normalize the feature map(feature map scale(1/4 of net input size))
+            reid_feat_map = F.normalize(reid_feat_map, dim=1)
+
+            # GPU -> CPU
+            reid_feat_map = reid_feat_map.detach().cpu().numpy()
+
+            # get feature map's size
+            b, reid_dim, feat_map_h, feat_map_w = reid_feat_map.shape
+
+            # fill discts
+            for det in dets:
+                # up-zip det
+                x1, y1, x2, y2, score, cls_id = det  # 6
+
+                # put into a dets dict
+                boxes_dict[int(cls_id)].append([x1, y1, x2, y2])
+
+                # put int to scores dict
+                scores_dict[int(cls_id)].append(score)
+
+                # get center point
+                center_x = (x1 + x2) * 0.5
+                center_y = (y1 + y2) * 0.5
+
+                # map center point from net scale to feature map scale(1/4 of net input size)
+                center_x = center_x / float(net_w)
+                center_x = center_x * float(feat_map_w)
+                center_y = center_y / float(net_h)
+                center_y = center_y * float(feat_map_h)
+
+                # rounding and converting to int64 for indexing
+                center_x += 0.5
+                center_y += 0.5
+                center_x = int(center_x)
+                center_y = int(center_y)
+
+                # to avoid the object center out of reid feature map's range
+                center_x = center_x if center_x >= 0 else 0
+                center_x = center_x if center_x < feat_map_w else feat_map_w - 1
+                center_y = center_y if center_y >= 0 else 0
+                center_y = center_y if center_y < feat_map_h else feat_map_h - 1
+
+                # get reid feature vector and put into a dict
+                id_feat_vect = reid_feat_map[0, :, center_y, center_x]
+                id_feat_vect = id_feat_vect.squeeze()
+                feats_dict[int(cls_id)].append(id_feat_vect)  # put feat vect to dict(key: cls_id)
+        ## ----- End with context----------
+
+        # ----- Update tracking results of this frame
+        online_targets = self.backend.update_byte_mcmot2(boxes_dict, scores_dict, feats_dict)
 
         return online_targets
 
@@ -683,6 +736,9 @@ class MCJDETracker(object):
                 dets_results = map_resize_back(dets_results, self.net_w, self.net_h, img_w, img_h)
             elif self.opt.img_proc_method == 'letterbox':
                 dets_results = map_to_orig_coords(dets_results, self.net_w, self.net_h, img_w, img_h)
+
+            ## ---------- detections
+            dets_results = dets_results.cpu().numpy()
 
             ## ----- Update tracking results of this frame
             online_targets = self.backend.update_byte_mcmot1(dets_results)

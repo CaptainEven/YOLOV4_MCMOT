@@ -448,7 +448,7 @@ def track_videos_vid(opt):
 
                 elif opt.name == "byte":
                     # ----- Using ByteTrack backend
-                    online_targets_dict = tracker.update_track_byte(img, img0)
+                    online_targets_dict = tracker.update_track_byte_emb(img, img0)
                     # -----
 
                 if online_targets_dict is None:
@@ -532,7 +532,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="fair",  # fair or byte
+                                 default="byte",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file
