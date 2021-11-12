@@ -625,7 +625,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=60,  # 30, 60, 90, 120...
+                                 default=180,  # 30, 60, 90, 120, 150, 180...
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45
@@ -686,6 +686,7 @@ class DemoRunner(object):
                                  help='class-agnostic NMS')
 
         self.opt = self.parser.parse_args()
+        print("Options:\n", self.opt)
 
     def run(self):
         """

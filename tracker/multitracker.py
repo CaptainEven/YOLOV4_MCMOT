@@ -894,8 +894,8 @@ class MCJDETracker(object):
             # for track in track_pool:
 
             ## ----- kalman prediction for track_pool
-            # MCTrack.multi_predict(track_pool_dict[cls_id])
-            MCTrack.multi_predict(tracked_tracks_dict[cls_id])
+            # MCTrack.multi_predict(track_pool_dict[cls_id])     # predict all track-lets
+            MCTrack.multi_predict(tracked_tracks_dict[cls_id])   # predict only activated track-lets
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)
