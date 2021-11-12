@@ -893,8 +893,9 @@ class MCJDETracker(object):
             # Predict the current location with KF
             # for track in track_pool:
 
-            # kalman prediction for track_pool
-            MCTrack.multi_predict(track_pool_dict[cls_id])
+            ## ----- kalman prediction for track_pool
+            # MCTrack.multi_predict(track_pool_dict[cls_id])
+            MCTrack.multi_predict(tracked_tracks_dict[cls_id])
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)
             dists = matching.fuse_motion(self.kalman_filter, dists, track_pool_dict[cls_id], cls_detections)

@@ -393,7 +393,7 @@ def track_videos_vid(opt):
         "mot20": False,
         "match_thresh": 0.8,  # 0.8
         "n_classes": 5,
-        "track_buffer": 120,  # 30
+        "track_buffer": 180,  # 30 | 60 | 90 | 120 | 150 | 180
         "track_thresh": 0.5  # 0.5
     }
     byte_args = edict(byte_args)
@@ -532,7 +532,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="byte",  # fair or byte
+                                 default="fair",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file
