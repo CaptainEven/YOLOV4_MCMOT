@@ -391,9 +391,9 @@ def track_videos_vid(opt):
     ## ---------- Set ByteTrack backend
     byte_args = {
         "mot20": False,
-        "match_thresh": 0.8,  # 0.8
+        "match_thresh": 0.9,  # 0.8
         "n_classes": 5,
-        "track_buffer": 180,  # 30 | 60 | 90 | 120 | 150 | 180
+        "track_buffer": 210,  # 30 | 60 | 90 | 120 | 150 | 180 | 210
         "track_thresh": 0.5  # 0.5
     }
     byte_args = edict(byte_args)
@@ -532,7 +532,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="fair",  # fair or byte
+                                 default="byte",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file
@@ -625,7 +625,7 @@ class DemoRunner(object):
 
         self.parser.add_argument('--track-buffer',
                                  type=int,
-                                 default=180,  # 30, 60, 90, 120, 150, 180...
+                                 default=30,  # 30, 60, 90, 120, 150, 180...
                                  help='tracking buffer frames')
 
         # ---------- NMS parameters: 0.3, 0.6 or 0.2, 0.45

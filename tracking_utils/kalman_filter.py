@@ -33,7 +33,6 @@ class KalmanFilter(object):
     Object motion follows a constant velocity model. The bounding box location
     (x, y, a, h) is taken as direct observation of the state space (linear
     observation model).
-
     """
 
     def __init__(self):
@@ -41,8 +40,10 @@ class KalmanFilter(object):
 
         # Create Kalman filter model matrices.
         self._motion_mat = np.eye(2 * ndim, 2 * ndim)  # 状态转移矩阵A
+
         for i in range(ndim):
             self._motion_mat[i, ndim + i] = dt
+
         self._update_mat = np.eye(ndim, 2 * ndim)  # 测量矩阵H
 
         # Motion and observation uncertainty are chosen relative to the current
@@ -52,8 +53,8 @@ class KalmanFilter(object):
         self._std_weight_velocity = 1.0 / 160.0
 
     def initiate(self, measurement):
-        """Create track from unassociated measurement.
-
+        """
+        Create track from unassociated measurement.
         Parameters
         ----------
         measurement : ndarray: center_x, center_y, aspect ratio(width/height), height
@@ -66,7 +67,6 @@ class KalmanFilter(object):
             Returns the mean vector (8 dimensional) and covariance matrix (8x8
             dimensional) of the new track. Unobserved velocities are initialized
             to 0 mean.
-
         """
         mean_pos = measurement
         mean_vel = np.zeros_like(mean_pos)
@@ -86,8 +86,8 @@ class KalmanFilter(object):
         return mean, covariance
 
     def predict(self, mean, covariance):
-        """Run Kalman filter prediction step.
-
+        """
+        Run Kalman filter prediction step.
         Parameters
         ----------
         mean : ndarray
@@ -96,7 +96,6 @@ class KalmanFilter(object):
         covariance : ndarray
             The 8x8 dimensional covariance matrix of the object state at the
             previous time step.
-
         Returns
         -------
         (ndarray, ndarray)
@@ -128,21 +127,19 @@ class KalmanFilter(object):
         return mean, covariance
 
     def project(self, mean, covariance):
-        """Project state distribution to measurement space.
-
+        """
+        Project state distribution to measurement space.
         Parameters
         ----------
         mean : ndarray
             The state's mean vector (8 dimensional array).
         covariance : ndarray
             The state's covariance matrix (8x8 dimensional).
-
         Returns
         -------
         (ndarray, ndarray)
             Returns the projected mean and covariance matrix of the given state
             estimate.
-
         """
         std = [
             self._std_weight_position * mean[3],
