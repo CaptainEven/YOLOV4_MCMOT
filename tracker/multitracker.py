@@ -635,7 +635,7 @@ class MCJDETracker(object):
 
             ## ----- Get dets dict and reid feature dict
             feats_dict = defaultdict(list)   # feature dict
-            boxes_dict = defaultdict(list)    # dets dict
+            boxes_dict = defaultdict(list)   # dets dict
             scores_dict = defaultdict(list)  # scores dict
 
             # ----- Get reid map
