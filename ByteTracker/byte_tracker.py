@@ -652,7 +652,7 @@ class BYTETracker(object):
         """
         # Reset tracks dict
         self.tracked_tracks_dict = defaultdict(list)  # value type: list[Track]
-        self.lost_tracks_dict = defaultdict(list)  # value type: list[Track]
+        self.lost_tracks_dict = defaultdict(list)     # value type: list[Track]
         self.removed_tracks_dict = defaultdict(list)  # value type: list[Track]
 
         # Reset frame id
@@ -760,7 +760,8 @@ class BYTETracker(object):
                 if dists_iou.shape[0] > 0:
                     dists_iou = matching.fuse_score(dists_iou, cls_dets_1st)
 
-            dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.8)
+            # dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.9)
+            dists = matching.fuse_costs(dists_iou, dists_emb)
 
             matches, u_track_1st, u_det_1st = matching.linear_assignment(dists, thresh=self.args.match_thresh)
             # matches, u_track_1st, u_det_1st = matching.linear_assignment(dists_iou, thresh=self.args.match_thresh)
@@ -796,7 +797,9 @@ class BYTETracker(object):
             ## ----- embedding matching
             dists_emb = matching.embedding_distance(r_tracked_tracks, cls_dets_2nd)
 
-            dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.8)
+            # dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.9)
+            dists = matching.fuse_costs(dists_iou, dists_emb)
+
             matches, u_track_2nd, u_det_2nd = matching.linear_assignment(dists, thresh=0.5)  # thresh=0.5
 
             # matches, u_track_2nd, u_det_2nd = matching.linear_assignment(dists_iou, thresh=0.7)  # thresh=0.5
@@ -838,7 +841,8 @@ class BYTETracker(object):
                 # dists = matching.fuse_score(dists, cls_dets_1st)
                 dists_iou = matching.fuse_score(dists_iou, cls_dets_remain)
 
-            dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.8)
+            # dists = matching.weight_sum_costs(dists_iou, dists_emb, alpha=0.9)
+            dists = matching.fuse_costs(dists_iou, dists_emb)
 
             matches, u_unconfirmed, u_det_unconfirmed = matching.linear_assignment(dists, thresh=0.7)  # 0.7
 
