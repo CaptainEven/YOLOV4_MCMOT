@@ -397,9 +397,8 @@ def track_videos_vid(opt):
         "track_thresh": 0.5  # 0.5
     }
     byte_args = edict(byte_args)
-    # print(byte_args.track_buffer)
     tracker.backend = BYTETracker(byte_args, frame_rate=30)
-    print(tracker.backend)
+    # print(tracker.backend)
     ## ----------
 
     out_fps = int(float(opt.fps) / float(opt.interval))
