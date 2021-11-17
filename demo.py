@@ -391,9 +391,9 @@ def track_videos_vid(opt):
     ## ---------- Set ByteTrack backend
     byte_args = {
         "mot20": False,
-        "match_thresh": 0.9,  # 0.8
+        "match_thresh": 0.8,  # 0.8
         "n_classes": 5,
-        "track_buffer": 210,  # 30 | 60 | 90 | 120 | 150 | 180 | 210
+        "track_buffer": 240,  # 30 | 60 | 90 | 120 | 150 | 180 | 210 | 240
         "track_thresh": 0.5  # 0.5
     }
     byte_args = edict(byte_args)
