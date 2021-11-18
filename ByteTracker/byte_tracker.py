@@ -7,7 +7,7 @@ from collections import defaultdict, deque
 from ByteTracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
-from utils.utils import box_ioa_np
+from utils.utils import box_ioa_np, get_all_boxes, get_all_other_boxes
 
 
 # Multi-class Track class with embedding(feature vector)
@@ -25,7 +25,8 @@ class MCTrackEmb(MCBaseTrack):
 
         # wait activate
         self._tlwh = np.asarray(tlwh, dtype=np.float)
-        self.kalman_filter = None
+
+        self.KF = None
         self.mean, self.covariance = None, None
 
         ## ----- init is_activated to be False
@@ -76,7 +77,7 @@ class MCTrackEmb(MCBaseTrack):
         mean_state = self.mean.copy()
         if self.state != TrackState.Tracked:
             mean_state[7] = 0
-        self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
+        self.mean, self.covariance = self.KF.predict(mean_state, self.covariance)
 
     @staticmethod
     def multi_predict(tracks):
@@ -105,12 +106,12 @@ class MCTrackEmb(MCBaseTrack):
         :param frame_id:
         :return:
         """
-        self.kalman_filter = kalman_filter
+        self.KF = kalman_filter
 
         # update track id for the object class
         self.track_id = self.next_id(self.cls_id)
 
-        self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
+        self.mean, self.covariance = self.KF.initiate(self.tlwh_to_xyah(self._tlwh))
 
         self.tracklet_len = 0
 
@@ -130,9 +131,9 @@ class MCTrackEmb(MCBaseTrack):
         :return:
         """
         # kalman update
-        self.mean, self.covariance = self.kalman_filter.update(self.mean,
-                                                               self.covariance,
-                                                               self.tlwh_to_xyah(new_track.tlwh))
+        self.mean, self.covariance = self.KF.update(self.mean,
+                                                    self.covariance,
+                                                    self.tlwh_to_xyah(new_track.tlwh))
 
         # feature vector update
         self.update_features(new_track.curr_feat)
@@ -162,7 +163,7 @@ class MCTrackEmb(MCBaseTrack):
         self.track_len += 1
 
         new_tlwh = new_track.tlwh
-        self.mean, self.covariance = self.kalman_filter.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
+        self.mean, self.covariance = self.KF.update(self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
 
         ## ----- Update the states
         self.state = TrackState.Tracked
@@ -181,9 +182,11 @@ class MCTrackEmb(MCBaseTrack):
         """
         if self.mean is None:
             return self._tlwh.copy()
+
         ret = self.mean[:4].copy()
         ret[2] *= ret[3]
         ret[:2] -= ret[2:] / 2
+
         return ret
 
     @property
@@ -195,6 +198,9 @@ class MCTrackEmb(MCBaseTrack):
         ret = self.tlwh.copy()
         ret[2:] += ret[:2]
         return ret
+
+    def box(self):
+        return self.box
 
     @staticmethod
     # @jit(nopython=True)
@@ -372,14 +378,17 @@ class MCTrack(MCBaseTrack):
     @property
     # @jit(nopython=True)
     def tlwh(self):
-        """Get current position in bounding box format `(top left x, top left y,
-                width, height)`.
+        """
+        Get current position in bounding box format
+        `(top left x, top left y, width, height)`.
         """
         if self.mean is None:
             return self._tlwh.copy()
+
         ret = self.mean[:4].copy()
         ret[2] *= ret[3]
-        ret[:2] -= ret[2:] / 2
+        ret[:2] -= ret[2:] * 0.5
+
         return ret
 
     @property
@@ -663,7 +672,7 @@ class BYTETracker(object):
         # Reset kalman filter to stabilize the tracking
         self.kalman_filter = KalmanFilter()
 
-    def get_all_boxes(self, boxes_dict):
+    def update_all_boxes(self, boxes_dict):
         """
         :return:
         """
@@ -724,7 +733,7 @@ class BYTETracker(object):
         output_tracks_dict = defaultdict(list)
 
         # ## ----- @even: Test get all boxes
-        # self.all_boxes = self.get_all_boxes(boxes_dict)
+        self.all_boxes = self.update_all_boxes(boxes_dict)
 
         #################### Even: Start MCMOT
         ## ---------- Process each object class
@@ -783,7 +792,7 @@ class BYTETracker(object):
             '''Add newly detected tracks(current frame) to tracked_tracks'''
             for track in self.tracked_tracks_dict[cls_id]:
                 if not track.is_activated:
-                    unconfirmed_dict[cls_id].append(track)  # record unconfirmed tracks in this frame
+                    unconfirmed_dict[cls_id].append(track)     # record unconfirmed tracks in this frame
                 else:
                     tracked_tracks_dict[cls_id].append(track)  # record tracked tracks of this frame
 
@@ -791,7 +800,7 @@ class BYTETracker(object):
             ## ----- build track pool for the current frame by joining tracked_tracks and lost tracks
             track_pool_dict[cls_id] = join_tracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
 
-            '''Predict the current location with KF
+            '''---------- Predict the current location with KF
             Whether are lost tracks better with KF or not?
             '''
             # MCTrackEmb.multi_predict(track_pool_dict[cls_id])    # predict all tracks in the track pool
@@ -1413,3 +1422,26 @@ def remove_duplicate_tracks(tracks_a, tracks_b):
 #         track.mark_lost()
 #         lost_tracks_dict[cls_id].append(track)
 # ## ---------- Even add ended
+
+
+    # def update_ioa(self, the_box, other_boxes):
+    #     """
+    #     Update intersection over area
+    #     :param the_box:
+    #     :param other_boxes:
+    #     :return:
+    #     """
+    #     ioas = box_ioa_np(the_box, other_boxes)
+    #     self.ioa = np.max(ioas)
+
+    # def update_ioa(self, all_boxes):
+    #     """
+    #     :param all_boxes:
+    #     :return:
+    #     """
+    #     the_box = copy.deepcopy(self.box)
+    #     other_boxes = get_all_other_boxes(all_boxes, the_box)
+    #     other_boxes = np.array(other_boxes)
+    #
+    #     ioas = box_ioa_np(the_box, other_boxes)
+    #     self.ioa = np.max(ioas)

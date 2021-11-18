@@ -185,15 +185,16 @@ class MCTrack(MCBaseTrack):
     @property
     # @jit(nopython=True)
     def tlwh(self):
-        """Get current position in bounding box format `(top left x, top left y,
-                width, height)`.
+        """Get current position in bounding box format `
+        (top left x, top left y, width, height)`.
         """
         if self.mean is None:
             return self._tlwh.copy()
 
         ret = self.mean[:4].copy()
         ret[2] *= ret[3]
-        ret[:2] -= ret[2:] / 2
+        ret[:2] -= ret[2:] * 0.5
+
         return ret
 
     @property
@@ -206,6 +207,7 @@ class MCTrack(MCBaseTrack):
         """
         ret = self.tlwh.copy()
         ret[2:] += ret[:2]
+
         return ret
 
     @staticmethod
@@ -634,8 +636,8 @@ class MCJDETracker(object):
                 dets = map_to_orig_coords(dets, self.net_w, self.net_h, img_w, img_h)
 
             ## ----- Get dets dict and reid feature dict
-            feats_dict = defaultdict(list)   # feature dict
-            boxes_dict = defaultdict(list)   # dets dict
+            feats_dict = defaultdict(list)  # feature dict
+            boxes_dict = defaultdict(list)  # dets dict
             scores_dict = defaultdict(list)  # scores dict
 
             # ----- Get reid map
@@ -895,7 +897,7 @@ class MCJDETracker(object):
             # for track in track_pool:
 
             ## ----- kalman prediction for track_pool
-            MCTrack.multi_predict(track_pool_dict[cls_id])         # predict all track-lets
+            MCTrack.multi_predict(track_pool_dict[cls_id])  # predict all track-lets
             # MCTrack.multi_predict(tracked_tracks_dict[cls_id])   # predict only activated track-lets
 
             dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detections)

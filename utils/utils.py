@@ -17,6 +17,8 @@ import torch.nn.functional as F
 import torchvision
 from pathlib import Path
 from tqdm import tqdm
+import copy
+
 
 # import torch_utils as torch_utils  # , google_utils
 
@@ -518,6 +520,66 @@ def box_iou(box1, box2):
     # inter(N, M) = (rb(N, M, 2) - lt(N, M, 2)).clamp(0).prod(2)
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
     return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+
+
+def box_ioa_torch(box1, box2):
+    """
+    :param box1:
+    :param box2:
+    :return:
+    """
+    # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
+    """
+    Return intersection-over-union (Jaccard index) of boxes.
+    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
+    Arguments:
+        box1 (Tensor[N, 4])
+        box2 (Tensor[M, 4])
+    Returns:
+        iou (Tensor[N, M]): the NxM matrix containing the pairwise
+            IoU values for every element in boxes1 and boxes2
+    """
+
+    def box_area(box):
+        # box = 4xn
+        return (box[2] - box[0]) * (box[3] - box[1])
+
+    area1 = box_area(box1.t())
+    area2 = box_area(box2.t())
+
+    # inter(N, M) = (rb(N, M, 2) - lt(N, M, 2)).clamp(0).prod(2)
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
+    return inter / (area1[:, None] + 1e-6)  # iou = inter / area1
+
+
+def get_all_boxes(boxes_dict):
+    """
+    :return:
+    """
+    N_ClASSES = len(boxes_dict.keys())
+    all_boxes = []
+
+    ## ---------- Process each object class
+    for cls_id in range(N_ClASSES):
+        cls_boxes = copy.deepcopy(boxes_dict[cls_id])
+
+        if cls_id == 0:
+            all_boxes = cls_boxes
+        else:
+            for box in cls_boxes:
+                all_boxes.append(box)
+
+    return all_boxes
+
+
+def get_all_other_boxes(all_boxes, the_box):
+    """
+    :param all_boxes:
+    :param the_box:
+    :return:
+    """
+    the_box = the_box.tolist()
+    return [box for box in all_boxes if box != the_box]
 
 
 def box_iou_np(box1, box2):
