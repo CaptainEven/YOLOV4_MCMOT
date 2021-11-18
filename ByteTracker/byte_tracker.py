@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 from ByteTracker import matching
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 from .kalman_filter import KalmanFilter
+from utils.utils import box_ioa_np
 
 
 # Multi-class Track class with embedding(feature vector)
@@ -689,6 +690,14 @@ class BYTETracker(object):
         """
         return [box for box in all_boxes if box != the_box]
 
+    def get_ioa(self, the_box, other_boxes):
+        """
+        :param the_box:
+        :param other_boxes:
+        :return:
+        """
+        return box_ioa_np(the_box, other_boxes)
+
     def update_byte_mcmot_emb(self, boxes_dict, scores_dict, feats_dict):
         """
         :param boxes_dict:
@@ -714,7 +723,8 @@ class BYTETracker(object):
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
 
-        self.all_boxes = self.get_all_boxes(boxes_dict)
+        # ## ----- @even: Test get all boxes
+        # self.all_boxes = self.get_all_boxes(boxes_dict)
 
         #################### Even: Start MCMOT
         ## ---------- Process each object class
@@ -722,8 +732,13 @@ class BYTETracker(object):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
 
-            ## ----- @even: Test get other boxes
+            # ## ----- @even: Test get other boxes
             # other_boxes = self.get_all_other_boxes(self.all_boxes, cls_boxes[0])
+            # the_box = np.array(cls_boxes[0])
+            # the_box = the_box.reshape(1, -1)
+            # other_boxes = np.array(other_boxes)
+            # ioas = self.get_ioa(the_box, other_boxes)
+            # print(np.max(ioas))
 
             cls_boxes = np.array(cls_boxes)
 

@@ -540,7 +540,25 @@ def box_iou_np(box1, box2):
     inter = wh[:, :, 0] * wh[:, :, 1]  # shape: (n, m)
     box1_area = (box1[:, 2] - box1[:, 0] + 1) * (box1[:, 3] - box1[:, 1] + 1)
     box2_area = (box2[:, 2] - box2[:, 0] + 1) * (box2[:, 3] - box2[:, 1] + 1)
-    iou_matrix = inter / (box1_area[:, None] + box2_area - inter + 1e-5)
+    iou_matrix = inter / (box1_area[:, None] + box2_area - inter + 1e-6)
+
+    return iou_matrix
+
+
+def box_ioa_np(box1, box2):
+    """
+    intersection over area
+    :param box1:
+    :param box2:
+    :return:
+    """
+    lt = np.maximum(box1[:, None, :2], box2[:, :2])  # left_top (x, y)
+    rb = np.minimum(box1[:, None, 2:], box2[:, 2:])  # right_bottom (x, y)
+    wh = np.maximum(rb - lt + 1, 0)  # inter_area (w, h)
+    inter = wh[:, :, 0] * wh[:, :, 1]  # shape: (n, m)
+    box1_area = (box1[:, 2] - box1[:, 0] + 1) * (box1[:, 3] - box1[:, 1] + 1)
+    box2_area = (box2[:, 2] - box2[:, 0] + 1) * (box2[:, 3] - box2[:, 1] + 1)
+    iou_matrix = inter / (box1_area[:, None] + 1e-6)
 
     return iou_matrix
 

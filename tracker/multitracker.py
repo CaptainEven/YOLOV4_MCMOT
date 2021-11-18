@@ -690,8 +690,9 @@ class MCJDETracker(object):
 
         ## ----- End with context----------
 
-        ## ----- Update tracking results of this frame
+        ## ---------- Update tracking results of this frame
         online_targets = self.backend.update_byte_mcmot_emb(boxes_dict, scores_dict, feats_dict)
+        ## ----------
 
         ## return the frame's tracking results
         return online_targets
