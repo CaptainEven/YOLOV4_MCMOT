@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+import copy
 import numpy as np
 from collections import defaultdict, deque
 
@@ -658,8 +659,35 @@ class BYTETracker(object):
         # Reset frame id
         self.frame_id = 0
 
-        # Reset kalman filter to stabilize tracking
+        # Reset kalman filter to stabilize the tracking
         self.kalman_filter = KalmanFilter()
+
+    def get_all_boxes(self, boxes_dict):
+        """
+        :return:
+        """
+        self.all_boxes = []
+
+        ## ---------- Process each object class
+        for cls_id in range(self.num_classes):
+            ## ----- class boxes
+            cls_boxes = copy.deepcopy(boxes_dict[cls_id])
+
+            if cls_id == 0:
+                self.all_boxes = cls_boxes
+            else:
+                for box in cls_boxes:
+                    self.all_boxes.append(box)
+
+        return self.all_boxes
+
+    def get_all_other_boxes(self, all_boxes, the_box):
+        """
+        :param all_boxes:
+        :param the_box:
+        :return:
+        """
+        return [box for box in all_boxes if box != the_box]
 
     def update_byte_mcmot_emb(self, boxes_dict, scores_dict, feats_dict):
         """
@@ -686,11 +714,17 @@ class BYTETracker(object):
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
 
+        self.all_boxes = self.get_all_boxes(boxes_dict)
+
         #################### Even: Start MCMOT
         ## ---------- Process each object class
         for cls_id in range(self.num_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
+
+            ## ----- @even: Test get other boxes
+            # other_boxes = self.get_all_other_boxes(self.all_boxes, cls_boxes[0])
+
             cls_boxes = np.array(cls_boxes)
 
             ## ----- Scaling the boxes to image size
@@ -745,7 +779,7 @@ class BYTETracker(object):
             '''Predict the current location with KF
             Whether are lost tracks better with KF or not?
             '''
-            # MCTrackEmb.multi_predict(track_pool_dict[cls_id])
+            # MCTrackEmb.multi_predict(track_pool_dict[cls_id])    # predict all tracks in the track pool
             MCTrackEmb.multi_predict(tracked_tracks_dict[cls_id])  # predict only tracks(not lost)
 
             # ---------- Matching with Hungarian Algorithm

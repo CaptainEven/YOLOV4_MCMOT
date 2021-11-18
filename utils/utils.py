@@ -6,6 +6,7 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy as np
 import os
 import random
 import shutil
@@ -514,9 +515,34 @@ def box_iou(box1, box2):
     area1 = box_area(box1.t())
     area2 = box_area(box2.t())
 
-    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
+    # inter(N, M) = (rb(N, M, 2) - lt(N, M, 2)).clamp(0).prod(2)
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
     return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+
+
+def box_iou_np(box1, box2):
+    """
+    向量化IOU计算: 利用numpy/pytorch的广播机制, 使用None扩展维度
+    :param box1: (n, 4)
+    :param box2: (m, 4)
+    :return: (n, m)
+    numpy 广播机制 从后向前对齐。 维度为1 的可以重复等价为任意维度
+    eg: (4,3,2)   (3,2)  (3,2)会扩充为(4,3,2)
+        (4,1,2)   (3,2) (4,1,2) 扩充为(4, 3, 2)  (3, 2)扩充为(4, 3,2) 扩充的方法为重复
+    广播会在numpy的函数 如sum, maximun等函数中进行
+    pytorch同理。
+    扩充维度的方法：
+    eg: a  a.shape: (3,2)  a[:, None, :] a.shape: (3, 1, 2) None 对应的维度相当于newaxis
+    """
+    lt = np.maximum(box1[:, None, :2], box2[:, :2])  # left_top (x, y)
+    rb = np.minimum(box1[:, None, 2:], box2[:, 2:])  # right_bottom (x, y)
+    wh = np.maximum(rb - lt + 1, 0)  # inter_area (w, h)
+    inter = wh[:, :, 0] * wh[:, :, 1]  # shape: (n, m)
+    box1_area = (box1[:, 2] - box1[:, 0] + 1) * (box1[:, 3] - box1[:, 1] + 1)
+    box2_area = (box2[:, 2] - box2[:, 0] + 1) * (box2[:, 3] - box2[:, 1] + 1)
+    iou_matrix = inter / (box1_area[:, None] + box2_area - inter + 1e-5)
+
+    return iou_matrix
 
 
 def wh_iou(wh1, wh2):
@@ -2161,7 +2187,7 @@ def cmpTwoVideos(src_root, dst_root,
     videos1 = [src_root + "/" + x for x in os.listdir(src_root) if x.endswith(ext) and flag1 in x]
     videos2 = [src_root + "/" + x for x in os.listdir(src_root) if x.endswith(ext) and flag2 in x]
 
-    assert len(videos1) == len(videos2)
+    # assert len(videos1) == len(videos2)
 
     videos1.sort()
     videos2.sort()
