@@ -690,7 +690,7 @@ def BBOX_IOU_NP(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
         if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
             c_area = cw * ch + 1e-16  # convex area
             iou = iou - (c_area - union) / c_area  # GIoU
-            iou = iou.squeeze()
+            iou = iou[:, :, 0]
             return iou
 
         if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
@@ -701,17 +701,17 @@ def BBOX_IOU_NP(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
             rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
             if DIoU:
                 iou = iou - rho2 / c2  # DIoU
-                iou = iou.squeeze()
+                iou = iou[:, :, 0]
                 return iou
 
             elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
                 v = (4 / math.pi ** 2) * np.power(np.arctan(w2 / h2) - np.arctan(w1 / h1), 2)
                 alpha = v / (1 - iou + v)
                 iou = iou - (rho2 / c2 + v * alpha)  # CIoU
-                iou = iou.squeeze()
+                iou = iou[:, :, 0]
                 return iou
 
-    iou = iou.squeeze()
+    iou = iou[:, :, 0]
     return iou
 
 
@@ -796,7 +796,7 @@ def BBOX_ALPHA_IOU_NP(box1, box2,
         if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
             c_area = cw * ch + eps  # convex area
             iou = iou - (c_area - union) / c_area  # GIoU
-            iou = iou.squeeze()
+            iou = iou[:, :, 0]
             return iou
 
         if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
@@ -807,17 +807,17 @@ def BBOX_ALPHA_IOU_NP(box1, box2,
             rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
             if DIoU:
                 iou = iou - rho2 / c2  # DIoU
-                iou = iou.squeeze()
+                iou = iou[:, :, 0]
                 return iou
 
             elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
                 v = (4 / math.pi ** 2) * np.power(np.arctan(w2 / h2) - np.arctan(w1 / h1), 2)
                 alpha = v / (1 - iou + v + eps)
                 iou = iou - (rho2 / c2 + v * alpha)  # CIoU
-                iou = iou.squeeze()
+                iou = iou[:, :, 0]
                 return iou
 
-    iou = iou.squeeze()
+    iou = iou[:, :, 0]
     return iou
 
 

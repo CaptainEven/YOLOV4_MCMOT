@@ -7,7 +7,7 @@ import scipy
 from cython_bbox import bbox_overlaps as bbox_ious
 from scipy.spatial.distance import cdist
 from yolox.tracker import kalman_filter
-from utils.utils import box_iou_np, BBOX_ALPHA_IOU_NP
+from utils.utils import box_iou_np, BBOX_IOU_NP, BBOX_ALPHA_IOU_NP
 
 
 def merge_matches(m1, m2, shape):
@@ -84,9 +84,9 @@ def ious(a_tlbrs, b_tlbrs):
     if ious.size == 0:
         return ious
 
-    box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
-    box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
-    ious = bbox_ious(box1, box2)
+    # box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
+    # box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
+    # ious = bbox_ious(box1, box2)
 
     ## ---------- TODO: using more advanced IOUs: CIOU, alpha-IOU...
     # ious = box_iou_np(
@@ -94,9 +94,9 @@ def ious(a_tlbrs, b_tlbrs):
     #     np.ascontiguousarray(b_tlbrs, dtype=np.float)
     # )
 
-    # box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
-    # box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
-    # ious = BBOX_IOU_NP(box1, box2, x1y1x2y2=True, CIoU=True)
+    box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
+    box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
+    ious = BBOX_IOU_NP(box1, box2, x1y1x2y2=True, CIoU=True)
 
     return ious
 
@@ -242,7 +242,11 @@ def fuse_score(cost_matrix, detections):
 
     iou_sim = 1.0 - cost_matrix
     det_scores = np.array([det.score for det in detections])
-    det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
+
+    try:
+        det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
+    except Exception as e:
+        print(e)
 
     fuse_sim = iou_sim * det_scores
     fuse_cost = 1.0 - fuse_sim
