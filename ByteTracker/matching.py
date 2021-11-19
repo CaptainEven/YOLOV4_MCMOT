@@ -88,7 +88,7 @@ def ious(a_tlbrs, b_tlbrs):
     box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
     ious = bbox_ious(box1, box2)
 
-    ## ---------- TODO: using more advanced IOUs: CIOU, alpha-IOU...
+    ## ---------- using more advanced IOUs: CIOU, alpha-IOU...
     # ious = box_iou_np(
     #     np.ascontiguousarray(a_tlbrs, dtype=np.float),
     #     np.ascontiguousarray(b_tlbrs, dtype=np.float)
