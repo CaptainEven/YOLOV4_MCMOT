@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+import copy
 import cv2
 import glob
 import math
@@ -17,10 +18,9 @@ import torch.nn.functional as F
 import torchvision
 from pathlib import Path
 from tqdm import tqdm
-import copy
-
 
 # import torch_utils as torch_utils  # , google_utils
+from .torch_utils import init_seeds
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -82,14 +82,14 @@ def SSIM(vect_1, vect_2):
     return ssim / denom
 
 
-def init_seeds(seed=0):
-    """
-    :param seed:
-    :return:
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch_utils.init_seeds(seed=seed)
+# def init_seeds(seed=0):
+#     """
+#     :param seed:
+#     :return:
+#     """
+#     random.seed(seed)
+#     np.random.seed(seed)
+#     init_seeds(seed=seed)
 
 
 def check_git_status():
@@ -437,10 +437,10 @@ def compute_ap(recall, precision):
     return ap
 
 
-def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
+def BBOX_IOU_TORCH(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
     """
-    :param box1:
-    :param box2:
+    :param box1: 4×N
+    :param box2: N×4
     :param x1y1x2y2:
     :param GIoU:
     :param DIoU:
@@ -448,7 +448,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
     :return:
     """
     # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
-    box2 = box2.t()
+    box2 = box2.t()  # N×4 ——> 4×N
 
     # Get the coordinates of bounding boxes
     if x1y1x2y2:  # x1, y1, x2, y2 = box1
@@ -473,16 +473,20 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
     if GIoU or DIoU or CIoU:
         cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
+
         if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
             c_area = cw * ch + 1e-16  # convex area
             return iou - (c_area - union) / c_area  # GIoU
+
         if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
             # convex diagonal squared
             c2 = cw ** 2 + ch ** 2 + 1e-16
-            # centerpoint distance squared
+
+            # center-point distance squared
             rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
             if DIoU:
                 return iou - rho2 / c2  # DIoU
+
             elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
                 v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
                 with torch.no_grad():
@@ -492,7 +496,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
     return iou
 
 
-def box_iou(box1, box2):
+def box_iou_torch(box1, box2):
     """
     :param box1:
     :param box2:
@@ -549,7 +553,7 @@ def box_ioa_torch(box1, box2):
 
     # inter(N, M) = (rb(N, M, 2) - lt(N, M, 2)).clamp(0).prod(2)
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
-    return inter / (area1[:, None] + 1e-6)  # iou = inter / area1
+    return inter / (area1[:, None] + 1e-16)  # iou = inter / area1
 
 
 def get_all_boxes(boxes_dict):
@@ -578,6 +582,7 @@ def get_all_other_boxes(all_boxes, the_box):
     :param the_box:
     :return:
     """
+    # if isinstance()
     the_box = the_box.tolist()
     return [box for box in all_boxes if box != the_box]
 
@@ -598,13 +603,222 @@ def box_iou_np(box1, box2):
     """
     lt = np.maximum(box1[:, None, :2], box2[:, :2])  # left_top (x, y)
     rb = np.minimum(box1[:, None, 2:], box2[:, 2:])  # right_bottom (x, y)
+
     wh = np.maximum(rb - lt + 1, 0)  # inter_area (w, h)
     inter = wh[:, :, 0] * wh[:, :, 1]  # shape: (n, m)
+
     box1_area = (box1[:, 2] - box1[:, 0] + 1) * (box1[:, 3] - box1[:, 1] + 1)
     box2_area = (box2[:, 2] - box2[:, 0] + 1) * (box2[:, 3] - box2[:, 1] + 1)
-    iou_matrix = inter / (box1_area[:, None] + box2_area - inter + 1e-6)
+    union = box1_area[:, None] + box2_area - inter
+    iou_matrix = inter / (union + 1e-16)
 
     return iou_matrix
+
+
+def BBOX_IOU_NP(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
+    """
+    :param box1: N×4
+    :param box2: N×4
+    :param x1y1x2y2:
+    :param GIoU:
+    :param DIoU:
+    :param CIoU:
+    :return:
+    """
+    # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
+    box1 = box1.T
+    box2 = box2.T
+
+    # Get the coordinates of bounding boxes
+    if x1y1x2y2:  # x1, y1, x2, y2 = box1
+        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
+    else:  # transform from xywh to xyxy
+        b1_x1, b1_x2 = box1[0] - box1[2] / 2, box1[0] + box1[2] / 2
+        b1_y1, b1_y2 = box1[1] - box1[3] / 2, box1[1] + box1[3] / 2
+
+        b2_x1, b2_x2 = box2[0] - box2[2] / 2, box2[0] + box2[2] / 2
+        b2_y1, b2_y2 = box2[1] - box2[3] / 2, box2[1] + box2[3] / 2
+
+    b1_x2 = b1_x2.reshape(-1, 1)
+    b2_x2 = b2_x2.reshape(-1, 1)
+    b1_x2 = b1_x2[:, None, :]
+    b2_x2 = b2_x2[None, :, :]
+
+    b1_x1 = b1_x1.reshape(-1, 1)
+    b2_x1 = b2_x1.reshape(-1, 1)
+    b1_x1 = b1_x1[:, None, :]
+    b2_x1 = b2_x1[None, :, :]
+
+    r = np.minimum(b1_x2, b2_x2)
+    l = np.maximum(b1_x1, b2_x1)
+    r = r.clip(0)
+    l = l.clip(0)
+    inter_w = r - l
+
+    b1_y2 = b1_y2.reshape(-1, 1)
+    b2_y2 = b2_y2.reshape(-1, 1)
+    b1_y2 = b1_y2[:, None, :]
+    b2_y2 = b2_y2[None, :, :]
+
+    b1_y1 = b1_y1.reshape(-1, 1)
+    b2_y1 = b2_y1.reshape(-1, 1)
+    b1_y1 = b1_y1[:, None, :]
+    b2_y1 = b2_y1[None, :, :]
+
+    b = np.minimum(b1_y2, b2_y2)
+    t = np.maximum(b1_y1, b2_y1)
+    b = b.clip(0)
+    t = t.clip(0)
+    inter_h = b - t
+
+    inter = inter_w * inter_h
+    # inter = inter.squeeze()
+
+    # Union Area
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
+    area1 = w1 * h1
+    area2 = w2 * h2
+    union = area1 + area2 - inter
+
+    iou = inter / (union + 1e-16)  # iou
+    if GIoU or DIoU or CIoU:
+        cw = np.maximum(b1_x2, b2_x2) - np.minimum(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        ch = np.maximum(b1_y2, b2_y2) - np.minimum(b1_y1, b2_y1)  # convex height
+
+        if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
+            c_area = cw * ch + 1e-16  # convex area
+            iou = iou - (c_area - union) / c_area  # GIoU
+            iou = iou.squeeze()
+            return iou
+
+        if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+            # convex diagonal squared
+            c2 = cw ** 2 + ch ** 2 + 1e-16
+
+            # center-point distance squared
+            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
+            if DIoU:
+                iou = iou - rho2 / c2  # DIoU
+                iou = iou.squeeze()
+                return iou
+
+            elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+                v = (4 / math.pi ** 2) * np.power(np.arctan(w2 / h2) - np.arctan(w1 / h1), 2)
+                alpha = v / (1 - iou + v)
+                iou = iou - (rho2 / c2 + v * alpha)  # CIoU
+                iou = iou.squeeze()
+                return iou
+
+    iou = iou.squeeze()
+    return iou
+
+
+def BBOX_ALPHA_IOU_NP(box1, box2,
+                      x1y1x2y2=True,
+                      GIoU=False, DIoU=False, CIoU=False,
+                      eps=1e-10, alpha=2):
+    """
+    :param box1:
+    :param box2:
+    :param x1y1x2y2:
+    :param GIoU:
+    :param DIoU:
+    :param CIoU:
+    :param eps:
+    :param alpha:
+    :return:
+    """
+    # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
+    box1 = box1.T
+    box2 = box2.T
+
+    # Get the coordinates of bounding boxes
+    if x1y1x2y2:  # x1, y1, x2, y2 = box1
+        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
+    else:  # transform from xywh to xyxy
+        b1_x1, b1_x2 = box1[0] - box1[2] / 2, box1[0] + box1[2] / 2
+        b1_y1, b1_y2 = box1[1] - box1[3] / 2, box1[1] + box1[3] / 2
+
+        b2_x1, b2_x2 = box2[0] - box2[2] / 2, box2[0] + box2[2] / 2
+        b2_y1, b2_y2 = box2[1] - box2[3] / 2, box2[1] + box2[3] / 2
+
+    b1_x2 = b1_x2.reshape(-1, 1)
+    b2_x2 = b2_x2.reshape(-1, 1)
+    b1_x2 = b1_x2[:, None, :]
+    b2_x2 = b2_x2[None, :, :]
+
+    b1_x1 = b1_x1.reshape(-1, 1)
+    b2_x1 = b2_x1.reshape(-1, 1)
+    b1_x1 = b1_x1[:, None, :]
+    b2_x1 = b2_x1[None, :, :]
+
+    r = np.minimum(b1_x2, b2_x2)
+    l = np.maximum(b1_x1, b2_x1)
+    r = r.clip(0)
+    l = l.clip(0)
+    inter_w = r - l
+
+    b1_y2 = b1_y2.reshape(-1, 1)
+    b2_y2 = b2_y2.reshape(-1, 1)
+    b1_y2 = b1_y2[:, None, :]
+    b2_y2 = b2_y2[None, :, :]
+
+    b1_y1 = b1_y1.reshape(-1, 1)
+    b2_y1 = b2_y1.reshape(-1, 1)
+    b1_y1 = b1_y1[:, None, :]
+    b2_y1 = b2_y1[None, :, :]
+
+    b = np.minimum(b1_y2, b2_y2)
+    t = np.maximum(b1_y1, b2_y1)
+    b = b.clip(0)
+    t = t.clip(0)
+    inter_h = b - t
+
+    inter = inter_w * inter_h
+    # inter = inter.squeeze()
+
+    # Union Area
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
+    area1 = w1 * h1
+    area2 = w2 * h2
+    union = area1 + area2 - inter
+
+    # iou = inter / (union + eps)  # iou
+    iou = np.power(inter / union + eps, alpha)
+    if GIoU or DIoU or CIoU:
+        cw = np.maximum(b1_x2, b2_x2) - np.minimum(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        ch = np.maximum(b1_y2, b2_y2) - np.minimum(b1_y1, b2_y1)  # convex height
+
+        if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
+            c_area = cw * ch + eps  # convex area
+            iou = iou - (c_area - union) / c_area  # GIoU
+            iou = iou.squeeze()
+            return iou
+
+        if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+            # convex diagonal squared
+            c2 = cw ** 2 + ch ** 2 + 1e-16
+
+            # center-point distance squared
+            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
+            if DIoU:
+                iou = iou - rho2 / c2  # DIoU
+                iou = iou.squeeze()
+                return iou
+
+            elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+                v = (4 / math.pi ** 2) * np.power(np.arctan(w2 / h2) - np.arctan(w1 / h1), 2)
+                alpha = v / (1 - iou + v + eps)
+                iou = iou - (rho2 / c2 + v * alpha)  # CIoU
+                iou = iou.squeeze()
+                return iou
+
+    iou = iou.squeeze()
+    return iou
 
 
 def box_ioa_np(box1, box2):
@@ -620,7 +834,7 @@ def box_ioa_np(box1, box2):
     inter = wh[:, :, 0] * wh[:, :, 1]  # shape: (n, m)
     box1_area = (box1[:, 2] - box1[:, 0] + 1) * (box1[:, 3] - box1[:, 1] + 1)
     box2_area = (box2[:, 2] - box2[:, 0] + 1) * (box2[:, 3] - box2[:, 1] + 1)
-    iou_matrix = inter / (box1_area[:, None] + 1e-6)
+    iou_matrix = inter / (box1_area[:, None] + 1e-16)
 
     return iou_matrix
 
@@ -643,6 +857,11 @@ def wh_iou(wh1, wh2):
 class FocalLoss(nn.Module):
     # Wraps focal loss_funcs around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
     def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
+        """
+        :param loss_fcn:
+        :param gamma:
+        :param alpha:
+        """
         super(FocalLoss, self).__init__()
         self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
         self.gamma = gamma
@@ -651,6 +870,11 @@ class FocalLoss(nn.Module):
         self.loss_fcn.reduction = 'none'  # required to apply FL to each element
 
     def forward(self, pred, true):
+        """
+        :param pred:
+        :param true:
+        :return:
+        """
         loss = self.loss_fcn(pred, true)
         # p_t = torch.exp(-loss_funcs)
         # loss_funcs *= self.alpha * (1.000001 - p_t) ** self.gamma  # non-zero power for gradient stability
@@ -746,7 +970,8 @@ def compute_loss_one_layer(preds, reid_feat_out,
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
-            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
+            g_iou = BBOX_IOU_TORCH(p_box.t(), t_box[i], x1y1x2y2=False,
+                                   GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if reduction == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
                 t_obj.dtype)  # g_iou ratio taken into account
@@ -851,6 +1076,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
     loss = torch.exp(-s_det) * l_det \
            + torch.exp(-s_id) * l_reid \
            + (s_det + s_id)
+
     return loss, torch.cat((l_box, l_obj, l_cls, l_reid, loss)).detach()
 
 
@@ -913,7 +1139,8 @@ def compute_loss_no_upsample(preds, reid_feat_out, targets, track_ids, model):
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
-            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
+            g_iou = BBOX_IOU_TORCH(p_box.t(), t_box[i], x1y1x2y2=False,
+                                   GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
                 t_obj.dtype)  # g_iou ratio taken into account
@@ -1062,7 +1289,8 @@ def compute_loss_with_ids(preds, reid_feat_out, targets, track_ids, model):
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
-            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation: in YOLO layer's scale
+            g_iou = BBOX_IOU_TORCH(p_box.t(), t_box[i], x1y1x2y2=False,
+                                   GIoU=True)  # g_iou computation: in YOLO layer's scale
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gy, gx] = (1.0 - model.gr) + model.gr * g_iou.detach().clamp(0).type(
                 t_obj.dtype)  # g_iou ratio taken into account
@@ -1200,7 +1428,7 @@ def compute_loss(preds, targets, model):  # predictions, targets, model
             pxy = torch.sigmoid(pred_s[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
             pwh = torch.exp(pred_s[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             p_box = torch.cat((pxy, pwh), 1)  # predicted bounding box
-            g_iou = bbox_iou(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
+            g_iou = BBOX_IOU_TORCH(p_box.t(), t_box[i], x1y1x2y2=False, GIoU=True)  # g_iou computation
             l_box += (1.0 - g_iou).sum() if red == 'sum' else (1.0 - g_iou).mean()  # g_iou loss_funcs
             t_obj[b, a, gj, gi] = (1.0 - model.gr) \
                                   + model.gr * g_iou.detach().clamp(0).type(
@@ -1462,7 +1690,7 @@ def non_max_suppression_debug(predictions,
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                iou = box_iou_torch(boxes[i], boxes) > iou_thres  # iou matrix
                 weights = iou * scores[None]  # box weights
                 x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
                 if redundant:
@@ -1566,7 +1794,7 @@ def non_max_suppression_with_yolo_inds(predictions,
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                iou = box_iou_torch(boxes[i], boxes) > iou_thres  # iou matrix
                 weights = iou * scores[None]  # box weights
                 x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
                 if redundant:
@@ -1664,7 +1892,7 @@ def non_max_suppression(predictions,
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+                iou = box_iou_torch(boxes[i], boxes) > iou_thres  # iou matrix
                 weights = iou * scores[None]  # box weights
                 x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
                 if redundant:

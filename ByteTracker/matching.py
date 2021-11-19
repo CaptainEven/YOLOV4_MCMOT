@@ -7,6 +7,7 @@ import scipy
 from cython_bbox import bbox_overlaps as bbox_ious
 from scipy.spatial.distance import cdist
 from yolox.tracker import kalman_filter
+from utils.utils import box_iou_np, BBOX_ALPHA_IOU_NP
 
 
 def merge_matches(m1, m2, shape):
@@ -83,10 +84,19 @@ def ious(a_tlbrs, b_tlbrs):
     if ious.size == 0:
         return ious
 
-    ious = bbox_ious(
-        np.ascontiguousarray(a_tlbrs, dtype=np.float),
-        np.ascontiguousarray(b_tlbrs, dtype=np.float)
-    )
+    box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
+    box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
+    ious = bbox_ious(box1, box2)
+
+    ## ---------- TODO: using more advanced IOUs: CIOU, alpha-IOU...
+    # ious = box_iou_np(
+    #     np.ascontiguousarray(a_tlbrs, dtype=np.float),
+    #     np.ascontiguousarray(b_tlbrs, dtype=np.float)
+    # )
+
+    # box1 = np.ascontiguousarray(a_tlbrs, dtype=np.float)
+    # box2 = np.ascontiguousarray(b_tlbrs, dtype=np.float)
+    # ious = BBOX_IOU_NP(box1, box2, x1y1x2y2=True, CIoU=True)
 
     return ious
 
@@ -115,8 +125,8 @@ def iou_distance(a_tracks, b_tracks):
 def v_iou_distance(a_tracks, b_tracks):
     """
     Compute cost based on IoU
-    :type a_tracks: list[STrack]
-    :type b_tracks: list[STrack]
+    :type a_tracks: list[Track]
+    :type b_tracks: list[Track]
     :rtype cost_matrix np.ndarray
     """
     if (len(a_tracks) > 0 and isinstance(a_tracks[0], np.ndarray)) or (
@@ -162,13 +172,16 @@ def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
     """
     if cost_matrix.size == 0:
         return cost_matrix
+
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
     measurements = np.asarray([det.to_xyah() for det in detections])
+
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position)
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
+
     return cost_matrix
 
 
@@ -184,14 +197,17 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
     """
     if cost_matrix.size == 0:
         return cost_matrix
+
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
     measurements = np.asarray([det.to_xyah() for det in detections])
+
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
+
     return cost_matrix
 
 
@@ -227,6 +243,7 @@ def fuse_score(cost_matrix, detections):
     iou_sim = 1.0 - cost_matrix
     det_scores = np.array([det.score for det in detections])
     det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
+
     fuse_sim = iou_sim * det_scores
     fuse_cost = 1.0 - fuse_sim
 

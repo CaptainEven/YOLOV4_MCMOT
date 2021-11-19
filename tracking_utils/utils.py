@@ -1,11 +1,12 @@
+# encoding=utf-8
+
+import cv2
 import glob
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import os.path as osp
 import random
-
-import cv2
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision.ops import nms
@@ -17,15 +18,27 @@ np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format}) 
 
 
 def mkdir_if_missing(d):
+    """
+    :param d:
+    :return:
+    """
     if not osp.exists(d):
         os.makedirs(d)
 
 
 def float3(x):  # format floats to 3 decimals
+    """
+    :param x:
+    :return:
+    """
     return float(format(x, '.3f'))
 
 
 def init_seeds(seed=0):
+    """
+    :param seed:
+    :return:
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -43,6 +56,10 @@ def load_classes(path):
 
 
 def model_info(model):  # Plots a line-by-line description of a PyTorch model
+    """
+    :param model:
+    :return:
+    """
     n_p = sum(x.numel() for x in model.parameters())  # number parameters
     n_g = sum(x.numel() for x in model.parameters() if x.requires_grad)  # number gradients
     print('\n%5s %50s %9s %12s %20s %12s %12s' % ('layer', 'name', 'gradient', 'parameters', 'shape', 'mu', 'sigma'))
@@ -54,6 +71,14 @@ def model_info(model):  # Plots a line-by-line description of a PyTorch model
 
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):  # Plots one bounding box on image img
+    """
+    :param x:
+    :param img:
+    :param color:
+    :param label:
+    :param line_thickness:
+    :return:
+    """
     tl = line_thickness or round(0.0004 * max(img.shape[0:2])) + 1  # line thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
@@ -67,15 +92,23 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):  # Plots 
 
 
 def weights_init_normal(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    """
+    :param m:
+    :return:
+    """
+    class_name = m.__class__.__name__
+    if class_name.find('Conv') != -1:
         torch.nn.init.normal_(m.weight.data, 0.0, 0.03)
-    elif classname.find('BatchNorm2d') != -1:
+    elif class_name.find('BatchNorm2d') != -1:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.03)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
 
 def xyxy2xywh(x):
+    """
+    :param x:
+    :return:
+    """
     # Convert bounding box format from [x1, y1, x2, y2] to [x, y, w, h]
     y = torch.zeros(x.shape) if x.dtype is torch.float32 else np.zeros(x.shape)
     y[:, 0] = (x[:, 0] + x[:, 2]) / 2
@@ -86,6 +119,10 @@ def xyxy2xywh(x):
 
 
 def xywh2xyxy(x):
+    """
+    :param x:
+    :return:
+    """
     # Convert bounding box format from [x, y, w, h] to [x1, y1, x2, y2]
     y = torch.zeros(x.shape) if x.dtype is torch.float32 else np.zeros(x.shape)
     y[:, 0] = (x[:, 0] - x[:, 2] / 2)
@@ -96,6 +133,12 @@ def xywh2xyxy(x):
 
 
 def scale_coords(img_size, coords, img0_shape):
+    """
+    :param img_size:
+    :param coords:
+    :param img0_shape:
+    :return:
+    """
     # Rescale x1, y1, x2, y2 from 416 to image size
     gain_w = float(img_size[0]) / img0_shape[1]  # gain  = old / new
     gain_h = float(img_size[1]) / img0_shape[0]
@@ -217,8 +260,10 @@ def bbox_iou(box1, box2, x1y1x2y2=False):
     inter_rect_y1 = torch.max(b1_y1.unsqueeze(1), b2_y1)
     inter_rect_x2 = torch.min(b1_x2.unsqueeze(1), b2_x2)
     inter_rect_y2 = torch.min(b1_y2.unsqueeze(1), b2_y2)
+
     # Intersection area
     inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1, 0) * torch.clamp(inter_rect_y2 - inter_rect_y1, 0)
+
     # Union Area
     b1_area = ((b1_x2 - b1_x1) * (b1_y2 - b1_y1))
     b1_area = ((b1_x2 - b1_x1) * (b1_y2 - b1_y1)).view(-1, 1).expand(N, M)
@@ -238,6 +283,7 @@ def build_targets_max(target, anchor_wh, nA, nC, nGh, nGw):
     tconf = torch.LongTensor(nB, nA, nGh, nGw).fill_(0).cuda()
     tcls = torch.ByteTensor(nB, nA, nGh, nGw, nC).fill_(0).cuda()  # nC = number of classes
     tid = torch.LongTensor(nB, nA, nGh, nGw, 1).fill_(-1).cuda()
+
     for b in range(nB):
         t = target[b]
         t_id = t[:, 1].clone().long().cuda()
