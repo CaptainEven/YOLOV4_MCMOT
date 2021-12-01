@@ -377,7 +377,7 @@ def track_videos_vid(opt):
         shutil.rmtree(frame_dir)
         os.makedirs(frame_dir)
 
-    # class name to class id and class id to class name
+    ## ----- class name to class id and class id to class name
     names = load_classes(opt.names)
     id2cls = defaultdict(str)
     cls2id = defaultdict(int)
@@ -454,7 +454,7 @@ def track_videos_vid(opt):
                     print('[Warning]: Skip frame {:d}.'.format(fr_id))
                     continue
 
-                # aggregate current frame's results for each object class
+                ## ---------- aggregate current frame's results for each object class
                 online_tlwhs_dict = defaultdict(list)
                 online_ids_dict = defaultdict(list)
                 for cls_id in range(opt.num_classes):  # process each object class
@@ -531,7 +531,7 @@ class DemoRunner(object):
                                  help='*.names path')
         self.parser.add_argument("--name",
                                  type=str,
-                                 default="byte",  # fair or byte
+                                 default="fair",  # fair or byte
                                  help="")
 
         # ---------- cfg and weights file
@@ -550,7 +550,7 @@ class DemoRunner(object):
         # input file/folder, 0 for webcam
         self.parser.add_argument('--videos',
                                  type=str,
-                                 default='/mnt/diskb/even/YOLOV4/data/test_videos',  # videos, test_videos
+                                 default='/mnt/diskb/even/YOLOV4/data/videos',  # videos, test_videos
                                  help='')  # 'data/samples/videos/'
         self.parser.add_argument('--source',  # for detection
                                  type=str,

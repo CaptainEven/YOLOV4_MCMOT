@@ -15,15 +15,26 @@ import cv2
 
 
 def tlwhs_to_tlbrs(tlwhs):
+    """
+    :param tlwhs:
+    :return:
+    """
     tlbrs = np.copy(tlwhs)
+
     if len(tlbrs) == 0:
         return tlbrs
+
     tlbrs[:, 2] += tlwhs[:, 0]
     tlbrs[:, 3] += tlwhs[:, 1]
+
     return tlbrs
 
 
 def get_color(idx):
+    """
+    :param idx:
+    :return:
+    """
     if idx == 0:
         idx += 10
     idx *= 3
@@ -33,6 +44,11 @@ def get_color(idx):
 
 
 def resize_image(image, max_size=800):
+    """
+    :param image:
+    :param max_size:
+    :return:
+    """
     if max(image.shape[:2]) > max_size:
         scale = float(max_size) / max(image.shape[:2])
         image = cv2.resize(image, None, fx=scale, fy=scale)

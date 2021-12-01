@@ -454,6 +454,7 @@ def gen_mcmot_data(img_root, out_f_path):
                     continue
 
                 w_h.write(img_path + '\n')
+    print("{:s} written done.".format(out_f_path))
 
 
 def FindFileWithSuffix(root, suffix, f_list):
@@ -518,7 +519,9 @@ def test_model_md5(model_path):
 
 if __name__ == '__main__':
     ## ----------
-    DATASET = 'MCMOT'  # MCMOT or PLM or MCMOT_Vendor
+    # DATASET = 'MCMOT'  # MCMOT, PLM, MCMOT_Vendor
+    DATASET = 'MCMOT_TEST'  # MCMOT, PLM, MCMOT_Vendor
+
     dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
                            one_plus=False,
                            dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),

@@ -7,7 +7,6 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy as np
 import os
 import random
 import shutil
@@ -1020,7 +1019,10 @@ def compute_loss_one_layer(preds, reid_feat_out,
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
             else:
                 for cls_id, id_num in model.max_id_dict.items():
-                    inds = torch.where(cls_ids == cls_id)
+                    try:
+                        inds = torch.where(cls_ids == cls_id)
+                    except Exception as e:
+                        print(e)
                     if inds[0].shape[0] == 0:
                         # print('skip class id', cls_id)
                         continue
@@ -1032,7 +1034,10 @@ def compute_loss_one_layer(preds, reid_feat_out,
 
                     if model.fc_type == 'FC':
                         ## normal FC layer as classifier
-                        fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                        try:
+                            fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
+                        except Exception as e:
+                            print(e)
                         # l_reid += CE_reid(fc_preds, tr_ids[inds])  # using cross entropy loss
 
                         ## using GHM-C loss for reid classification

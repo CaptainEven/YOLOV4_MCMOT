@@ -70,6 +70,7 @@ if f:
 if hyp['fl_gamma']:
     print('Using FocalLoss(gamma=%g)' % hyp['fl_gamma'])
 
+## ---------- training
 def train():
     """
     :return:
@@ -156,7 +157,7 @@ def train():
                         feat_out_ids=opt.feat_out_ids,
                         mode=opt.task).to(device)
     # print(model)
-    print(max_id_dict)
+    print("max_id_dict: ", max_id_dict)
 
     # ---------- Freeze weights of some previous layers(freeze detection results)
     if opt.stop_freeze_layer_idx > 0:
@@ -698,7 +699,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--data',
                         type=str,
-                        default='data/mcmot_vendor.data',
+                        default='data/mcmot.data',
                         help='*.data path')
 
     # ---------- weights and cfg file
@@ -777,10 +778,10 @@ if __name__ == '__main__':
                         default='FC',  # Arc or FC
                         help='FC layer type: FC or Arc')
 
-    # use debug mode to enforce the parameter of worker number to be 0
+    ## ----- use debug mode to enforce the parameter of worker number to be 0
     parser.add_argument('--debug',
                         type=int,
-                        default=0,  # 0 or 1
+                        default=1,  # 0 or 1
                         help='whether in debug mode or not')
 
     parser.add_argument('--name',
