@@ -97,6 +97,7 @@ def genLbsForASeq(dark_txt_path, seq_label_dir, cls_names, one_plus=True):
     :param one_plus:
     :return:
     """
+    print("one_plus: ", one_plus)
     global seq_max_id_dict, start_id_dict, fr_cnt, W, H
 
     if W < 0 or H < 0:
@@ -519,11 +520,11 @@ def test_model_md5(model_path):
 
 if __name__ == '__main__':
     ## ----------
-    # DATASET = 'MCMOT'  # MCMOT, PLM, MCMOT_Vendor
-    DATASET = 'MCMOT_TEST'  # MCMOT, PLM, MCMOT_Vendor
+    DATASET = 'MCMOT'  # MCMOT, PLM, MCMOT_Vendor
+    # DATASET = 'MCMOT_TEST'  # MCMOT, PLM, MCMOT_Vendor
 
     dark_label2mcmot_label(data_root='/mnt/diskb/even/dataset/{:s}'.format(DATASET),
-                           one_plus=False,
+                           one_plus=True,
                            dict_path='/mnt/diskb/even/dataset/{:s}/max_id_dict.npz'.format(DATASET),
                            viz_root=None)
 

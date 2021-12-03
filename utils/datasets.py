@@ -416,7 +416,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                     lb[:, 0] = 0  # force dataset into single-class mode: turn mc to sc
                 self.labels[i] = lb
 
-                # count independent id number for each object class
+                ## ---------- count independent id number for each object class
                 for item in lb:  # each GT object in the label
                     if item[1] > self.max_ids_dict[int(item[0])]:  # item[0]: cls_id, item[1]: track id
                         self.max_ids_dict[int(item[0])] = int(item[1])
@@ -982,7 +982,7 @@ def load_mosaic_with_ids(self, index):
         np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
 
     track_ids = label4_orig[:, 1]
-    track_ids -= 1  # track id starts from 1(not 0)
+    # track_ids -= 1  # track id starts from 0(not 1)
 
     # Augment
     # img4 = img4[s // 2: int(s * 1.5), s // 2:int(s * 1.5)]  # center crop (WARNING, requires box pruning)
