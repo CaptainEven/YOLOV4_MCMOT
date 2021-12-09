@@ -740,15 +740,6 @@ class BYTETracker(object):
         for cls_id in range(self.num_classes):
             ## ----- class boxes
             cls_boxes = boxes_dict[cls_id]
-
-            # ## ----- @even: Test get other boxes
-            # other_boxes = self.get_all_other_boxes(self.all_boxes, cls_boxes[0])
-            # the_box = np.array(cls_boxes[0])
-            # the_box = the_box.reshape(1, -1)
-            # other_boxes = np.array(other_boxes)
-            # ioas = self.get_ioa(the_box, other_boxes)
-            # print(np.max(ioas))
-
             cls_boxes = np.array(cls_boxes)
 
             ## ----- Scaling the boxes to image size

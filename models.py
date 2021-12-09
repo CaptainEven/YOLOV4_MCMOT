@@ -421,11 +421,11 @@ class Darknet(nn.Module):
             for cls_id, nID in self.max_id_dict.items():
                 ## choice 1: use normal FC layers as classifiers
                 if self.fc_type == 'FC':
-                    self.id_classifiers.append(nn.Linear(self.emb_dim, nID))  # normal FC layers
+                    self.id_classifiers.append(nn.Linear(self.emb_dim, nID + 10))  # normal FC layers
 
                 ## choice 2: use arc margin FC layer as classifier
                 elif self.fc_type == 'Arc':
-                    self.id_classifiers.append(ArcMargin(self.emb_dim, nID, device='cuda:0', m=0.1))
+                    self.id_classifiers.append(ArcMargin(self.emb_dim, nID + 10, device='cuda:0', m=0.1))
 
             # add reid classifiers(nn.ModuleList) to self.module_list to be registered
             self.module_list.append(self.id_classifiers)

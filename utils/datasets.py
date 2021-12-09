@@ -389,6 +389,8 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
         # ----- Cache labels
         # count max track ids for each object class
         self.max_ids_dict = defaultdict(int)  # cls_id => max track id
+        for i in range(5):
+            self.max_ids_dict[i] = 0
 
         self.imgs = [None] * n
         self.labels = [np.zeros((0, 6), dtype=np.float32)] * n  # init labels to zeros
@@ -484,6 +486,7 @@ class LoadImgsAndLbsWithID(Dataset):  # for training/testing
                     _ = io.imread(file)
                 except:
                     print('Corrupted image detected: %s' % file)
+        print("Dataset initialized!")
 
     def __len__(self):
         return len(self.img_files)

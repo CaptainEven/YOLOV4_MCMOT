@@ -1019,10 +1019,7 @@ def compute_loss_one_layer(preds, reid_feat_out,
                     l_reid += CE_reid(fc_preds, tr_ids[inds])
             else:
                 for cls_id, id_num in model.max_id_dict.items():
-                    try:
-                        inds = torch.where(cls_ids == cls_id)
-                    except Exception as e:
-                        print(e)
+                    inds = torch.where(cls_ids == cls_id)
                     if inds[0].shape[0] == 0:
                         # print('skip class id', cls_id)
                         continue
@@ -1034,10 +1031,8 @@ def compute_loss_one_layer(preds, reid_feat_out,
 
                     if model.fc_type == 'FC':
                         ## normal FC layer as classifier
-                        try:
-                            fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
-                        except Exception as e:
-                            print(e)
+
+                        fc_preds = model.id_classifiers[cls_id].forward(id_vects).contiguous()
                         # l_reid += CE_reid(fc_preds, tr_ids[inds])  # using cross entropy loss
 
                         ## using GHM-C loss for reid classification
@@ -2378,6 +2373,21 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from evaluate_utils.eval
     fig.tight_layout()
     ax[1].legend()
     fig.savefig('results.png', dpi=200)
+
+
+def _expand_binary_labels(labels, label_weights, label_channels):
+    """
+    :param labels:
+    :param label_weights:
+    :param label_channels:
+    :return:
+    """
+    bin_labels = labels.new_full((labels.size(0), label_channels), 0)
+    inds = torch.nonzero(labels >= 1).squeeze()
+    if inds.numel() > 0:
+        bin_labels[inds, labels[inds] - 1] = 1
+    bin_label_weights = label_weights.view(-1, 1).expand(label_weights.size(0), label_channels)
+    return bin_labels, bin_label_weights
 
 
 class GHMC(nn.Module):

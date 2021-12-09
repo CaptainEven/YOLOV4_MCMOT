@@ -147,7 +147,7 @@ def train():
                         fc=opt.fc,
                         mode=opt.task).to(device)
     else:
-        max_id_dict = dataset.max_ids_dict
+        # max_id_dict = dataset.max_ids_dict
         model = Darknet(cfg=cfg,
                         img_size=img_size,
                         verbose=False,
