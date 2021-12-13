@@ -623,7 +623,7 @@ class MCJDETracker(object):
             if dets is None:
                 print('[Warning]: no objects detected.')
                 return None
-            dets = dets.detach().cpu().numpy()
+            dets = dets.cpu().numpy()
 
             ## ----- Get image size and net size
             b, c, net_h, net_w = img.shape  # net input img size: BCHW
