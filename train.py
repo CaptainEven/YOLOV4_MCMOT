@@ -18,7 +18,7 @@ from auto_weighted_loss import AutomaticWeightedLoss
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
     from apex import amp
-except:
+except ImportError:
     print('Apex recommended for faster mixed precision training: https://github.com/NVIDIA/apex')
     mixed_precision = False  # not installed
 
